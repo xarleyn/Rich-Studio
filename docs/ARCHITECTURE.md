@@ -2,6 +2,8 @@
 
 Правило слоёв: **api / mcp_tools → services → telegram / store / spec**. Стрелки идут только вниз.
 
+Публичный режим (`STUDIO_PUBLIC=on`): `api/telegram_auth.py` проверяет Telegram-вход через `services/accounts.py`. `account_context.py` передаёт id учётки и политику транспорта без зависимости от HTTP; `settings.account_dir` определяет отдельную базу и медиа. Пользовательский HTTP/MCP-запрос всегда выполняется в `accounts.scope(telegram_id)`, фоновые задачи перебирают такие же области. Корневые auth-таблицы открываются явно через `store.conn(root=True)`. `telegram.client.call` вызывает политику из контекста перед запросом; сервис проверяет привязку и актуальные права пользователя. Подробности и пределы: [0014](decisions/0014-public-telegram-accounts.md).
+
 | Папка / файл | Что делает | Чего не делает |
 |---|---|---|
 | `app/cli.py` | токены доступа из командной строки (`make token`) | экрана для токенов в редакторе нет намеренно |
@@ -38,6 +40,8 @@
 ## Сервер
 
 `deploy/`: студия в образе из GHCR (uid 10001, read-only), Caddy с HTTPS, Litestream с копией базы в S3. Образ собирает `.github/workflows/image.yml` по ручному запуску или тегу `v*`, пакеты из `requirements.lock` с хэшами. Восстановление из реплики проверяет `scripts/restore_check.sh` (CI `restore.yml`, ежедневно). Решение: [0010](decisions/0010-server-image-and-pinned-spec.md).
+
+Для бюджетного RichPost используется `compose.simple.yml` без Litestream. Ручной workflow `deploy.yml` передаёт исходники из `main` на VPS по SSH с закреплённым host key. `deploy/update.sh` сериализует выкладки, собирает образ до переключения, сохраняет снимки баз всех учёток и прежний код, сохраняет настройки и тома и проверяет health. Секрет SSH — в GitHub Actions, токен бота — только на VPS; окружение ChatGPT не получает прямой доступ к SSH через публичный HTTP-прокси.
 
 ## Политика ошибок при отправке
 

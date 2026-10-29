@@ -7,6 +7,9 @@ Modules call `settings.get()` at use time (never at import time), so tests and
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
+
+import account_context
 
 VERSION = "0.1.0"  # the studio's own version: OpenAPI, /api/health
 _OFF = ("off", "0", "false", "no")
@@ -62,6 +65,9 @@ class Settings:
     # local: a tool on this computer (127.0.0.1); server: reachable from the internet behind HTTPS, so the studio
     # refuses to start without a token or key, without an https STUDIO_URL, and keeps the spec pinned
     mode: str = "local"
+    public: bool = False
+    bot_username: str = "YourBot"
+    account_storage_mb: float = 500.0
     data_dir: Path = Path("/data")
     bot_token: str = ""
     default_chat: str = ""
@@ -70,6 +76,7 @@ class Settings:
     api_base: str = "https://api.telegram.org"
     # where the person opens the studio: agents get links to drafts and previews from it
     public_url: str = "http://localhost:7424"
+    landing_url: str = ""
     # upload_media / POST /api/media/fetch may download from local and private addresses (own servers, tests)
     media_fetch_private: bool = False
     # host names the service answers to (DNS rebinding guard)
@@ -110,16 +117,33 @@ class Settings:
     deadman_url: str = ""
 
     @property
+    def account_dir(self) -> Path:
+        uid = account_context.user_id()
+        return self.data_dir / "accounts" / str(uid) if uid is not None else self.data_dir
+
+    def is_landing_host(self, host: str) -> bool:
+        return bool(self.public and self.landing_url and host.lower() == urlsplit(self.landing_url).netloc.lower())
+
+    @property
+    def target_chat(self) -> str:
+        return "" if account_context.user_id() is not None else self.default_chat
+
+    @property
+    def preview_target(self) -> str:
+        uid = account_context.user_id()
+        return str(uid) if uid is not None else self.preview_chat
+
+    @property
     def media_dir(self) -> Path:
-        return self.data_dir / "media"
+        return self.account_dir / "media"
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "studio.db"
+        return self.account_dir / "studio.db"
 
     @property
     def backup_dir(self) -> Path:
-        return self.data_dir / "backups"
+        return self.account_dir / "backups"
 
     @property
     def log_dir(self) -> Path:
@@ -135,6 +159,14 @@ class Settings:
         if s.mode not in MODES:
             problems.append(f"STUDIO_MODE={s.mode!r}: бывает local или server")
         server = s.mode == "server"
+        s.public = _flag(env, "STUDIO_PUBLIC", "off")
+        s.account_storage_mb = _number(env, "ACCOUNT_STORAGE_MB", 500, problems)
+        s.bot_username = env.get("TG_BOT_USERNAME", s.bot_username).strip().lstrip("@")
+        if s.public:
+            if not s.bot_username or not s.bot_username.isascii() or not s.bot_username.replace("_", "").isalnum():
+                problems.append("TG_BOT_USERNAME: нужен username бота без @")
+            if not server:
+                problems.append("STUDIO_PUBLIC=on требует STUDIO_MODE=server и HTTPS")
         s.data_dir = Path(env.get("DATA_DIR", "/data"))
         s.bot_token = _secret(env, "TG_BOT_TOKEN", problems)
         s.default_chat = env.get("TG_DEFAULT_CHAT", "").strip()
@@ -142,6 +174,7 @@ class Settings:
         s.api_key = _secret(env, "STUDIO_API_KEY", problems)
         s.api_base = env.get("TG_API_BASE", s.api_base).rstrip("/")
         s.public_url = env.get("STUDIO_URL", s.public_url).strip().rstrip("/") or s.public_url
+        s.landing_url = env.get("STUDIO_LANDING_URL", "").strip().rstrip("/")
         s.allowed_hosts |= {h.strip().lower() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()}
         s.updates_on = _flag(env, "TG_UPDATES")
         s.background = _flag(env, "STUDIO_BACKGROUND")
@@ -181,6 +214,21 @@ class Settings:
             self.allowed_hosts.add(self.public_url.split("://", 1)[1].split("/", 1)[0].lower())
         if not self.bot_token:
             out.append("STUDIO_MODE=server: не задан TG_BOT_TOKEN (или TG_BOT_TOKEN_FILE)")
+        if self.landing_url:
+            landing = urlsplit(self.landing_url)
+            if (
+                landing.scheme != "https"
+                or not landing.hostname
+                or landing.username
+                or landing.path
+                or landing.query
+                or landing.fragment
+            ):
+                out.append("STUDIO_LANDING_URL: нужен отдельный https://домен без пути")
+            elif landing.netloc.lower() == urlsplit(self.public_url).netloc.lower():
+                out.append("STUDIO_LANDING_URL и STUDIO_URL должны быть разными доменами")
+            else:
+                self.allowed_hosts.add(landing.netloc.lower())
         return out
 
 

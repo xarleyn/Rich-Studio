@@ -47,7 +47,10 @@ def login(req: SessionReq, request: Request, response: Response):
 @router.get("/api/session", summary="Кто я: имя токена и его уровень")
 def whoami():
     who = security.current()
-    return {"name": who.name, "level": who.level, "auth": security.auth_on()}
+    result: dict = {"name": who.name, "level": who.level, "auth": security.auth_on()}
+    if who.telegram_id is not None:
+        result["user"] = store.accounts.session_by_id(who.telegram_id)
+    return result
 
 
 @router.delete("/api/session", summary="Выйти из редактора: сессия и её cookie удаляются")
@@ -55,5 +58,6 @@ def logout(request: Request, response: Response):
     secret = request.cookies.get(security.SESSION_COOKIE)
     if secret:
         store.drop_session(secret)
+        store.accounts.logout(secret)
     response.delete_cookie(security.SESSION_COOKIE, path="/")
     return {"ok": True}

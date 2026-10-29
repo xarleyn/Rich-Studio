@@ -293,8 +293,13 @@ def cached_report() -> dict:
 
 
 def report() -> dict:
+    import account_context
+
+    private = account_context.user_id() is not None
     checks = []
     for name, fn in CHECKS.items():
+        if private and name not in {"scheduler", "posts", "sends", "spec"}:
+            continue
         try:
             checks.append(fn())
         except Exception as e:  # noqa: BLE001 - a broken check is itself a finding, never a broken report
@@ -312,7 +317,7 @@ def report() -> dict:
             "checked_at": int(now),
             "problems": [f"{c['name']}: {c['summary']}" for c in checks if c["status"] != "ok"],
             "checks": checks,
-            "metrics": metrics.snapshot(),
-            "recent_problems": list(metrics.recent)[-10:],
+            "metrics": {} if private else metrics.snapshot(),
+            "recent_problems": [] if private else list(metrics.recent)[-10:],
         }
     )

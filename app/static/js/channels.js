@@ -81,6 +81,8 @@ function setTarget(value) {
   const inp = /** @type {HTMLInputElement} */ ($('#chat'));
   inp.value = value;
   inp.dispatchEvent(new Event('input'));
+  showTarget();
+  renderPreview();
 }
 
 export function showChannels() {
@@ -110,9 +112,14 @@ export function showChannels() {
   const add = h('input', { type: 'text', placeholder: '@канал или -100…' });
   const where = h('input', { type: 'text', style: 'width:100%', value: /** @type {HTMLInputElement} */ ($('#chat')).value, placeholder: '@канал, @другой', onchange: (e) => { setTarget(e.target.value); draw(); } });
   openDialog([h('h3', { text: 'Каналы' }),
+    S.config.public ? h('div', { class: 'connect-channel' },
+      h('p', { text: 'Подключите канал, которым вы управляете. Студия проверит ваши права и права бота.' }),
+      h('a', { class: 'btn primary', href: `https://t.me/${S.config.bot_username}?startchannel=richstudio&admin=post_messages+edit_messages+delete_messages+invite_users`, target: '_blank', rel: 'noopener', text: '＋ Добавить бота в канал' }),
+      h('p', { class: 'muted small', text: 'Выберите канал в Telegram и выдайте боту право публикации сообщений. Затем вернитесь сюда и обновите список. Если бот уже добавлен, укажите @username или числовой id канала ниже.' }),
+      h('button', { class: 'ghost', text: 'Обновить список каналов', onclick: () => act(async () => { await loadChannels(); draw(); }) })) : null,
     h('label', { class: 'small muted', text: 'Куда публиковать этот черновик (несколько через запятую: пост уйдёт в каждый)' }), where,
     box,
     h('div', { class: 'row' }, add, h('button', { text: 'Добавить и проверить', onclick: () => { if (add.value.trim()) check(add.value.trim()); } })),
-    h('p', { class: 'muted small', text: 'Студия спрашивает у Telegram название и права бота. Бот должен быть админом канала с правом «Публикация сообщений».' })]);
+    h('p', { class: 'muted small', text: S.config.public ? 'После привязки нажмите «Сюда», чтобы выбрать канал для черновика.' : 'Студия спрашивает у Telegram название и права бота. Бот должен быть админом канала с правом «Публикация сообщений».' })]);
   renderPreview();
 }

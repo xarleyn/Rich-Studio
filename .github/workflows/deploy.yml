@@ -1,0 +1,86 @@
+name: deploy
+
+# Manual releases from the reviewed default branch. PRs never receive the SSH key.
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "check — проверить SSH; deploy — обновить RichPost"
+        type: choice
+        options: [check, deploy]
+        default: check
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: richpost-production
+  cancel-in-progress: false
+
+jobs:
+  ssh:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Configure SSH with the pinned server key
+        env:
+          RICHPOST_SSH_KEY: ${{ secrets.RICHPOST_SSH_KEY }}
+          RICHPOST_SSH_HOST: ${{ secrets.RICHPOST_SSH_HOST }}
+          RICHPOST_SSH_USER: ${{ secrets.RICHPOST_SSH_USER }}
+          RICHPOST_SSH_KNOWN_HOSTS: ${{ secrets.RICHPOST_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RICHPOST_SSH_KEY" || -z "$RICHPOST_SSH_HOST" || -z "$RICHPOST_SSH_USER" || -z "$RICHPOST_SSH_KNOWN_HOSTS" ]]; then
+            echo 'Сначала выполните deploy/setup-github-ssh.sh на VPS.' >&2
+            exit 1
+          fi
+          [[ "$RICHPOST_SSH_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$RICHPOST_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          umask 077
+          printf '%s\n' "$RICHPOST_SSH_KEY" > "$RUNNER_TEMP/richpost-key"
+          printf '%s\n' "$RICHPOST_SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/richpost-known-hosts"
+          ssh-keygen -y -f "$RUNNER_TEMP/richpost-key" > /dev/null
+          ssh-keygen -F "$RICHPOST_SSH_HOST" -f "$RUNNER_TEMP/richpost-known-hosts" > /dev/null
+          cat > "$RUNNER_TEMP/richpost-ssh-config" <<EOF
+          Host richpost
+            HostName $RICHPOST_SSH_HOST
+            User $RICHPOST_SSH_USER
+            Port 22
+            IdentityFile $RUNNER_TEMP/richpost-key
+            UserKnownHostsFile $RUNNER_TEMP/richpost-known-hosts
+            StrictHostKeyChecking yes
+            BatchMode yes
+            IdentitiesOnly yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 3
+          EOF
+      - name: Check SSH and the installed service
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
+          test "$(id -u)" = 0
+          test -s /opt/richpost/deploy/.env
+          test -s /opt/richpost/deploy/secrets/tg_bot_token
+          docker compose version
+          docker compose -f /opt/richpost/deploy/compose.simple.yml ps
+          echo 'SSH к RichPost работает.'
+          REMOTE
+      - name: Upload and deploy this exact commit
+        if: inputs.operation == 'deploy'
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz -o "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
+            HEAD app Dockerfile .dockerignore requirements.lock deploy
+          scp -F "$RUNNER_TEMP/richpost-ssh-config" "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
+            "richpost:/tmp/richpost-$GITHUB_SHA.tar.gz"
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost "bash -s -- $GITHUB_SHA" < deploy/update.sh
+      - name: Remove runner credentials
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/richpost-key" "$RUNNER_TEMP/richpost-known-hosts" \
+            "$RUNNER_TEMP/richpost-ssh-config"

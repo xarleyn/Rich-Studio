@@ -5,3 +5,9 @@ data/
 node_modules/
 **/AGENTS.md
 .venv/
+.git/
+work/
+test-results/
+deploy/.env
+deploy/litestream.env
+deploy/secrets/

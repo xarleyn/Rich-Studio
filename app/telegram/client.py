@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 
+import account_context
 import metrics
 import settings
 from errors import StudioError
@@ -83,6 +84,7 @@ def _loggable_chat(chat: Any) -> int | str | None:
 
 async def call(method: str, params: dict | None = None, timeout: float = 60) -> Any:  # noqa: ASYNC109
     """One Bot API call; every outcome is counted for the health report and logged without the URL."""
+    params = await account_context.authorize(method, params or {})
     started = time.monotonic()
     chat = _loggable_chat((params or {}).get("chat_id"))
     try:

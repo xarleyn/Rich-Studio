@@ -17,7 +17,7 @@ import metrics
 import settings
 import store
 
-from . import health, media
+from . import accounts, health, media
 
 log = logging.getLogger("rich-studio.health")
 INTERVAL = 300  # seconds between health checks
@@ -79,7 +79,9 @@ async def loop() -> None:
             try:
                 status = (await asyncio.to_thread(watch))["status"]
                 if time.time() - last_cleanup >= CLEANUP_EVERY:
-                    await asyncio.to_thread(cleanup)
+                    for uid in accounts.all_ids():
+                        with accounts.scope(uid):
+                            await asyncio.to_thread(cleanup)
                     last_cleanup = time.time()
             except Exception as e:
                 log.exception("housekeeping failed")

@@ -23,7 +23,7 @@ from typing import Any
 
 import store
 
-from . import publisher
+from . import accounts, publisher
 
 log = logging.getLogger("rich-studio.loops")
 LEASE_KEY = "loops"
@@ -86,7 +86,10 @@ class Loops:
 
     def _lead(self) -> None:
         # nobody else runs the loops now: a "sending" row no process of ours is sending was cut off by a crash
-        stale = store.recover_stale_sending(keep=publisher.in_flight)
+        stale = 0
+        for uid in accounts.all_ids():
+            with accounts.scope(uid):
+                stale += store.recover_stale_sending(keep=publisher.in_flight)
         if stale:
             log.warning("%d posts were being sent when the service stopped; marked failed", stale)
         STATE.role, STATE.holder = "leader", STATE.owner

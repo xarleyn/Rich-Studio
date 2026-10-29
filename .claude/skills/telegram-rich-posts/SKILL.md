@@ -5,6 +5,10 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 # Telegram rich posts
 
+Public Rich Studio (`STUDIO_PUBLIC=on`) signs users in with Telegram and isolates their drafts, uploads, channels and schedules. Use only channels returned in that account's `list_channels`; connect requires both the user's and the bot's admin rights, and mutations recheck the user's operation-specific rights. Cross-chat reply sources must also belong to the account and pass a fresh rights check; pass `reply_parameters` as a JSON object. A public account's preview goes to its own Telegram id; it must start the bot first. CLI-issued named tokens still access the operator's legacy workspace: never distribute those tokens to visitors or assume they belong to the signed-in Telegram account. Raw API, global logs and spec refresh are operator-only. See README → «Публичный сервис с Telegram» for setup and scope.
+
+RichPost VPS releases can use the repository's manual `deploy` GitHub Actions workflow after it is merged into `main`: `operation=check` verifies pinned SSH access; `operation=deploy` ships the exact commit, takes account database snapshots, preserves secrets and volumes, and waits for container health. See `deploy/README.md`. Never print SSH private keys or the bot token. A completed build alone is not evidence of a successful deployment; inspect the workflow result and the public site.
+
 Use this skill when the user wants to write, format, preview, publish, schedule or edit a Telegram post (usually in their channel), or asks what formatting the Bot API supports.
 
 Baseline knowledge below is for **Bot API 10.3 (24.08.2026)**. Telegram ships new formatting often, so step 1 is mandatory.

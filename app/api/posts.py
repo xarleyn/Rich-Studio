@@ -28,7 +28,7 @@ PUBLISH = [Depends(need("publish"))]
 
 @router.get("/api/check", summary="Бот админ канала? Есть права на публикацию? Канал запоминается с названием")
 async def check(chat_id: str | None = None):
-    return await channels.check(publisher.resolve_chat(chat_id))
+    return await channels.check(chat_id or settings.get().target_chat)
 
 
 @router.post("/api/send", dependencies=PUBLISH, summary="Опубликовать пост (sendRichMessage)")
@@ -48,7 +48,7 @@ async def send(req: PublishReq, who: str = Depends(actor), key: str | None = Dep
 async def preview_send(req: SendReq):
     """В ответе `parsed`: блоки, на которые Telegram разобрал пост, и они же для повторной отправки (`input_blocks`).
     `chat_id`, отличный от `TG_PREVIEW_CHAT`, требует права `publish`: это уже отправка в чужой чат."""
-    preview_chat = settings.get().preview_chat
+    preview_chat = settings.get().preview_target
     if req.chat_id and (
         not preview_chat or publisher.resolve_chat(req.chat_id) != publisher.resolve_chat(preview_chat)
     ):

@@ -3,6 +3,9 @@
 // /render pages work behind it too).
 import { store } from './dom.js';
 
+let publicAuth = false;
+export function setPublicAuth(value) { publicAuth = value; }
+
 function authHeaders() {
   return { 'X-Studio-Client': 'ui' };
 }
@@ -42,7 +45,8 @@ export async function api(method, path, body, raw) {
   if (body instanceof FormData) payload = body;
   else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
   const r = await fetch(path, { method, headers, body: payload });
-  if (r.status === 401 && path !== '/api/session' && await askOnce()) return api(method, path, body, raw);
+  if (r.status === 401 && publicAuth) document.dispatchEvent(new Event('rs-login-required'));
+  if (r.status === 401 && !publicAuth && path !== '/api/session' && await askOnce()) return api(method, path, body, raw);
   if (raw) return r;
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {

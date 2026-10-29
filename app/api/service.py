@@ -21,17 +21,19 @@ def healthz():
 def config():
     cfg = settings.get()
     return {
-        "default_chat": cfg.default_chat,
-        "preview_chat": cfg.preview_chat,
+        "default_chat": cfg.target_chat,
+        "preview_chat": cfg.preview_target,
         "token_set": bool(cfg.bot_token),
-        "api_base": cfg.api_base,
+        "api_base": None if cfg.public else cfg.api_base,
         "spec_version": spec.current.version,
-        "auth": bool(cfg.api_key),
-        "updates": updates.STATUS.as_dict(),
+        "auth": cfg.public or bool(cfg.api_key),
+        "public": cfg.public,
+        "bot_username": cfg.bot_username if cfg.public else None,
+        "updates": updates.public_status(),
         "kinds": kinds.describe(),
     }
 
 
 @router.get("/api/updates", summary="Приём событий от Telegram: нажатия, комментарии, реакции, опросы")
 def updates_status():
-    return updates.STATUS.as_dict()
+    return updates.public_status()

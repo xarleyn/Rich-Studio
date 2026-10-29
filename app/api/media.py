@@ -22,12 +22,17 @@ async def media_upload(file: UploadFile = File(...)):
     name = media.free_name(file.filename)
     path = media.media_dir() / name
     size = 0
-    with path.open("wb") as f:
-        while chunk := await file.read(1 << 20):
-            size += len(chunk)
-            if size > limit:
-                break
-            f.write(chunk)
+    try:
+        with path.open("wb") as f:
+            while chunk := await file.read(1 << 20):
+                size += len(chunk)
+                if size > limit:
+                    break
+                media.check_capacity(len(chunk))
+                f.write(chunk)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
     if size > limit:  # Telegram would reject it at publish time; say so now
         path.unlink(missing_ok=True)
         raise StudioError(

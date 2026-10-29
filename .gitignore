@@ -7,4 +7,6 @@ __pycache__/
 .ruff_cache/
 node_modules/
 test-results/
+work/
 .venv/
+deploy/secrets/

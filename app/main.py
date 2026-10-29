@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from mcp.server.transport_security import TransportSecuritySettings
 
@@ -31,6 +31,7 @@ from api import (
     drafts,
     health,
     invite_links,
+    landing,
     media,
     posts,
     preview,
@@ -39,10 +40,11 @@ from api import (
     session,
     specs,
     suggested_posts,
+    telegram_auth,
 )
 from errors import StudioError
 from security import guard
-from services import backup, housekeeping, loops, scheduler, updates
+from services import accounts, backup, housekeeping, loops, scheduler, updates
 
 STATIC = Path(__file__).parent / "static"
 SPEC_CHECK_INTERVAL = 1800  # seconds; Spec.refresh itself skips while the copy is fresh
@@ -146,6 +148,8 @@ async def lifespan(app):
     _data_dir_writable(cfg)
     logs.setup()
     store.init()
+    for account_id in store.accounts.ids() if cfg.public else []:
+        accounts.initialize(account_id)
     if cfg.mode == "server" and not security.auth_on():  # tokens live in the database, so they are checked here
         raise settings.SettingsError(
             [
@@ -165,8 +169,11 @@ async def lifespan(app):
             factories.append(updates.loop)
         runner = loops.Loops(factories)  # under a lease: one process runs them (services/loops.py)
         runner.start()
-    elif stale := store.recover_stale_sending():  # no loops, no lease: tests and one-off runs
-        log.warning("%d posts were being sent when the service stopped; marked failed", stale)
+    else:  # no loops, no lease: tests and one-off runs
+        for uid in accounts.all_ids():
+            with accounts.scope(uid):
+                if stale := store.recover_stale_sending():
+                    log.warning("%d posts were being sent when the service stopped; marked failed", stale)
     log.info("studio started", extra={"event": "start", "spec": spec.current.version, "background": cfg.background})
     async with app.state.mcp.session_manager.run():
         yield
@@ -203,7 +210,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         version=settings.VERSION,
         lifespan=lifespan,
         description=(
-            "Локальный сервис для rich-постов Telegram (sendRichMessage). Поле `post` везде имеет вид "
+            "Сервис для rich-постов Telegram (sendRichMessage), с личным и публичным режимами. Поле `post` везде имеет вид "
             "`{rich_message: InputRichMessage, reply_markup?: InlineKeyboardMarkup, options?: {...}}` и уходит в "
             "Bot API без изменений. Медиа из загрузок указывайте как `upload:<имя файла>`. "
             "Спецификация Bot API: GET /api/spec."
@@ -228,11 +235,15 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         media,
         backup_api,
         session,
+        telegram_auth,
+        landing,
     ):
         app.include_router(module.router)
 
     @app.get("/", include_in_schema=False)
-    def index():
+    def index(request: Request):
+        if settings.get().is_landing_host(request.headers.get("host", "")):
+            return HTMLResponse(landing.page())
         return FileResponse(STATIC / "index.html")
 
     @app.get("/favicon.ico", include_in_schema=False)

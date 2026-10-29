@@ -964,12 +964,51 @@
   }
  },
  "info": {
-  "description": "Локальный сервис для rich-постов Telegram (sendRichMessage). Поле `post` везде имеет вид `{rich_message: InputRichMessage, reply_markup?: InlineKeyboardMarkup, options?: {...}}` и уходит в Bot API без изменений. Медиа из загрузок указывайте как `upload:<имя файла>`. Спецификация Bot API: GET /api/spec.",
+  "description": "Сервис для rich-постов Telegram (sendRichMessage), с личным и публичным режимами. Поле `post` везде имеет вид `{rich_message: InputRichMessage, reply_markup?: InlineKeyboardMarkup, options?: {...}}` и уходит в Bot API без изменений. Медиа из загрузок указывайте как `upload:<имя файла>`. Спецификация Bot API: GET /api/spec.",
   "title": "Rich Studio API",
   "version": "0.1.0"
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/auth/config": {
+   "get": {
+    "operationId": "config_api_auth_config_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Публичные настройки входа через Telegram",
+    "tags": [
+     "service"
+    ]
+   }
+  },
+  "/api/auth/telegram/start": {
+   "post": {
+    "description": "Challenge действует пять минут. Cookie SameSite=Lax нужна для возврата с telegram.org.",
+    "operationId": "start_api_auth_telegram_start_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Начать вход через Telegram с одноразовой проверкой браузера",
+    "tags": [
+     "service"
+    ]
+   }
+  },
   "/api/channels": {
    "get": {
     "operationId": "list_channels_api_channels_get",
@@ -3396,6 +3435,26 @@
     "summary": "Проверить пост по спецификации: ошибки, предупреждения, символы",
     "tags": [
      "posts"
+    ]
+   }
+  },
+  "/auth/telegram/callback": {
+   "get": {
+    "description": "Telegram id берётся только из подписанных данных; повторы и вход из другого браузера отклоняются.",
+    "operationId": "callback_auth_telegram_callback_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Проверить подпись Telegram и открыть сессию пользователя",
+    "tags": [
+     "service"
     ]
    }
   },

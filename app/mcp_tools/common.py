@@ -86,6 +86,8 @@ def needs_level(level: str, fn: Callable[..., Awaitable[Any]]) -> Callable[..., 
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         who = security.current()
+        if who.telegram_id is not None and fn.__name__ in {"studio_logs", "refresh_bot_api"}:
+            raise ToolError("доступно только владельцу сервиса")
         if not who.can(level):
             raise ToolError(f"у токена {who.name} нет права {level}: попросите пользователя сделать это в редакторе")
         return await fn(*args, **kwargs)
