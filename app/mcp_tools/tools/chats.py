@@ -1,14 +1,15 @@
 """The channels the studio posts to."""
 
+import settings
 from mcp_tools.common import READ, TELEGRAM_READ, ChatArg, ToolDecorator
-from services import channels, publisher
+from services import channels
 
 
 def register(tool: ToolDecorator) -> None:
     @tool(TELEGRAM_READ)
     async def check_channel(chat_id: ChatArg = None) -> dict:
         """Бот админ канала и может публиковать? Канал запоминается с названием и появляется в list_channels."""
-        return await channels.check(publisher.resolve_chat(chat_id))
+        return await channels.check(chat_id or settings.get().target_chat)
 
     @tool(READ)
     async def list_channels() -> list:

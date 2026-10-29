@@ -7,13 +7,14 @@ import logging
 import time
 from dataclasses import asdict, dataclass
 
+import account_context
 import logs
 import metrics
 import settings
 import store
 import telegram as tg
 
-from . import channels, invite_links, suggested_posts
+from . import accounts, channels, invite_links, suggested_posts
 
 log = logging.getLogger("rich-studio.updates")
 # tests replace this one name; patching asyncio.sleep itself would also stop the fake Telegram server
@@ -29,6 +30,7 @@ ALLOWED_UPDATES = [
     "poll",
     "chat_member",
     "chat_join_request",
+    "my_chat_member",
 ]
 # Telegram keeps undelivered updates for about a day; a forward older than that will never arrive
 COMMENT_WAIT = 24 * 3600
@@ -47,6 +49,13 @@ class Status:
 
 
 STATUS = Status()
+
+
+def public_status() -> dict:
+    status = STATUS.as_dict()
+    if account_context.user_id() is not None:
+        status.update(error=None, last_at=None, handled=0)
+    return status
 
 
 def reset_status() -> None:
@@ -79,6 +88,52 @@ def poll_results(poll: dict) -> dict:
 
 
 async def handle_update(u: dict) -> str | None:
+    """Dispatch one bot update to the databases that own its post, channel or invite link."""
+    if not settings.get().public:
+        return await _handle_update(u)
+    ids = accounts.all_ids()
+    if cm := u.get("my_chat_member"):
+        uid = (cm.get("from") or {}).get("id")
+        chat_id = (cm.get("chat") or {}).get("id")
+        if uid in ids and uid is not None and chat_id:
+            with accounts.scope(uid):
+                member = cm.get("new_chat_member") or {}
+                if member.get("status") in ("administrator", "creator"):
+                    await channels.check(chat_id)
+                    return "channel_connected"
+        return None
+    handled = None
+    for uid in ids:
+        with accounts.scope(uid, trusted=True):
+            if _owns_update(u):
+                handled = await _handle_update(u) or handled
+                if u.get("callback_query"):
+                    return handled  # one answer, even if several admins linked the same channel
+    if handled:
+        return handled
+    # Unknown callbacks still need an empty answer; legacy channels keep their existing event behavior.
+    with accounts.scope(None):
+        return await _handle_update(u)
+
+
+def _owns_update(u: dict) -> bool:
+    if cq := u.get("callback_query"):
+        msg = cq.get("message") or {}
+        chat, mid = (msg.get("chat") or {}).get("id"), msg.get("message_id")
+        return bool(store.find_post(chat, mid) or _preview_callbacks(chat, mid))
+    if poll := u.get("poll"):
+        return bool(store.find_poll(poll.get("id")))
+    if rc := u.get("message_reaction_count"):
+        return bool(store.find_post((rc.get("chat") or {}).get("id"), rc.get("message_id")))
+    event = u.get("message") or u.get("edited_message") or u.get("chat_member") or u.get("chat_join_request") or {}
+    if (origin := event.get("forward_origin")) and event.get("is_automatic_forward"):
+        return bool(store.find_post((origin.get("chat") or {}).get("id"), origin.get("message_id")))
+    if link := (event.get("invite_link") or {}).get("invite_link"):
+        return bool(store.invite_links.get(link))
+    return bool(event.get("chat") and store.get_channel(event["chat"].get("id")))
+
+
+async def _handle_update(u: dict) -> str | None:
     """React to one Telegram update. Unknown updates are ignored. Returns what was handled."""
     if cq := u.get("callback_query"):
         msg = cq.get("message") or {}
@@ -176,9 +231,11 @@ async def loop() -> None:
                 "getUpdates", {"offset": offset, "timeout": 25, "allowed_updates": ALLOWED_UPDATES}, timeout=40
             )
             STATUS.state, STATUS.error = "ok", None
-            store.expire_comments(
-                int(time.time()) - COMMENT_WAIT, "первый комментарий: пересылка в обсуждение не пришла за сутки"
-            )
+            for uid in accounts.all_ids():
+                with accounts.scope(uid):
+                    store.expire_comments(
+                        int(time.time()) - COMMENT_WAIT, "первый комментарий: пересылка в обсуждение не пришла за сутки"
+                    )
             for u in ups:
                 offset = u["update_id"] + 1
                 store.set_meta(OFFSET_KEY, str(offset))

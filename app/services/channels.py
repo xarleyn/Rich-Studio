@@ -5,12 +5,13 @@ Telegram is asked once, when a channel is added or checked again; the editor and
 
 import time
 
+import account_context
 import settings
 import store
 import telegram as tg
 from errors import NotFound, StudioError
 
-from . import publisher
+from . import accounts
 
 # rights a channel author cares about, in the order the editor lists them
 RIGHTS = {
@@ -32,8 +33,15 @@ def _key(chat_id) -> str:
 async def check(chat_id) -> dict:
     """Ask Telegram about the chat and remember the answer (title, forum, rights). Adds the channel if it is new."""
     key = _key(chat_id)
-    info = await tg.check_chat(publisher.resolve_chat(key))
+    info = await tg.check_chat(int(key) if key.lstrip("-").isdigit() else key)
     chat = info["chat"]
+    if account_context.user_id() is not None:
+        if chat.get("type") not in ("channel", "supergroup", "group"):
+            raise StudioError("Привяжите канал или группу, где вы администратор.", status=403)
+        await accounts.check_member(chat["id"], chat.get("type"))
+        if not info["can_post"] or info["status"] not in ("administrator", "creator"):
+            raise StudioError("Добавьте бота администратором с правом публикации сообщений.", status=403)
+        key = str(chat["id"])
     known = store.get_channel(key)
     saved = store.save_channel(
         known["chat_id"] if known else key,
@@ -52,7 +60,7 @@ async def check(chat_id) -> dict:
 def listing() -> list[dict]:
     """Known channels; TG_DEFAULT_CHAT is always in the list, even before anyone checked it."""
     out = store.list_channels()
-    default = settings.get().default_chat
+    default = settings.get().target_chat
     if default and not any(_same(c, default) for c in out):
         out.insert(0, {"chat_id": str(default), "title": None, "topics": None, "is_forum": 0, "checked_at": None})
     for c in out:
@@ -105,6 +113,6 @@ def goes_to(chat_ids) -> list[dict]:
     """Where a draft goes, by name: its own channels, else the default channel (default: true)."""
     ids = [str(c) for c in dict.fromkeys(chat_ids or [])]
     default = not ids
-    if default and settings.get().default_chat:
-        ids = [str(settings.get().default_chat)]
+    if default and settings.get().target_chat:
+        ids = [str(settings.get().target_chat)]
     return [{"chat_id": c, "title": title_of(c), "default": default} for c in ids]

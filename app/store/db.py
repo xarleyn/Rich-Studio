@@ -57,11 +57,12 @@ JSON_FIELDS = ("payload", "reactions", "clicks", "poll_results", "chat_ids", "to
 
 
 @contextlib.contextmanager
-def conn() -> Iterator[sqlite3.Connection]:
+def conn(*, root: bool = False) -> Iterator[sqlite3.Connection]:
     """A connection that commits on success, rolls back on error and is always closed."""
     cfg = settings.get()
-    cfg.data_dir.mkdir(parents=True, exist_ok=True)
-    c = sqlite3.connect(cfg.db_path, timeout=10)
+    path = cfg.data_dir / "studio.db" if root else cfg.db_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(path, timeout=10)
     c.row_factory = sqlite3.Row
     # FULL even with WAL (set once in init): the "sending" row written before a send must survive a power cut too;
     # the studio writes a handful of rows a minute, so it costs nothing

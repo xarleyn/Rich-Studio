@@ -7,10 +7,13 @@ import time
 import zipfile
 from pathlib import Path
 
+import account_context
 import logs
 import metrics
 import settings
 import store
+
+from . import accounts
 
 log = logging.getLogger("rich-studio.backup")
 CHECK_INTERVAL = 3600  # seconds; a copy is made once per calendar day
@@ -22,15 +25,22 @@ def export_zip() -> Path:
     cfg = settings.get()
     fd, name = tempfile.mkstemp(prefix="rich-studio-", suffix=".zip")
     out = Path(name)
-    with tempfile.TemporaryDirectory() as tmp:
-        db = Path(tmp) / "studio.db"
-        store.backup.copy_db(db)
-        with open(fd, "wb") as f, zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z:
-            z.write(db, "studio.db")
-            if cfg.media_dir.exists():
-                for p in sorted(cfg.media_dir.iterdir()):
-                    if p.is_file():  # already compressed formats gain nothing from deflate
-                        z.write(p, f"media/{p.name}", compress_type=zipfile.ZIP_STORED)
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        open(fd, "wb") as f,
+        zipfile.ZipFile(f, "w", zipfile.ZIP_DEFLATED) as z,
+    ):
+        ids = accounts.all_ids() if account_context.user_id() is None else [account_context.user_id()]
+        for uid in ids:
+            with accounts.scope(uid):
+                prefix = f"accounts/{uid}/" if uid is not None else ""
+                db = Path(tmp) / f"{uid}.db"
+                store.backup.copy_db(db)
+                z.write(db, prefix + "studio.db")
+                if cfg.media_dir.exists():
+                    for p in sorted(cfg.media_dir.iterdir()):
+                        if p.is_file():  # already compressed formats gain nothing from deflate
+                            z.write(p, prefix + f"media/{p.name}", compress_type=zipfile.ZIP_STORED)
     return out
 
 
@@ -61,8 +71,10 @@ async def loop() -> None:
         error = None
         with logs.bind(logs.new_id("backup-")):
             try:
-                if made := await asyncio.to_thread(daily_snapshot):
-                    log.info("database copy: %s", made.name, extra={"event": "backup.daily", "file": made.name})
+                for uid in accounts.all_ids():
+                    with accounts.scope(uid):
+                        if made := await asyncio.to_thread(daily_snapshot):
+                            log.info("database copy: %s", made.name, extra={"event": "backup.daily", "file": made.name})
             except Exception as e:
                 log.exception("daily backup failed")
                 error = f"{type(e).__name__}: {e}"

@@ -8,8 +8,9 @@
  * scripts loaded before and reached through window.RichRender / SNIPPETS.
  */
 import { api, migrateStoredKey } from './api.js';
+import { prepareAccount } from './account.js';
 import { bindCode, snippetBar } from './code.js';
-import { bindTarget, loadChannels, showTarget } from './channels.js';
+import { bindTarget, loadChannels, showChannels, showTarget } from './channels.js';
 import { closeDialog, openDialog } from './dialogs.js';
 import { $, $$, act, debounce, h, sentReport, store, toast } from './dom.js';
 import { effect } from '../vendor/signals-core.js';
@@ -191,6 +192,7 @@ function bindActions() {
 async function boot() {
   try {
     await migrateStoredKey();
+    if (!await prepareAccount()) return;
     [S.spec, S.config] = await Promise.all([api('GET', '/api/spec'), api('GET', '/api/config')]);
   } catch (e) { document.body.prepend(h('p', { class: 'err', style: 'padding:12px', text: 'Не удалось загрузить сервис: ' + e.message })); return; }
   dark.value = store.get('dark', dark.value);
@@ -208,6 +210,7 @@ async function boot() {
   await Promise.all([loadUploads().catch(() => {}), loadPosts().catch(() => {})]);
   await loadDrafts();
   await openFromAddress();
+  if (S.config.public && !S.channels.length) showChannels();
   setInterval(() => { watchDrafts().catch(() => {}); }, 4000);
 }
 

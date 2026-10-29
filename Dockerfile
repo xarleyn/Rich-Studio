@@ -7,7 +7,9 @@ COPY requirements.lock .
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 COPY app/ .
 # an unprivileged user that owns /data (the server's named volume); the local compose runs as the host user
-RUN useradd --system --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin studio \
+# Source archives and SFTP may arrive with mode 600/700: the runtime user still needs to read the application.
+RUN chmod -R a+rX /app \
+    && useradd --system --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin studio \
     && mkdir -p /data && chown 10001:10001 /data
 USER 10001:10001
 VOLUME /data

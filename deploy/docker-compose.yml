@@ -9,6 +9,7 @@ services:
       STUDIO_MODE: server                         # no start without a token, https STUDIO_URL, pinned spec
       STUDIO_URL: https://${STUDIO_DOMAIN:?STUDIO_DOMAIN in deploy/.env}
       TG_BOT_TOKEN_FILE: /run/secrets/tg_bot_token
+      FORWARDED_ALLOW_IPS: "*"                   # only Caddy reaches this unexposed port; login limits use visitor IP
     secrets: [tg_bot_token]
     volumes:
       - data:/data
@@ -30,6 +31,7 @@ services:
     image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
     environment:
       STUDIO_DOMAIN: ${STUDIO_DOMAIN}
+      STUDIO_DOMAINS: ${STUDIO_DOMAINS:-${STUDIO_DOMAIN}}
     ports: ["80:80", "443:443", "443:443/udp"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

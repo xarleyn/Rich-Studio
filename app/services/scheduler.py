@@ -11,7 +11,7 @@ import store
 import telegram as tg
 from errors import StudioError
 
-from . import loops, publisher
+from . import accounts, loops, publisher
 
 log = logging.getLogger("rich-studio.scheduler")
 INTERVAL = 10  # seconds between checks
@@ -60,6 +60,22 @@ async def _send_claimed(queued: dict, now: float) -> None:
 
 
 async def run_due_posts() -> int:
+    """Run the operator's queue and every public account's queue under their own permissions."""
+    processed = 0
+    failures = []
+    for uid in accounts.all_ids():
+        try:
+            with accounts.scope(uid):
+                processed += await _run_due_posts()
+        except Exception as e:  # one broken account must not block all later accounts' queues
+            log.exception("account %s queue failed", uid)
+            failures.append(e)
+    if failures:
+        raise ExceptionGroup("account queues failed", failures)
+    return processed
+
+
+async def _run_due_posts() -> int:
     """Send every scheduled post whose time has come. Returns how many were processed."""
     due = store.due_posts()
     for queued in due:

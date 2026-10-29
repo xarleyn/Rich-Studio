@@ -20,7 +20,7 @@ jobs:
       - run: docker build -t rich-studio .
       - name: Caddyfile is valid
         run: |
-          docker run --rm -e STUDIO_DOMAIN=studio.test -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+          docker run --rm -e STUDIO_DOMAINS=studio.test -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
             "$(grep -oP 'image: \Kcaddy:\S+' deploy/docker-compose.yml)" \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - run: scripts/restore_check.sh

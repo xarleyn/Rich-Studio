@@ -61,10 +61,12 @@ interface UpdatesStatus {
 
 /** GET /api/config */
 interface StudioConfig {
+  public?: boolean;
+  bot_username?: string | null;
   default_chat?: string | null;
   preview_chat?: string | null;
   token_set?: boolean;
-  api_base?: string;
+  api_base?: string | null;
   spec_version?: string;
   auth?: boolean;
   updates?: UpdatesStatus;

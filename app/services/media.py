@@ -13,6 +13,7 @@ from urllib.parse import unquote, urljoin, urlsplit
 
 import httpx
 
+import account_context
 import settings
 import store
 from errors import Conflict, NotFound, StudioError
@@ -39,6 +40,17 @@ INLINE = {
 
 def media_dir() -> Path:
     return settings.get().media_dir
+
+
+def check_capacity(additional: int) -> None:
+    """Bound public accounts' uploads, including temporary downloads already taking disk space."""
+    limit = settings.get().account_storage_mb * 1024 * 1024
+    if account_context.user_id() is not None and limit:
+        used = sum(p.stat().st_size for p in media_dir().iterdir() if p.is_file())
+        if used + additional > limit:
+            raise StudioError(
+                f"Лимит файлов учётки — {settings.get().account_storage_mb:g} МБ. Удалите ненужные файлы.", status=413
+            )
 
 
 def kind(name: str) -> str:
@@ -153,6 +165,7 @@ def save_base64(filename: str, data: str) -> dict:
         raise StudioError("data_base64: не base64") from None
     if len(raw) > _limit():
         raise _too_big()
+    check_capacity(len(raw))
     name = free_name(filename)
     (media_dir() / name).write_bytes(raw)
     return describe(name)
@@ -208,7 +221,7 @@ async def _public_only(host: str, port: int, proxied: bool = False) -> str | Non
     the local network or another non-public one; a local name (_internal_name) is refused before any lookup.
     None with MEDIA_FETCH_PRIVATE (connect by name as usual), or when a public-looking name behind a proxy does not
     resolve here (a network where only the proxy sees the internet)."""
-    if settings.get().media_fetch_private:
+    if settings.get().media_fetch_private and account_context.user_id() is None:
         return None
     # before any lookup: behind a proxy an unresolved name goes to the proxy, which may well reach the inside
     if _internal_name(host):
@@ -289,6 +302,7 @@ async def fetch(url: str, filename: str | None = None) -> dict:
                             size += len(chunk)
                             if size > _limit():
                                 raise _too_big()
+                            check_capacity(len(chunk))
                             f.write(chunk)
                     break
             else:

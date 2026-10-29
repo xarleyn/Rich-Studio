@@ -20,7 +20,7 @@ import store
 import telegram as tg
 from errors import Invalid, MayHaveGone, StudioError
 
-from . import kinds
+from . import accounts, kinds
 
 log = logging.getLogger("rich-studio.publisher")
 RESERVED_PARAMS = {"chat_id", "rich_message", "reply_markup", "message_id"}
@@ -38,12 +38,12 @@ def resolve_chat(chat_id) -> int | str:
     """@username stays a string, numeric ids become int; empty means TG_DEFAULT_CHAT."""
     c = chat_id.strip() if isinstance(chat_id, str) else chat_id
     if c in (None, ""):
-        c = settings.get().default_chat
+        c = settings.get().target_chat
     if c in (None, ""):
         raise StudioError("не указан chat_id и не задан TG_DEFAULT_CHAT")
     if isinstance(c, str) and re.fullmatch(r"-?\d+", c):
-        return int(c)
-    return c
+        c = int(c)
+    return accounts.linked_target(c)
 
 
 def normalize_chats(chat_ids) -> list[str]:
@@ -68,7 +68,7 @@ def targets(chat_id, chat_ids, draft_id: str | None = None) -> list:
             raise StudioError(f"черновика {draft_id} нет: укажите chat_id явно")
         chat_ids = d.get("chat_ids")
     if chat_ids:
-        return [resolve_chat(c) for c in normalize_chats(chat_ids)]
+        return list(dict.fromkeys(resolve_chat(c) for c in normalize_chats(chat_ids)))
     return [resolve_chat(chat_id)]
 
 
@@ -258,7 +258,13 @@ async def publish(chats: list, post: dict, draft_id: str | None = None, kind: st
                 raise
             out.append({"chat_id": chat, "ok": False, "error": e.description})
             continue
-        except StudioError:  # the request itself is wrong (e.g. a missing upload): nothing went out anywhere
+        except StudioError as e:
+            if len(chats) > 1:
+                # A public user's rights may disappear in any channel. Try the others and preserve the partial
+                # outcome so idempotency cannot duplicate their successful sends.
+                _mark_failed(rec["id"], str(e))
+                out.append({"chat_id": chat, "ok": False, "error": str(e)})
+                continue
             store.delete_post(rec["id"])
             raise
         except Exception as e:

@@ -18,9 +18,9 @@ def register(tool: ToolDecorator) -> None:
         cfg = settings.get()
         return {
             "token_set": bool(cfg.bot_token),
-            "default_chat": cfg.default_chat or None,
-            "preview_chat_set": bool(cfg.preview_chat),
-            "updates": updates.STATUS.as_dict(),
+            "default_chat": cfg.target_chat or None,
+            "preview_chat_set": bool(cfg.preview_target),
+            "updates": updates.public_status(),
             "schedule_late_min": cfg.schedule_late_min,
             "mcp_publish": cfg.mcp_publish,
             "note": "отложенные посты отправляет сама студия: в это время она должна работать",

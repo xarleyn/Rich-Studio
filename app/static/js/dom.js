@@ -19,7 +19,10 @@ export function h(tag, attrs, ...kids) {
 }
 export const clone = (x) => JSON.parse(JSON.stringify(x));
 export const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
-export const store = { get(k, d) { try { const v = localStorage.getItem('rs.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('rs.' + k, JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { localStorage.removeItem('rs.' + k); } catch { /* ignore */ } } };
+let storageScope = '';
+export function setStoreScope(value) { storageScope = value ? value + '.' : ''; }
+const storageKey = (key) => 'rs.' + storageScope + key;
+export const store = { get(k, d) { try { const v = localStorage.getItem(storageKey(k)); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(storageKey(k), JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { localStorage.removeItem(storageKey(k)); } catch { /* ignore */ } } };
 
 export function toast(msg, kind) {
   const t = h('div', { class: 'toast ' + (kind || ''), text: msg });

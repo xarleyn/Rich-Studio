@@ -109,7 +109,7 @@ def dry_run_report(chats: list, post: dict, warnings: list[str]) -> dict:
 
 async def preview(post: dict, chat_id=None) -> dict:
     publisher.validate(post)
-    target = chat_id or settings.get().preview_chat
+    target = chat_id or settings.get().preview_target
     if not target:  # never fall back to the default channel: a preview must not go public
         raise StudioError("не задан TG_PREVIEW_CHAT (ваш user id) — некуда отправить предпросмотр")
     chat = publisher.resolve_chat(target)
