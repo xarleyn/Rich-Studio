@@ -84,6 +84,12 @@ jobs:
         run: |
           ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
           problem=0
+          interface=$(awk '$2 == "00000000" {print $1; exit}' /proc/net/route)
+          if [[ -n "$interface" && -f "/sys/class/net/$interface/mtu" ]]; then
+            printf 'host MTU: %s\n' "$(cat "/sys/class/net/$interface/mtu")"
+          fi
+          docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
+            cat /sys/class/net/eth0/mtu 2>/dev/null | sed 's/^/container MTU: /' || true
           for endpoint in production staging; do
             if [[ "$endpoint" == production ]]; then
               url=https://acme-v02.api.letsencrypt.org/directory
@@ -101,6 +107,12 @@ jobs:
             docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
               wget -q -T 15 -O /dev/null "$url" > /dev/null 2>&1 || code=$?
             printf 'container %s: exit=%s\n' "$endpoint" "$code"
+            if [[ "$code" != 0 ]]; then problem=1; fi
+            code=0
+            docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T rich-studio \
+              python -c 'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=15).close()' \
+              "$url" > /dev/null 2>&1 || code=$?
+            printf 'app container %s: exit=%s\n' "$endpoint" "$code"
             if [[ "$code" != 0 ]]; then problem=1; fi
           done
           exit "$problem"
