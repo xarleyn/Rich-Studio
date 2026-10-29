@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "check — проверить SSH; deploy — обновить RichPost"
+        description: "SSH, выкладка или проверка HTTPS"
         type: choice
-        options: [check, deploy]
+        options: [check, deploy, tls-check, tls-retry]
         default: check
         required: true
 
@@ -79,6 +79,39 @@ jobs:
           scp -F "$RUNNER_TEMP/richpost-ssh-config" "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
             "richpost:/tmp/richpost-$GITHUB_SHA.tar.gz"
           ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost "bash -s -- $GITHUB_SHA" < deploy/update.sh
+      - name: Check access to the certificate authority
+        if: inputs.operation == 'tls-check'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
+          problem=0
+          for endpoint in production staging; do
+            if [[ "$endpoint" == production ]]; then
+              url=https://acme-v02.api.letsencrypt.org/directory
+            else
+              url=https://acme-staging-v02.api.letsencrypt.org/directory
+            fi
+            for family in 4 6; do
+              code=0
+              curl "-$family" --fail --silent --connect-timeout 5 --max-time 15 \
+                --output /dev/null "$url" > /dev/null 2>&1 || code=$?
+              printf 'host IPv%s %s: exit=%s\n' "$family" "$endpoint" "$code"
+              if [[ "$family" == 4 && "$code" != 0 ]]; then problem=1; fi
+            done
+            code=0
+            docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
+              wget -q -T 15 -O /dev/null "$url" > /dev/null 2>&1 || code=$?
+            printf 'container %s: exit=%s\n' "$endpoint" "$code"
+            if [[ "$code" != 0 ]]; then problem=1; fi
+          done
+          exit "$problem"
+          REMOTE
+      - name: Retry automatic certificate provisioning
+        if: inputs.operation == 'tls-retry'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
+          docker compose -f /opt/richpost/deploy/compose.simple.yml restart caddy > /dev/null 2>&1
+          echo 'Caddy перезапущен. Выпуск сертификата нужно проверить отдельно.'
+          REMOTE
       - name: Remove runner credentials
         if: always()
         run: |
