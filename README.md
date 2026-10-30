@@ -38,9 +38,7 @@ docker compose up -d --build
 - Сервис слушает только `127.0.0.1:7424` (в контейнере порт 8080). Другой порт: левое число в `ports` в `docker-compose.yml` и `STUDIO_URL` в `.env` и в окружении shell (оттуда адрес берут `.mcp.json` и хук здоровья). Если откроете его в сеть, задайте `STUDIO_API_KEY` или выдайте именные токены (раздел «Доступ» ниже).
 - Данные лежат в `./data` (черновики, посты, файлы, кэш спецификации). Обновление: `docker compose up -d --build`.
 - Студия в контейнере работает не от root, а от вашего пользователя (`STUDIO_UID`/`STUDIO_GID` в `.env`, по умолчанию 1000:1000; на Linux с другим uid впишите `id -u` и `id -g`). Если `./data` создал Docker или прежний образ от root, студия при запуске скажет об этом; исправить: `sudo chown -R $(id -u):$(id -g) data`. На Docker Desktop (Mac, Windows) это не нужно.
-- **На своём сервере**: HTTPS, простой запуск из исходников, обновления по SSH через GitHub Actions; дополнительно готовый образ GHCR и реплика базы в S3: [deploy/README.md](deploy/README.md).
-
-При ограниченном доступе к Telegram можно задать отдельный HTTP(S)-прокси `TG_PROXY_URL` (или `TG_PROXY_URL_FILE`) только для Bot API. Для VPS доступен [выборочный Trojan](deploy/README.md#выборочный-trojan-для-telegram-и-lets-encrypt), включая получение и автоматическое продление HTTPS.
+- **На своём сервере** с HTTPS, копией базы в S3 и готовым образом из GHCR: [deploy/README.md](deploy/README.md).
 
 Без Docker: `pip install -r requirements.txt`, затем `cd app && DATA_DIR=../data uvicorn main:app --port 7424` (переменные из `.env` экспортируйте сами).
 
