@@ -9,6 +9,8 @@ Public Rich Studio (`STUDIO_PUBLIC=on`) signs users in with Telegram and isolate
 
 RichPost VPS releases can use the repository's manual `deploy` GitHub Actions workflow after it is merged into `main`: `operation=check` verifies pinned SSH access; `operation=deploy` ships the exact commit, takes account database snapshots, preserves secrets and volumes, and waits for container health. `tls-check` probes certificate-authority connectivity without changing the service; `tls-retry` with `confirm_tls_retry=CONFIRM_TLS_RETRY` restarts only the proxy and retains its certificate volume. `proxy-enable` deploys the reviewed commit and activates the private VPS Trojan profile after read-only ACME/getMe probes; only Telegram Bot API and Let’s Encrypt use it. See `deploy/README.md`. Never print SSH private keys, Trojan links/configuration or the bot token. A completed build alone is not evidence of a successful deployment; inspect the workflow result and the public site.
 
+When importing a NekoBox node, preserve its transport security: a node configured without outer TLS needs explicit `security=none` in the private Trojan link. A missing parameter defaults to TLS. Verify this in the source profile; a failed TLS handshake alone is not a reason to switch modes. HTTPS to Telegram and ACME keeps certificate verification in either mode.
+
 Use this skill when the user wants to write, format, preview, publish, schedule or edit a Telegram post (usually in their channel), or asks what formatting the Bot API supports.
 
 Baseline knowledge below is for **Bot API 10.3 (24.08.2026)**. Telegram ships new formatting often, so step 1 is mandatory.

@@ -2,12 +2,34 @@
 
 import asyncio
 import time
+from pathlib import Path
 
 import httpx
+import yaml
 
 import settings
 from services import scheduler
 from test_api import BLOCKS_POST
+from test_selective_proxy import profile
+
+
+def test_sing_box_configuration_is_mounted_at_its_command_path():
+    compose = yaml.safe_load((Path(__file__).parents[1] / "deploy/compose.simple.yml").read_text())
+    egress = compose["services"]["egress"]
+    targets = {
+        "/run/secrets/" + (secret if isinstance(secret, str) else secret.get("target", secret["source"]))
+        for secret in egress["secrets"]
+    }
+    command = egress["command"]
+    assert command[command.index("-c") + 1] in targets
+
+
+def test_plain_trojan_profile_does_not_gain_an_outer_tls_handshake():
+    config = profile.build("trojan://fixture-password@vpn.example.com:31739?type=tcp&security=none")
+    outbound = config["outbounds"][0]
+    assert "tls" not in outbound
+    assert outbound["type"] == "trojan" and outbound["network"] == "tcp"
+    assert config["route"]["rules"][0]["domain"] == ["api.telegram.org"]
 
 
 def test_preview_never_falls_back_to_the_channel(client, tg, monkeypatch):

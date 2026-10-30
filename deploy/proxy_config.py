@@ -54,8 +54,11 @@ def build(uri: str) -> dict:
         raise ProfileError("Ссылка содержит неподдерживаемые параметры. Нужен экспорт узла sing-box.")
     if any(query.get(key, "").lower() in {"1", "true", "yes"} for key in ("allowInsecure", "insecure")):
         raise ProfileError("Профиль отключает проверку TLS. Нужен профиль с проверкой сертификата.")
-    if query.get("security", "tls") not in {"", "tls"} or query.get("headerType", "none") not in {"", "none"}:
+    security = query.get("security", "tls") or "tls"
+    if security not in {"tls", "none"} or query.get("headerType", "none") not in {"", "none"}:
         raise ProfileError("Этот режим TLS или заголовков пока не поддержан.")
+    if security == "none" and any(query.get(key) for key in ("sni", "peer", "alpn", "fp")):
+        raise ProfileError("Параметры TLS несовместимы с security=none. Проверьте экспорт узла.")
     if query.get("mux", "").lower() not in {"", "0", "false"}:
         raise ProfileError("Экспортируйте узел без multiplex или в формате sing-box.")
     tls: dict = {"enabled": True, "server_name": query.get("sni") or query.get("peer") or host}
@@ -70,8 +73,9 @@ def build(uri: str) -> dict:
         "server_port": port,
         "password": password,
         "network": "tcp",
-        "tls": tls,
     }
+    if security == "tls":
+        outbound["tls"] = tls
     transport = query.get("type", "tcp") or "tcp"
     if transport in {"tcp", "raw", "none"}:
         pass

@@ -115,7 +115,16 @@ def test_trojan_import_keeps_tls_and_selective_domain_routes(kind):
 
 @pytest.mark.parametrize(
     "suffix",
-    ["?allowInsecure=1", "?security=reality", "?type=unknown", "?mux=1", "?sni=a&sni=b", "?unknown=value", ":wrong"],
+    [
+        "?allowInsecure=1",
+        "?security=reality",
+        "?security=none&sni=tls.example.com",
+        "?type=unknown",
+        "?mux=1",
+        "?sni=a&sni=b",
+        "?unknown=value",
+        ":wrong",
+    ],
 )
 def test_unsupported_profile_never_echoes_credentials(suffix):
     with pytest.raises(profile.ProfileError) as error:

@@ -40,7 +40,7 @@ docker compose up -d --build
 - Студия в контейнере работает не от root, а от вашего пользователя (`STUDIO_UID`/`STUDIO_GID` в `.env`, по умолчанию 1000:1000; на Linux с другим uid впишите `id -u` и `id -g`). Если `./data` создал Docker или прежний образ от root, студия при запуске скажет об этом; исправить: `sudo chown -R $(id -u):$(id -g) data`. На Docker Desktop (Mac, Windows) это не нужно.
 - **На своём сервере**: HTTPS, простой запуск из исходников, обновления по SSH через GitHub Actions; дополнительно готовый образ GHCR и реплика базы в S3: [deploy/README.md](deploy/README.md).
 
-При ограниченном доступе к Telegram можно задать отдельный HTTP(S)-прокси `TG_PROXY_URL` (или `TG_PROXY_URL_FILE`) только для Bot API. Для VPS доступен [выборочный Trojan](deploy/README.md#выборочный-trojan-для-telegram-и-lets-encrypt), включая получение и автоматическое продление HTTPS.
+При ограниченном доступе к Telegram можно задать отдельный HTTP(S)-прокси `TG_PROXY_URL` (или `TG_PROXY_URL_FILE`) только для Bot API. Для VPS доступен [выборочный Trojan](deploy/README.md#выборочный-trojan-для-telegram-и-lets-encrypt), включая получение и автоматическое продление HTTPS; режим узла без внешнего TLS задаётся явно через `security=none`.
 
 Без Docker: `pip install -r requirements.txt`, затем `cd app && DATA_DIR=../data uvicorn main:app --port 7424` (переменные из `.env` экспортируйте сами).
 
