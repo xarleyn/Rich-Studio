@@ -74,7 +74,6 @@ class Settings:
     preview_chat: str = ""
     api_key: str = ""
     api_base: str = "https://api.telegram.org"
-    telegram_proxy: str = ""  # optional HTTP CONNECT proxy for Bot API only
     # where the person opens the studio: agents get links to drafts and previews from it
     public_url: str = "http://localhost:7424"
     landing_url: str = ""
@@ -174,21 +173,6 @@ class Settings:
         s.preview_chat = env.get("TG_PREVIEW_CHAT", "").strip()
         s.api_key = _secret(env, "STUDIO_API_KEY", problems)
         s.api_base = env.get("TG_API_BASE", s.api_base).rstrip("/")
-        s.telegram_proxy = _secret(env, "TG_PROXY_URL", problems)
-        if s.telegram_proxy:
-            try:
-                proxy = urlsplit(s.telegram_proxy)
-                if (
-                    proxy.scheme not in {"http", "https"}
-                    or not proxy.hostname
-                    or proxy.path not in {"", "/"}
-                    or proxy.query
-                    or proxy.fragment
-                ):
-                    raise ValueError
-                _ = proxy.port
-            except ValueError:
-                problems.append("TG_PROXY_URL: нужен HTTP(S)-адрес прокси без пути")
         s.public_url = env.get("STUDIO_URL", s.public_url).strip().rstrip("/") or s.public_url
         s.landing_url = env.get("STUDIO_LANDING_URL", "").strip().rstrip("/")
         s.allowed_hosts |= {h.strip().lower() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()}
