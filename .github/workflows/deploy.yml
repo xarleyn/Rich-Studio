@@ -77,9 +77,11 @@ jobs:
           REMOTE
       - name: Upload and deploy this exact commit
         if: inputs.operation == 'deploy' || inputs.operation == 'proxy-enable'
+        env:
+          RICHPOST_OPERATION: ${{ inputs.operation }}
         run: |
           set -euo pipefail
-          if [[ '${{ inputs.operation }}' == proxy-enable ]]; then
+          if [[ "$RICHPOST_OPERATION" == proxy-enable ]]; then
             ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost \
               'test -s /opt/richpost/deploy/secrets/trojan.url'
           fi
@@ -121,7 +123,7 @@ jobs:
             printf 'container %s: exit=%s\n' "$endpoint" "$code"
             code=0
             docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T rich-studio \
-              python -c 'import sys, urllib.request, settings; proxy = settings.get().telegram_proxy; opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": proxy}) if proxy else urllib.request.ProxyHandler({})); opener.open(sys.argv[1], timeout=20).close()' \
+              python -c 'import sys, urllib.request, settings; proxy = getattr(settings.get(), "telegram_proxy", ""); opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": proxy}) if proxy else urllib.request.ProxyHandler({})); opener.open(sys.argv[1], timeout=20).close()' \
               "$url" > /dev/null 2>&1 || code=$?
             printf 'configured app route %s: exit=%s\n' "$endpoint" "$code"
             if [[ "$code" != 0 ]]; then problem=1; fi
