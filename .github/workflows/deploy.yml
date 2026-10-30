@@ -5,11 +5,16 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "check — проверить SSH; deploy — обновить RichPost"
+        description: "SSH, выкладка, HTTPS или выборочный Trojan"
         type: choice
-        options: [check, deploy]
+        options: [check, deploy, tls-check, tls-retry, proxy-enable]
         default: check
         required: true
+      confirm_tls_retry:
+        description: "Для tls-retry введите: CONFIRM_TLS_RETRY"
+        type: string
+        default: ""
+        required: false
 
 permissions:
   contents: read
@@ -71,14 +76,67 @@ jobs:
           echo 'SSH к RichPost работает.'
           REMOTE
       - name: Upload and deploy this exact commit
-        if: inputs.operation == 'deploy'
+        if: inputs.operation == 'deploy' || inputs.operation == 'proxy-enable'
+        env:
+          RICHPOST_OPERATION: ${{ inputs.operation }}
         run: |
           set -euo pipefail
+          if [[ "$RICHPOST_OPERATION" == proxy-enable ]]; then
+            ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost \
+              'test -s /opt/richpost/deploy/secrets/trojan.url'
+          fi
           git archive --format=tar.gz -o "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
             HEAD app Dockerfile .dockerignore requirements.lock deploy
           scp -F "$RUNNER_TEMP/richpost-ssh-config" "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
             "richpost:/tmp/richpost-$GITHUB_SHA.tar.gz"
           ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost "bash -s -- $GITHUB_SHA" < deploy/update.sh
+      - name: Enable the private selective Trojan proxy
+        if: inputs.operation == 'proxy-enable'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash /opt/richpost/deploy/setup-proxy.sh'
+      - name: Check access to the certificate authority
+        if: inputs.operation == 'tls-check'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
+          problem=0
+          interface=$(awk '$2 == "00000000" {print $1; exit}' /proc/net/route)
+          if [[ -n "$interface" && -f "/sys/class/net/$interface/mtu" ]]; then
+            printf 'host MTU: %s\n' "$(cat "/sys/class/net/$interface/mtu")"
+          fi
+          docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
+            cat /sys/class/net/eth0/mtu 2>/dev/null | sed 's/^/container MTU: /' || true
+          for endpoint in production staging; do
+            if [[ "$endpoint" == production ]]; then
+              url=https://acme-v02.api.letsencrypt.org/directory
+            else
+              url=https://acme-staging-v02.api.letsencrypt.org/directory
+            fi
+            for family in 4 6; do
+              code=0
+              curl "-$family" --fail --silent --connect-timeout 5 --max-time 15 \
+                --output /dev/null "$url" > /dev/null 2>&1 || code=$?
+              printf 'host IPv%s %s: exit=%s\n' "$family" "$endpoint" "$code"
+            done
+            code=0
+            docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
+              wget -q -T 15 -O /dev/null "$url" > /dev/null 2>&1 || code=$?
+            printf 'container %s: exit=%s\n' "$endpoint" "$code"
+            code=0
+            docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T rich-studio \
+              python -c 'import sys, urllib.request, settings; proxy = getattr(settings.get(), "telegram_proxy", ""); opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": proxy}) if proxy else urllib.request.ProxyHandler({})); opener.open(sys.argv[1], timeout=20).close()' \
+              "$url" > /dev/null 2>&1 || code=$?
+            printf 'configured app route %s: exit=%s\n' "$endpoint" "$code"
+            if [[ "$code" != 0 ]]; then problem=1; fi
+          done
+          exit "$problem"
+          REMOTE
+      - name: Retry automatic certificate provisioning
+        if: inputs.operation == 'tls-retry' && inputs.confirm_tls_retry == 'CONFIRM_TLS_RETRY'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
+          docker compose -f /opt/richpost/deploy/compose.simple.yml restart caddy > /dev/null 2>&1
+          echo 'Caddy перезапущен. Выпуск сертификата нужно проверить отдельно.'
+          REMOTE
       - name: Remove runner credentials
         if: always()
         run: |

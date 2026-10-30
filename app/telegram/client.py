@@ -155,7 +155,7 @@ async def _post(url: str, params: dict, files: dict[str, Path], timeout: float) 
 
 
 async def _request(url: str, params: dict, files: dict[str, Path], timeout: float) -> httpx.Response:  # noqa: ASYNC109
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout, proxy=settings.get().telegram_proxy or None) as client:
         if files:
             data = {
                 k: (v if isinstance(v, str) else json.dumps(v, ensure_ascii=False))
