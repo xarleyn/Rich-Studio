@@ -3,14 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RichPost — посты для ваших Telegram-каналов</title>
-  <meta name="description" content="Оформляйте посты для Telegram, проверяйте предпросмотр и публикуйте в свои каналы сразу или по расписанию. Вход через Telegram.">
+  <title>Редактор постов для Telegram — RichPost</title>
+  <meta name="description" content="Создавайте посты для Telegram с текстом, фото, таблицами и кнопками. Проверяйте предпросмотр, сохраняйте черновики и публикуйте в несколько каналов по расписанию.">
   <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="RichPost — хороший пост с первого взгляда">
+  <meta property="og:title" content="Редактор постов для Telegram — RichPost">
   <meta property="og:description" content="Ваш текст, медиа и кнопки. Ваши каналы. Одна удобная студия для публикаций в Telegram.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="__LANDING_URL__">
   <link rel="canonical" href="__LANDING_URL__">
+  <link rel="alternate" hreflang="ru" href="__RU_URL__">
+  <link rel="alternate" hreflang="en" href="__EN_URL__">
+  <link rel="alternate" hreflang="x-default" href="__RU_URL__">
+  <meta property="og:locale" content="ru_RU">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/landing.css">
 </head>
@@ -19,26 +23,27 @@
   <header class="site-header wrap">
     <a class="logo" href="/" aria-label="RichPost — главная"><span class="logo-mark" aria-hidden="true">R</span>RichPost<span class="logo-dot">.</span></a>
     <nav aria-label="Основная навигация"><a href="#features">Возможности</a><a href="#how">Как это работает</a><a href="#faq">Вопросы</a></nav>
-    <a class="button quiet" href="__APP_URL__">Открыть приложение <span aria-hidden="true">↗</span></a>
+    <div class="header-actions"><a href="__EN_URL__" lang="en" hreflang="en" aria-label="English version">EN</a><a class="button quiet" href="__APP_URL__">Открыть приложение <span aria-hidden="true">↗</span></a></div>
   </header>
 
   <main id="main">
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
         <p class="eyebrow"><span></span> Ваша студия для Telegram</p>
-        <h1 id="hero-title">Хороший пост.<br>С первого <em>взгляда.</em></h1>
+        <h1 id="hero-title">Редактор постов<br>для <em>Telegram.</em></h1>
+        <p class="hero-tagline">Хороший пост. С первого взгляда.</p>
         <p class="lead">Соберите текст, медиа и кнопки в пост, который хочется читать. Проверьте, как он выглядит, и отправьте в свои каналы в нужный момент.</p>
         <div class="hero-actions"><a class="button primary" href="__APP_URL__">Начать через Telegram <span aria-hidden="true">↗</span></a><a class="text-link" href="#example">Посмотреть пример <span aria-hidden="true">↓</span></a></div>
         <p class="hero-note">Без отдельного пароля. С вашими каналами.</p>
       </div>
 
-      <div class="demo" id="example" aria-label="Пример оформления поста, не настоящая публикация">
+      <div class="demo" id="example" data-nosnippet aria-label="Пример оформления поста, не настоящая публикация">
         <div class="demo-toolbar"><span class="demo-dots"><i></i><i></i><i></i></span><span>Предпросмотр поста</span><span class="demo-label">Пример</span></div>
         <div class="telegram-canvas">
           <div class="channel-heading"><span class="avatar">р</span><span><b>Редакция выходного дня</b><small>Ваш Telegram-канал</small></span><span class="channel-more" aria-hidden="true">···</span></div>
           <article class="message">
             <div class="post-art" aria-hidden="true"><span class="art-kicker">МАЛЕНЬКИЕ ПЛАНЫ</span><span class="art-title">Чуть меньше<br>суеты.</span><span class="art-bottom">ВЫХОДНЫЕ · ВЫПУСК 01</span><span class="art-sun"></span></div>
-            <div class="message-body"><h2>Оставьте место для хорошего</h2><p>Короткий план на субботу: длинный завтрак, новая книга и прогулка без маршрута.</p><blockquote>Иногда лучший пункт в планах — ничего не планировать.</blockquote><p class="post-small">Сохраните на случай слишком занятой недели.</p><span class="message-time">09:00 <span aria-hidden="true">✓✓</span></span></div>
+            <div class="message-body"><p class="post-heading">Оставьте место для хорошего</p><p>Короткий план на субботу: длинный завтрак, новая книга и прогулка без маршрута.</p><blockquote>Иногда лучший пункт в планах — ничего не планировать.</blockquote><p class="post-small">Сохраните на случай слишком занятой недели.</p><span class="message-time">09:00 <span aria-hidden="true">✓✓</span></span></div>
             <div class="post-button">Поделиться планами <span aria-hidden="true">↗</span></div>
           </article>
         </div>
@@ -69,11 +74,18 @@
       <details><summary>Какие права нужны для подключения канала?</summary><p>Вы должны быть владельцем или администратором с правом публикации. Боту тоже нужно выдать права администратора и публикации сообщений. Перед операциями с каналом студия заново проверяет ваши права.</p></details>
       <details><summary>Можно публиковать в несколько каналов?</summary><p>Да. Подключите нужные каналы и выберите их для поста. Публиковать можно только в каналы, привязанные к вашей учётке.</p></details>
       <details><summary>Для отложенной публикации нужно оставить компьютер включённым?</summary><p>Нет, отложенные посты отправляет сервер. После назначения времени можно закрыть приложение. Очередь и результат отправки доступны во вкладке «Посты».</p></details>
+      <details><summary>Какие данные сохраняет сервис?</summary><p>На сервере хранятся данные Telegram-входа, черновики, загруженные файлы, подключённые каналы, история и очередь публикаций. У каждой учётки отдельное хранилище. Содержимое отправляется в Telegram при предпросмотре в личку или публикации. Подключайте только каналы, которыми управляете; доступ бота можно отозвать в настройках канала Telegram.</p></details>
+    </div></section>
+
+    <section class="wrap section" aria-labelledby="guides-title"><div class="section-intro"><p class="eyebrow">Попробуйте на примере</p><h2 id="guides-title">От задачи — к готовому посту.</h2></div><div class="guide-grid">
+      <a class="guide-card" href="/features/telegram-tables/"><h3>Таблицы в Telegram</h3><p>Соберите прайс или расписание. Пример таблицы и её исходный Markdown.</p><span>Как сделать таблицу →</span></a>
+      <a class="guide-card" href="/features/telegram-markdown/"><h3>Markdown и предпросмотр</h3><p>Заголовки, цитаты, ссылки и переносы строк — на одном примере.</p><span>Открыть руководство →</span></a>
+      <a class="guide-card" href="/features/scheduled-posts/"><h3>Публикация по расписанию</h3><p>Выберите каналы, назначьте время и проверьте результат в очереди.</p><span>Запланировать пост →</span></a>
     </div></section>
 
     <section class="closing wrap"><p class="eyebrow">Следующий хороший пост — ваш</p><h2>Откройте студию.<br>Начните с одной мысли.</h2><a class="button primary" href="__APP_URL__">Перейти в RichPost <span aria-hidden="true">↗</span></a></section>
   </main>
 
-  <footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span>Сделано для ваших Telegram-каналов.</span><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></footer>
+  <footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span>Сделано для ваших Telegram-каналов.</span><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Код проекта ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></footer>
 </body>
 </html>

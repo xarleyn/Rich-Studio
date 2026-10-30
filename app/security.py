@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
+import public_site
 import settings
 import store
 from services import accounts
@@ -27,7 +28,7 @@ CSP = (
     "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
 )
 # reachable without the API key
-PUBLIC_PATHS = {"/", "/landing", "/favicon.ico", "/healthz", "/readyz"}
+PUBLIC_PATHS = public_site.PUBLIC_PATHS | {"/favicon.ico", "/healthz", "/readyz"}
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 SESSION_COOKIE = "rs_session"
 LEVELS = ("read", "draft", "publish", "admin")
@@ -120,10 +121,17 @@ async def guard(request: Request, call_next):
         and path not in PUBLIC_PATHS
         and not path.startswith("/static/")
     ):
-        if request.method in SAFE_METHODS:
+        app_path = path in {"/mcp", "/docs", "/redoc", "/openapi.json"} or path.startswith(
+            ("/api/", "/auth/", "/render/", "/media/", "/docs/")
+        )
+        if request.method in SAFE_METHODS and app_path:
             query = "?" + request.url.query if request.url.query else ""
             return RedirectResponse(settings.get().public_url + path + query, status_code=307)
-        return JSONResponse({"detail": "Используйте адрес приложения: " + settings.get().public_url}, status_code=403)
+        if request.method not in SAFE_METHODS:
+            return JSONResponse(
+                {"detail": "Используйте адрес приложения: " + settings.get().public_url}, status_code=403
+            )
+        # Let FastAPI resolve slash redirects and genuine 404s on the public host.
     if request.method not in SAFE_METHODS:
         if _cross_site(request):
             return JSONResponse({"detail": "запрос с другого сайта отклонён"}, status_code=403)
@@ -147,6 +155,7 @@ async def guard(request: Request, call_next):
     # logging in and out of the editor (POST, DELETE /api/session) needs no token yet
     public = (
         path in PUBLIC_PATHS
+        or (settings.get().is_landing_host(request.headers.get("host", "")) and request.method in SAFE_METHODS)
         or (path == "/api/telegram/webhook" and request.method == "POST")
         or path.startswith("/static/")
         or path in {"/api/auth/config", "/api/auth/telegram/start", "/auth/telegram/callback"}
@@ -172,7 +181,7 @@ async def guard(request: Request, call_next):
             response = await call_next(request)
     finally:
         _current.reset(reset)
-    if path in {"/", "/landing"} or path.startswith("/render/") or path == "/api/render":
+    if public_site.is_page(path) or path.startswith("/render/") or path == "/api/render":
         csp = CSP
         if (
             path == "/"

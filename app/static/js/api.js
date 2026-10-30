@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // fetch wrapper for the studio API. On 401 it asks for the key or a token once and trades it for a session:
 // the server sets an HttpOnly cookie, so no script here ever keeps the key (and <img src=/media/...> and
 // /render pages work behind it too).
@@ -33,7 +34,7 @@ let asking = null;
 /** Several requests get 401 at once (the editor loads spec and config together): one prompt for all of them. */
 function askOnce() {
   asking ||= (async () => {
-    const k = prompt('Студия защищена. Введите ключ STUDIO_API_KEY или свой токен:');
+    const k = prompt(tr('Студия защищена. Введите ключ STUDIO_API_KEY или свой токен:'));
     return !!k && await login(k);
   })().finally(() => { asking = null; });
   return asking;

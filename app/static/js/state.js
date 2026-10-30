@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Editor state shared by all modules, and the target channels typed in the header.
 import { signal } from '../vendor/signals-core.js';
 import { $ } from './dom.js';
@@ -44,7 +45,9 @@ export function channelTitle(id) {
  * know is shown by its name and opens nowhere. */
 export const kindOf = (/** @type {PostRow} */ p) => {
   const name = p.kind || 'rich';
-  return (S.config.kinds || {})[name] || { label: name, badge: name, editable: false, stoppable: false, media: false };
+  const kind = (S.config.kinds || {})[name];
+  return kind ? { ...kind, label: tr(kind.label), badge: kind.badge ? tr(kind.badge) : kind.badge }
+    : { label: name, badge: name, editable: false, stoppable: false, media: false };
 };
 export const chatLabel = (id) => { const t = channelTitle(id); return t === id ? id : `${t} · ${id}`; };
 /** Where the post goes, as the person reads it: titles, and the forum topic when there is one. */
@@ -55,5 +58,5 @@ export const targetLabel = () => {
   const tid = S.options.message_thread_id;
   const one = ids.length === 1 ? channelOf(ids[0]) : null;
   const topic = tid !== undefined ? ((one && one.topics.find((t) => t.id === tid)) || { name: '№' + tid }).name : '';
-  return ids.map((id) => { const t = channelTitle(id); return t === id ? id : `«${t}» (${id})`; }).join(', ') + (topic ? `, тема «${topic}»` : '');
+  return ids.map((id) => { const t = channelTitle(id); return t === id ? id : `«${t}» (${id})`; }).join(', ') + (topic ? tr`, тема «${topic}»` : '');
 };

@@ -5,6 +5,7 @@ interface RenderOptions {
   views?: string | number;
 }
 declare const RichRender: {
+  setLocale(locale: string): void;
   render(post: object, opts?: RenderOptions): HTMLElement;
   renderRT(rt: unknown, ctx: object): Node;
   renderBlocks(blocks: unknown[], ctx: object): Node;

@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Suggestions are data: Bot API fields come from the current spec, Rich HTML/Markdown from the snippet catalog.
 // This module has no application state or DOM access. CodeMirror is supplied by the lazily loaded component.
 
@@ -19,9 +20,9 @@ export function snippetSource(kind, snippets, insert) {
     // Markdown uses / at the start of a line; don't open a menu in URLs or ordinary prose.
     if (kind === 'markdown' && prefix && context.state.doc.lineAt(prefix.from).from !== prefix.from) return null;
     const options = (snippets[kind] || []).flatMap((group) => group.items.map((item) => ({
-      label: kind === 'html' ? (item.snip.match(/^<([\w-]+)/)?.[1] || item.label) : item.label,
-      displayLabel: kind === 'html' ? `${item.snip.match(/^<([\w-]+)/)?.[0] || ''}> · ${item.title || item.label}` : item.title || item.label,
-      detail: group.group, type: 'text', info: item.snip.replaceAll('$SEL$', '…').replaceAll('$ID$', 'медиа'),
+      label: kind === 'html' ? (item.snip.match(/^<([\w-]+)/)?.[1] || tr(item.label)) : tr(item.label),
+      displayLabel: kind === 'html' ? `${item.snip.match(/^<([\w-]+)/)?.[0] || ''}> · ${tr(item.title || item.label)}` : tr(item.title || item.label),
+      detail: tr(group.group), type: 'text', info: tr(item.snip).replaceAll('$SEL$', '…').replaceAll('$ID$', tr('медиа')),
       apply: (view, completion, from, to) => insert(item, prefix ? prefix.from : from, to),
     })));
     // Match names without the < or /; applying the snippet replaces the trigger as well.
@@ -51,13 +52,13 @@ function definitions(spec) {
   return {
     ...spec.types,
     $Post: { fields: [
-      field('rich_message', ['InputRichMessage'], 'Содержимое поста: HTML, Markdown или блоки'),
-      field('reply_markup', ['InlineKeyboardMarkup'], 'Кнопки под постом'),
-      field('options', ['$Options'], 'Дополнительные параметры sendRichMessage'),
-      field('pin', ['Boolean'], 'Закрепить пост после публикации'),
-      field('comment', ['InputRichMessage'], 'Первый комментарий в обсуждении'),
-      field('poll_after', ['$Poll'], 'Опрос после поста'),
-      field('callbacks', ['Object'], 'Ответы на кнопки callback_data'),
+      field('rich_message', ['InputRichMessage'], tr('Содержимое поста: HTML, Markdown или блоки')),
+      field('reply_markup', ['InlineKeyboardMarkup'], tr('Кнопки под постом')),
+      field('options', ['$Options'], tr('Дополнительные параметры sendRichMessage')),
+      field('pin', ['Boolean'], tr('Закрепить пост после публикации')),
+      field('comment', ['InputRichMessage'], tr('Первый комментарий в обсуждении')),
+      field('poll_after', ['$Poll'], tr('Опрос после поста')),
+      field('callbacks', ['Object'], tr('Ответы на кнопки callback_data')),
     ] },
     $Options: { fields: (spec.methods.sendRichMessage?.fields || []).filter((f) => !['chat_id', 'rich_message', 'reply_markup'].includes(f.name)) },
     $Poll: { fields: (spec.methods.sendPoll?.fields || []).filter((f) => f.name !== 'chat_id') },
@@ -156,7 +157,7 @@ export function jsonSource(cm, getSpec) {
     return { from, to, filter: false, options: [...fields.values()].filter((f) => !existing.includes(f.name)
       && JSON.stringify(f.name).toLowerCase().startsWith(prefix.startsWith('"') ? prefix : '"' + prefix)).map((f) => ({
       label: JSON.stringify(f.name), displayLabel: f.name, type: 'property',
-      detail: f.types.join(' | '), info: (f.required ? 'Обязательное поле. ' : '') + f.description,
+      detail: f.types.join(' | '), info: (f.required ? tr('Обязательное поле. ') : '') + f.description,
       apply: (view, completion, start, end) => {
         const value = emptyValue(f.types);
         const text = JSON.stringify(f.name) + (colon ? '' : ': ' + value);

@@ -1,52 +1,54 @@
+import { tr, locale } from './i18n.js';
 // Cosmetic Russian names for spec types and fields; unknown names fall back to the spec.
 
 // ---------- labels (cosmetic) ----------
 export const BLOCK_LABELS = {
-  paragraph: 'Абзац', heading: 'Заголовок', pre: 'Код', footer: 'Подвал', divider: 'Разделитель',
-  mathematical_expression: 'Формула', anchor: 'Якорь', list: 'Список', blockquote: 'Цитата',
-  expandable_blockquote: 'Свёрнутая цитата', pullquote: 'Акцентная цитата', collage: 'Коллаж',
-  slideshow: 'Слайдшоу', table: 'Таблица', details: 'Раскрывашка', map: 'Карта', buttons: 'Кнопки',
-  animation: 'GIF', audio: 'Аудио', document: 'Файл', photo: 'Фото', video: 'Видео',
-  voice_note: 'Голосовое', thinking: 'Думаю… (только личка)',
+  paragraph: tr('Абзац'), heading: tr('Заголовок'), pre: tr('Код'), footer: tr('Подвал'), divider: tr('Разделитель'),
+  mathematical_expression: tr('Формула'), anchor: tr('Якорь'), list: tr('Список'), blockquote: tr('Цитата'),
+  expandable_blockquote: tr('Свёрнутая цитата'), pullquote: tr('Акцентная цитата'), collage: tr('Коллаж'),
+  slideshow: tr('Слайдшоу'), table: tr('Таблица'), details: tr('Раскрывашка'), map: tr('Карта'), buttons: tr('Кнопки'),
+  animation: 'GIF', audio: tr('Аудио'), document: tr('Файл'), photo: tr('Фото'), video: tr('Видео'),
+  voice_note: tr('Голосовое'), thinking: tr('Думаю… (только личка)'),
 };
 // groups of the block palette; blocks the spec adds later land in «Другое»
 export const BLOCK_GROUPS = {
-  Текст: ['paragraph', 'heading', 'list', 'blockquote', 'expandable_blockquote', 'pullquote', 'pre', 'mathematical_expression', 'footer'],
-  Медиа: ['photo', 'video', 'animation', 'collage', 'slideshow', 'audio', 'voice_note', 'document', 'map'],
-  Структура: ['table', 'details', 'divider', 'anchor'],
-  Кнопки: ['buttons'],
+  [tr('Текст')]: ['paragraph', 'heading', 'list', 'blockquote', 'expandable_blockquote', 'pullquote', 'pre', 'mathematical_expression', 'footer'],
+  [tr('Медиа')]: ['photo', 'video', 'animation', 'collage', 'slideshow', 'audio', 'voice_note', 'document', 'map'],
+  [tr('Структура')]: ['table', 'details', 'divider', 'anchor'],
+  [tr('Кнопки')]: ['buttons'],
 };
 export const RT_LABELS = {
-  bold: 'Жирный', italic: 'Курсив', underline: 'Подчёркнутый', strikethrough: 'Зачёркнутый', spoiler: 'Спойлер',
-  date_time: 'Дата и время', text_mention: 'Упоминание по id', subscript: 'Нижний индекс', superscript: 'Верхний индекс',
-  marked: 'Маркер', code: 'Код', custom_emoji: 'Кастомный эмодзи', mathematical_expression: 'Формула', url: 'Ссылка',
-  email_address: 'E-mail', phone_number: 'Телефон', bank_card_number: 'Номер карты', mention: '@упоминание',
-  hashtag: '#хэштег', cashtag: '$кэштег', bot_command: '/команда', button: 'Кнопка в тексте', anchor: 'Якорь',
-  anchor_link: 'Ссылка на якорь', reference: 'Сноска', reference_link: 'Ссылка на сноску',
+  bold: tr('Жирный'), italic: tr('Курсив'), underline: tr('Подчёркнутый'), strikethrough: tr('Зачёркнутый'), spoiler: tr('Спойлер'),
+  date_time: tr('Дата и время'), text_mention: tr('Упоминание по id'), subscript: tr('Нижний индекс'), superscript: tr('Верхний индекс'),
+  marked: tr('Маркер'), code: tr('Код'), custom_emoji: tr('Кастомный эмодзи'), mathematical_expression: tr('Формула'), url: tr('Ссылка'),
+  email_address: 'E-mail', phone_number: tr('Телефон'), bank_card_number: tr('Номер карты'), mention: tr('@упоминание'),
+  hashtag: tr('#хэштег'), cashtag: tr('$кэштег'), bot_command: tr('/команда'), button: tr('Кнопка в тексте'), anchor: tr('Якорь'),
+  anchor_link: tr('Ссылка на якорь'), reference: tr('Сноска'), reference_link: tr('Ссылка на сноску'),
 };
 export const FIELD_LABELS = {
-  text: 'Текст', size: 'Размер (1–6)', language: 'Язык', expression: 'LaTeX', name: 'Имя', items: 'Пункты',
-  blocks: 'Содержимое', credit: 'Автор', caption: 'Подпись', cells: 'Ячейки', is_bordered: 'Рамки',
-  is_striped: 'Полосы', is_compact: 'Компактно', summary: 'Заголовок', is_open: 'Открыто', location: 'Точка',
-  zoom: 'Масштаб', width: 'Ширина', height: 'Высота', buttons: 'Кнопки', align: 'Выравнивание', url: 'URL',
-  style: 'Стиль', callback_data: 'Данные для бота', copy_text: 'Копировать текст', disabled: 'Неактивна',
-  has_checkbox: 'Чекбокс', is_checked: 'Отмечен', value: 'Номер', latitude: 'Широта', longitude: 'Долгота',
-  media: 'Файл', has_spoiler: 'Под спойлером', unix_time: 'Unix-время', date_time_format: 'Формат',
-  custom_emoji_id: 'id эмодзи', alternative_text: 'Замена', user: 'Пользователь', anchor_name: 'Якорь',
-  reference_name: 'Сноска', username: 'username', hashtag: 'Хэштег',
-  photo: 'Фото', video: 'Видео', animation: 'GIF', audio: 'Аудио', document: 'Файл', voice_note: 'Голосовое',
+  text: tr('Текст'), size: tr('Размер (1–6)'), language: tr('Язык'), expression: 'LaTeX', name: tr('Имя'), items: tr('Пункты'),
+  blocks: tr('Содержимое'), credit: tr('Автор'), caption: tr('Подпись'), cells: tr('Ячейки'), is_bordered: tr('Рамки'),
+  is_striped: tr('Полосы'), is_compact: tr('Компактно'), summary: tr('Заголовок'), is_open: tr('Открыто'), location: tr('Точка'),
+  zoom: tr('Масштаб'), width: tr('Ширина'), height: tr('Высота'), buttons: tr('Кнопки'), align: tr('Выравнивание'), url: 'URL',
+  style: tr('Стиль'), callback_data: tr('Данные для бота'), copy_text: tr('Копировать текст'), disabled: tr('Неактивна'),
+  has_checkbox: tr('Чекбокс'), is_checked: tr('Отмечен'), value: tr('Номер'), latitude: tr('Широта'), longitude: tr('Долгота'),
+  media: tr('Файл'), has_spoiler: tr('Под спойлером'), unix_time: tr('Unix-время'), date_time_format: tr('Формат'),
+  custom_emoji_id: tr('id эмодзи'), alternative_text: tr('Замена'), user: tr('Пользователь'), anchor_name: tr('Якорь'),
+  reference_name: tr('Сноска'), username: 'username', hashtag: tr('Хэштег'),
+  photo: tr('Фото'), video: tr('Видео'), animation: 'GIF', audio: tr('Аудио'), document: tr('Файл'), voice_note: tr('Голосовое'),
 };
 // Placeholders in Russian; the English description from the spec stays in the field's tooltip
 export const FIELD_HINTS = {
-  text: 'Текст', summary: 'Виден всегда, остальное раскрывается по нажатию', caption: 'Подпись под медиа',
-  credit: 'Автор или источник', url: 'https://example.com', callback_data: 'Что получит бот при нажатии, до 64 байт',
-  copy_text: 'Что скопируется в буфер', expression: 'E = mc^2', language: 'python', name: 'латиницей, без пробелов',
-  alternative_text: 'Эмодзи, если кастомный не загрузится', username: 'без @', hashtag: 'без #',
-  anchor_name: 'Имя якоря', reference_name: 'Имя сноски', switch_inline_query: 'Текст запроса к боту',
+  text: tr('Текст'), summary: tr('Виден всегда, остальное раскрывается по нажатию'), caption: tr('Подпись под медиа'),
+  credit: tr('Автор или источник'), url: 'https://example.com', callback_data: tr('Что получит бот при нажатии, до 64 байт'),
+  copy_text: tr('Что скопируется в буфер'), expression: 'E = mc^2', language: 'python', name: tr('латиницей, без пробелов'),
+  alternative_text: tr('Эмодзи, если кастомный не загрузится'), username: tr('без @'), hashtag: tr('без #'),
+  anchor_name: tr('Имя якоря'), reference_name: tr('Имя сноски'), switch_inline_query: tr('Текст запроса к боту'),
 };
-export const STATUS_LABELS = { sent: 'опубликован', scheduled: 'отложен', failed: 'ошибка', cancelled: 'отменён', deleted: 'удалён', sending: 'отправляется', missed: 'пропущен' };
+export const STATUS_LABELS = { sent: tr('опубликован'), scheduled: tr('отложен'), failed: tr('ошибка'), cancelled: tr('отменён'), deleted: tr('удалён'), sending: tr('отправляется'), missed: tr('пропущен') };
 /** «1 блок», «2 блока», «5 блоков» */
 export function plural(n, one, few, many) {
+  if (locale === 'en') return `${n} ${n === 1 ? one : many}`;
   const m10 = n % 10, m100 = n % 100;
   const w = m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
   return `${n} ${w}`;

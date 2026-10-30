@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // The post being edited: change tracking, build/load, modes, options, preview, validation.
 import { api } from './api.js';
 import { $, $$, clone, debounce, h, toast } from './dom.js';
@@ -14,9 +15,9 @@ import { chats, dark, dirty, parsed, S, saveState, showParsed } from './state.js
 // ---------- change tracking ----------
 export const refreshPreview = debounce(() => { renderPreview(); validate(); }, 250);
 // a new post becomes a draft on its first change, so a reload or a crashed tab never loses it
-export const autosave = debounce(() => { if (dirty.value && !S.conflict) saveDraft(true).catch((e) => toast('Автосохранение не удалось: ' + e.message, 'err')); }, 2500);
+export const autosave = debounce(() => { if (dirty.value && !S.conflict) saveDraft(true).catch((e) => toast(tr('Автосохранение не удалось: ') + e.message, 'err')); }, 2500);
 export async function flushSave() { if (dirty.value && !S.conflict) await saveDraft(true); }
-export function changed() { dirty.value = true; saveState.value = 'есть изменения'; refreshPreview(); autosave(); recordHistory(); }
+export function changed() { dirty.value = true; saveState.value = tr('есть изменения'); refreshPreview(); autosave(); recordHistory(); }
 
 export function buildPost() {
   const rm = {};
@@ -90,9 +91,9 @@ export function renderAll() {
   info.hidden = !S.importMeta.import_source;
   info.replaceChildren();
   if (S.importMeta.import_source) {
-    info.append(h('span', { text: 'Источник: ' + S.importMeta.import_source.url }));
+    info.append(h('span', { text: tr('Источник: ') + S.importMeta.import_source.url }));
     for (const warning of S.importMeta.import_warnings || []) info.append(h('p', { text: warning }));
-    info.append(h('p', { class: 'muted', text: 'HTML и Markdown созданы при импорте. Дальнейшие правки во вкладках сохраняются независимо.' }));
+    info.append(h('p', { class: 'muted', text: tr('HTML и Markdown созданы при импорте. Дальнейшие правки во вкладках сохраняются независимо.') }));
   }
   renderBlocksPane();
   ['html', 'markdown', 'json'].forEach((kind) => {
@@ -118,7 +119,7 @@ export function setMode(mode, silent) {
   ['blocks', 'html', 'markdown', 'json'].forEach((m) => { $('#pane-' + m).hidden = m !== mode; });
   $('#panel-media').hidden = mode === 'blocks';
   if (mode === 'json') { $('#src-json').value = S.pendingJson ?? JSON.stringify(buildPost(), null, 2); $('#json-err').textContent = ''; }
-  const hints = { blocks: 'отправляется как rich_message.blocks', html: 'отправляется как rich_message.html', markdown: 'отправляется как rich_message.markdown', json: 'активный формат: ' + S.format };
+  const hints = { blocks: tr('отправляется как rich_message.blocks'), html: tr('отправляется как rich_message.html'), markdown: tr('отправляется как rich_message.markdown'), json: tr('активный формат: ') + S.format };
   $('#mode-hint').textContent = hints[mode];
   if (!silent) changed();
 }
@@ -127,16 +128,16 @@ export function setMode(mode, silent) {
 export function renderAfter() {
   const box = $('#after');
   box.replaceChildren(...[
-    h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: S.extra.pin, onchange: (e) => { S.extra.pin = e.target.checked; changed(); } }), 'Закрепить пост после публикации (без уведомления)'),
-    h('p', { class: 'muted small' }, 'Первый комментарий (HTML, как в посте). Студия ответит им на копию поста в группе обсуждения, когда Telegram её туда перешлёт. Бот должен быть админом группы обсуждения.'),
-    S.extra.commentObj ? h('p', { class: 'w small', text: 'Комментарий задан в JSON не как HTML; он сохранится как есть, пока это поле пустое.' }) : null,
-    h('textarea', { class: 'code', id: 'comment-src', style: 'min-height:70px', value: S.extra.comment, placeholder: '<p>Ссылки из поста и обсуждение здесь 👇</p>', oninput: (e) => { S.extra.comment = e.target.value; changed(); } }), pollAfterForm()].filter(Boolean));
+    h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: S.extra.pin, onchange: (e) => { S.extra.pin = e.target.checked; changed(); } }), tr('Закрепить пост после публикации (без уведомления)')),
+    h('p', { class: 'muted small' }, tr('Первый комментарий (HTML, как в посте). Студия ответит им на копию поста в группе обсуждения, когда Telegram её туда перешлёт. Бот должен быть админом группы обсуждения.')),
+    S.extra.commentObj ? h('p', { class: 'w small', text: tr('Комментарий задан в JSON не как HTML; он сохранится как есть, пока это поле пустое.') }) : null,
+    h('textarea', { class: 'code', id: 'comment-src', style: 'min-height:70px', value: S.extra.comment, placeholder: tr('<p>Ссылки из поста и обсуждение здесь 👇</p>'), oninput: (e) => { S.extra.comment = e.target.value; changed(); } }), pollAfterForm()].filter(Boolean));
 }
 
 export function updatesLabel() {
   const u = S.updates;
-  if (!u) return 'неизвестно';
-  return { ok: 'работает', off: 'выключен (TG_UPDATES=off)', starting: 'запускается', no_token: 'нет токена', conflict: 'конфликт: бот уже работает где-то ещё', error: 'ошибка' }[u.state] || u.state;
+  if (!u) return tr('неизвестно');
+  return { ok: tr('работает'), off: tr('выключен (TG_UPDATES=off)'), starting: tr('запускается'), no_token: tr('нет токена'), conflict: tr('конфликт: бот уже работает где-то ещё'), error: tr('ошибка') }[u.state] || u.state;
 }
 
 // ---------- options ----------
@@ -145,10 +146,10 @@ export function renderOptions() {
   box.replaceChildren();
   const flag = (obj, key, label, title) => h('label', { class: 'row', title, style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: !!obj[key], onchange: (e) => { if (e.target.checked) obj[key] = true; else delete obj[key]; changed(); } }), label);
   box.append(
-    flag(S.options, 'disable_notification', 'Без звука', 'disable_notification'),
-    flag(S.options, 'protect_content', 'Запретить пересылку и сохранение', 'protect_content'),
-    flag(S.flags, 'skip_entity_detection', 'Не распознавать ссылки, @, #, телефоны автоматически', 'rich_message.skip_entity_detection'),
-    flag(S.flags, 'is_rtl', 'Справа налево', 'rich_message.is_rtl'));
+    flag(S.options, 'disable_notification', tr('Без звука'), 'disable_notification'),
+    flag(S.options, 'protect_content', tr('Запретить пересылку и сохранение'), 'protect_content'),
+    flag(S.flags, 'skip_entity_detection', tr('Не распознавать ссылки, @, #, телефоны автоматически'), 'rich_message.skip_entity_detection'),
+    flag(S.flags, 'is_rtl', tr('Справа налево'), 'rich_message.is_rtl'));
   const m = S.spec.methods.sendRichMessage;
   if (m) {
     const known = new Set(['chat_id', 'rich_message', 'reply_markup', 'disable_notification', 'protect_content']);
@@ -163,7 +164,7 @@ export function renderOptions() {
         Object.assign(S.options, v); ta.style.borderColor = ''; changed();
       } catch { ta.style.borderColor = 'var(--err)'; }
     });
-    box.append(h('p', { class: 'muted small' }, 'Другие параметры sendRichMessage (из спецификации): ', rest.map((f, i) => [i ? ', ' : '', h('code', { title: f.description, text: f.name })])), ta);
+    box.append(h('p', { class: 'muted small' }, tr('Другие параметры sendRichMessage (из спецификации): '), rest.map((f, i) => [i ? ', ' : '', h('code', { title: f.description, text: f.name })])), ta);
   }
 }
 
@@ -173,7 +174,7 @@ export function renderPreview() {
   const post = buildPost();
   const fresh = checkParse(post);
   p.dark = dark.value;
-  p.channelTitle = channelTitle(chats()[0] || S.config.default_chat) || 'Канал';
+  p.channelTitle = channelTitle(chats()[0] || S.config.default_chat) || tr('Канал');
   p.post = fresh && showParsed.value ? { ...post, rich_message: { blocks: fresh.blocks } } : post;
 }
 
@@ -217,8 +218,8 @@ export function parsedToBlocks() {
   // the new post is Telegram's own blocks, so the check stays valid for it
   parsed.value = { ...got, key: parseKey(buildPost()) };
   changed();
-  toast('Пост переведён в визуальный режим так, как его разобрал Telegram. Исходный текст остался в своей вкладке.' +
-    (JSON.stringify(got.input_blocks).includes('"media"') ? ' Медиа ссылаются на файлы, уже загруженные в Telegram.' : ''), 'ok');
+  toast(tr('Пост переведён в визуальный режим так, как его разобрал Telegram. Исходный текст остался в своей вкладке.') +
+    (JSON.stringify(got.input_blocks).includes('"media"') ? tr(' Медиа ссылаются на файлы, уже загруженные в Telegram.') : ''), 'ok');
 }
 
 export const validate = debounce(async () => {
@@ -227,24 +228,24 @@ export const validate = debounce(async () => {
   try {
     const r = await api('POST', '/api/validate', buildPost());
     const st = r.stats || {};
-    const statLine = h('span', { class: 'muted small', text: ' · ' + plural(st.chars ?? 0, 'символ', 'символа', 'символов') + (st.blocks ? ' · ' + plural(st.blocks, 'блок', 'блока', 'блоков') : '') + (st.media ? ` · ${st.media} медиа` : '') + ` · проверено по ${r.spec_version}` });
+    const statLine = h('span', { class: 'muted small', text: ' · ' + plural(st.chars ?? 0, tr('символ'), tr('символа'), tr('символов')) + (st.blocks ? ' · ' + plural(st.blocks, tr('блок'), tr('блока'), tr('блоков')) : '') + (st.media ? tr` · ${st.media} медиа` : '') + tr` · проверено по ${r.spec_version}` });
     const item = (msg, cls) => {
       const it = readIssue(msg);
       return h('li', { class: cls }, it.block && S.mode === 'blocks'
-        ? h('button', { type: 'button', class: 'link', title: 'Показать в редакторе', text: it.text, onclick: () => reveal(it.block, it.field) })
+        ? h('button', { type: 'button', class: 'link', title: tr('Показать в редакторе'), text: it.text, onclick: () => reveal(it.block, it.field) })
         : it.text);
     };
     box.replaceChildren(...[
-      r.ok ? h('span', { class: 'ok', text: '✓ Пост проходит проверку' }) : h('b', { class: 'e', text: 'Ошибки' }), statLine,
+      r.ok ? h('span', { class: 'ok', text: tr('✓ Пост проходит проверку') }) : h('b', { class: 'e', text: tr('Ошибки') }), statLine,
       r.errors.length ? h('ul', {}, r.errors.map((e) => item(e, 'e'))) : null,
       r.warnings.length ? h('ul', {}, r.warnings.map((e) => item(e, 'w'))) : null].filter(Boolean));
     // always in sight next to the mode tabs: the length and whether the post passes
-    const chars = plural(st.chars ?? 0, 'символ', 'символа', 'символов');
+    const chars = plural(st.chars ?? 0, tr('символ'), tr('символа'), tr('символов'));
     pill.className = 'check-pill ' + (r.errors.length ? 'e' : r.warnings.length ? 'w' : 'ok');
-    pill.textContent = r.errors.length ? '✕ ' + plural(r.errors.length, 'ошибка', 'ошибки', 'ошибок') + ' · ' + chars : (r.warnings.length ? '⚠ ' : '✓ ') + chars;
-    pill.title = r.errors.length || r.warnings.length ? 'Показать замечания проверки' : 'Пост проходит проверку';
+    pill.textContent = r.errors.length ? '✕ ' + plural(r.errors.length, tr('ошибка'), tr('ошибки'), tr('ошибок')) + ' · ' + chars : (r.warnings.length ? '⚠ ' : '✓ ') + chars;
+    pill.title = r.errors.length || r.warnings.length ? tr('Показать замечания проверки') : tr('Пост проходит проверку');
     pill.hidden = false;
-  } catch (e) { box.replaceChildren(h('span', { class: 'e', text: 'Проверка недоступна: ' + e.message })); pill.hidden = true; }
+  } catch (e) { box.replaceChildren(h('span', { class: 'e', text: tr('Проверка недоступна: ') + e.message })); pill.hidden = true; }
 }, 500);
 
 /** The poll that goes to the same chat right after the post (post.poll_after, sendPoll fields as they are). */
@@ -255,15 +256,15 @@ function pollAfterForm() {
     const on = h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', id: 'poll-after-on', checked: !!P, onchange: (e) => {
       S.extra.poll = e.target.checked ? { question: '', options: [{ text: '' }, { text: '' }] } : null;
       draw(); changed();
-    } }), 'Сразу после поста отправить опрос');
+    } }), tr('Сразу после поста отправить опрос'));
     if (!P) { box.replaceChildren(on); return; }
     if (!Array.isArray(P.options)) P.options = [];
     const opts = P.options.map((o, i) => {
       if (typeof o !== 'object' || o === null) P.options[i] = o = { text: String(o ?? '') };
       return h('div', { class: 'row', style: 'margin:2px 0' },
-        P.type === 'quiz' ? h('input', { type: 'radio', name: 'poll-after-correct', title: 'Правильный ответ', checked: (P.correct_option_ids || [])[0] === i, onchange: () => { P.correct_option_ids = [i]; changed(); } }) : null,
-        h('input', { type: 'text', value: o.text || '', placeholder: 'Вариант ' + (i + 1), 'aria-label': 'Вариант ' + (i + 1), oninput: (e) => { o.text = e.target.value; changed(); } }),
-        P.options.length > 2 ? h('button', { type: 'button', class: 'ghost small-btn', text: '✕', title: 'Убрать вариант', onclick: () => { P.options.splice(i, 1); if (P.correct_option_ids) P.correct_option_ids = [0]; draw(); changed(); } }) : null);
+        P.type === 'quiz' ? h('input', { type: 'radio', name: 'poll-after-correct', title: tr('Правильный ответ'), checked: (P.correct_option_ids || [])[0] === i, onchange: () => { P.correct_option_ids = [i]; changed(); } }) : null,
+        h('input', { type: 'text', value: o.text || '', placeholder: tr('Вариант ') + (i + 1), 'aria-label': tr('Вариант ') + (i + 1), oninput: (e) => { o.text = e.target.value; changed(); } }),
+        P.options.length > 2 ? h('button', { type: 'button', class: 'ghost small-btn', text: '✕', title: tr('Убрать вариант'), onclick: () => { P.options.splice(i, 1); if (P.correct_option_ids) P.correct_option_ids = [0]; draw(); changed(); } }) : null);
     });
     const flag = (key, label, value) => h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: value === undefined ? !!P[key] : P[key] === value, onchange: (e) => {
       if (value !== undefined) { if (e.target.checked) { P[key] = value; P.correct_option_ids = [0]; delete P.allows_multiple_answers; } else { delete P[key]; delete P.correct_option_ids; delete P.explanation; } }
@@ -271,12 +272,12 @@ function pollAfterForm() {
       draw(); changed();
     } }), label);
     box.replaceChildren(on,
-      h('input', { type: 'text', value: P.question || '', placeholder: 'Вопрос', 'aria-label': 'Вопрос опроса', maxlength: '300', oninput: (e) => { P.question = e.target.value; changed(); } }),
+      h('input', { type: 'text', value: P.question || '', placeholder: tr('Вопрос'), 'aria-label': tr('Вопрос опроса'), maxlength: '300', oninput: (e) => { P.question = e.target.value; changed(); } }),
       ...opts,
-      P.options.length < 12 ? h('button', { type: 'button', class: 'ghost small-btn', text: '＋ вариант', onclick: () => { P.options.push({ text: '' }); draw(); changed(); } }) : null,
-      flag('type', 'Викторина (один правильный ответ)', 'quiz'),
-      P.type === 'quiz' ? h('input', { type: 'text', value: P.explanation || '', placeholder: 'Пояснение после ответа', oninput: (e) => { if (e.target.value) P.explanation = e.target.value; else delete P.explanation; changed(); } }) : flag('allows_multiple_answers', 'Несколько ответов'),
-      h('p', { class: 'muted small', text: 'Уйдёт в тот же канал (и тему) отдельным сообщением, когда выйдет пост, в том числе отложенный. Остальные поля sendPoll задаются во вкладке JSON (poll_after).' }));
+      P.options.length < 12 ? h('button', { type: 'button', class: 'ghost small-btn', text: tr('＋ вариант'), onclick: () => { P.options.push({ text: '' }); draw(); changed(); } }) : null,
+      flag('type', tr('Викторина (один правильный ответ)'), 'quiz'),
+      P.type === 'quiz' ? h('input', { type: 'text', value: P.explanation || '', placeholder: tr('Пояснение после ответа'), oninput: (e) => { if (e.target.value) P.explanation = e.target.value; else delete P.explanation; changed(); } }) : flag('allows_multiple_answers', tr('Несколько ответов')),
+      h('p', { class: 'muted small', text: tr('Уйдёт в тот же канал (и тему) отдельным сообщением, когда выйдет пост, в том числе отложенный. Остальные поля sendPoll задаются во вкладке JSON (poll_after).') }));
   };
   draw();
   return box;

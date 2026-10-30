@@ -399,7 +399,7 @@ def test_landing_host_and_app_host_are_separate(public, monkeypatch):
     monkeypatch.setattr(cfg, "allowed_hosts", {*cfg.allowed_hosts, "example.com", "app.example.com"})
     landing = public.get("/", headers={"Host": "example.com"})
     assert landing.status_code == 200 and "Хороший пост." in landing.text
-    assert 'href="https://app.example.com"' in landing.text
+    assert 'href="https://app.example.com?lang=ru"' in landing.text
     assert 'id="title"' not in landing.text
     assert "https://telegram.org" not in landing.headers["content-security-policy"]
     app = public.get("/", headers={"Host": "app.example.com"})

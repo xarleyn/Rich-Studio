@@ -1,3 +1,4 @@
+import { tr, dateLocale } from './i18n.js';
 // The studio's health in the header: <rs-health> shows GET /api/health, refreshed every minute while the tab is visible.
 import { probe } from './api.js';
 import { openDialog } from './dialogs.js';
@@ -26,15 +27,15 @@ async function refresh() {
 function showDetails() {
   const r = last;
   if (!r) {
-    const why = state === 'locked' ? 'Студия просит ключ API. Его спросит любое действие в редакторе, например «Сохранить».' : 'Студия не ответила на /api/health.';
-    openDialog([h('h3', { text: 'Состояние студии' }), h('p', { class: state === 'locked' ? 'w' : 'err', text: why })]);
+    const why = state === 'locked' ? tr('Студия просит ключ API. Его спросит любое действие в редакторе, например «Сохранить».') : tr('Студия не ответила на /api/health.');
+    openDialog([h('h3', { text: tr('Состояние студии') }), h('p', { class: state === 'locked' ? 'w' : 'err', text: why })]);
     return;
   }
   const order = { fail: 0, warn: 1, ok: 2 };
   const checks = [...r.checks].sort((a, b) => order[a.status] - order[b.status]);
   openDialog([
-    h('h3', { text: r.status === 'ok' ? 'Студия в порядке' : 'Студия: ' + (r.status === 'fail' ? 'есть сбой' : 'требует внимания') }),
-    h('p', { class: 'muted small', text: `Версия ${r.version}, ${r.bot_api}, проверено ${new Date(r.checked_at * 1000).toLocaleTimeString('ru-RU')}. Агент читает то же: /api/health, skill studio-health.` }),
+    h('h3', { text: r.status === 'ok' ? tr('Студия в порядке') : tr('Студия: ') + (r.status === 'fail' ? tr('есть сбой') : tr('требует внимания')) }),
+    h('p', { class: 'muted small', text: tr`Версия ${r.version}, ${r.bot_api}, проверено ${new Date(r.checked_at * 1000).toLocaleTimeString(dateLocale)}. Агент читает то же: /api/health, skill studio-health.` }),
     h('ul', { class: 'changes health' }, checks.map((c) => h('li', {},
       h('span', { class: c.status === 'ok' ? 'ok' : c.status === 'warn' ? 'w' : 'err', text: MARK[c.status] + ' ' }),
       h('b', { text: c.name }), ': ' + c.summary,

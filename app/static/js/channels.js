@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Channels: titles instead of bare ids, the forum topic of the post, the dialog that checks the bot's rights.
 import { api } from './api.js';
 import { closeDialog, openDialog } from './dialogs.js';
@@ -8,7 +9,7 @@ import { channelOf, channelTitle, chatLabel, chats, S } from './state.js';
 
 export { channelTitle };
 
-const RIGHTS = { can_post_messages: 'публикация', can_edit_messages: 'правка', can_delete_messages: 'удаление', can_pin_messages: 'закреп', can_invite_users: 'ссылки' };
+const RIGHTS = { can_post_messages: tr('публикация'), can_edit_messages: tr('правка'), can_delete_messages: tr('удаление'), can_pin_messages: tr('закреп'), can_invite_users: tr('ссылки') };
 
 export async function loadChannels() {
   S.channels = await api('GET', '/api/channels');
@@ -20,8 +21,8 @@ export async function loadChannels() {
 export function showTarget() {
   const list = chats();
   const btn = $('#btn-check');
-  btn.textContent = (list.length ? list.map(chatLabel).join(', ') : 'Канал не выбран') + ' ▾';
-  btn.title = (list.length ? 'Пост уйдёт в: ' + list.map(chatLabel).join(', ') + '\n' : '') + 'Выбрать каналы (id через запятую), проверить права бота, темы форума';
+  btn.textContent = (list.length ? list.map(chatLabel).join(', ') : tr('Канал не выбран')) + ' ▾';
+  btn.title = (list.length ? tr('Пост уйдёт в: ') + list.map(chatLabel).join(', ') + '\n' : '') + tr('Выбрать каналы (id через запятую), проверить права бота, темы форума');
   const one = list.length === 1 ? channelOf(list[0]) : null;
   const sel = /** @type {HTMLSelectElement} */ ($('#topic'));
   let topic = S.options.message_thread_id;
@@ -33,10 +34,10 @@ export function showTarget() {
   }
   if (!one || !one.is_forum) { sel.hidden = true; return; }
   const topics = one.topics || [];
-  sel.replaceChildren(h('option', { value: '', text: 'Тема: General' }),
-    ...topics.map((t) => h('option', { value: String(t.id), text: 'Тема: ' + t.name, selected: t.id === topic ? true : null })),
-    topic !== undefined && !topics.some((t) => t.id === topic) ? h('option', { value: String(topic), text: 'Тема №' + topic, selected: true }) : null,
-    h('option', { value: '+', text: 'Темы…' }));
+  sel.replaceChildren(h('option', { value: '', text: tr('Тема: General') }),
+    ...topics.map((t) => h('option', { value: String(t.id), text: tr('Тема: ') + t.name, selected: t.id === topic ? true : null })),
+    topic !== undefined && !topics.some((t) => t.id === topic) ? h('option', { value: String(topic), text: tr('Тема №') + topic, selected: true }) : null,
+    h('option', { value: '+', text: tr('Темы…') }));
   sel.hidden = false;
 }
 
@@ -52,7 +53,7 @@ export function bindTarget() {
 
 function rightsLine(c) {
   const r = c.rights || {};
-  if (!c.checked_at) return h('span', { class: 'muted small', text: 'ещё не проверен' });
+  if (!c.checked_at) return h('span', { class: 'muted small', text: tr('ещё не проверен') });
   return h('span', { class: 'small' }, Object.entries(RIGHTS).map(([k, name]) => {
     // in a group the bot posts and edits its own messages without special rights; in a channel it needs them
     const own = c.type !== 'channel' && (k === 'can_post_messages' || k === 'can_edit_messages');
@@ -63,15 +64,15 @@ function rightsLine(c) {
 
 function topicsEditor(c, redraw) {
   const topics = [...(c.topics || [])];
-  const save = () => act(async () => { await api('PUT', `/api/channels/${encodeURIComponent(c.chat_id)}/topics`, { topics }); await loadChannels(); redraw(); }, 'Темы сохранены');
-  const id = h('input', { type: 'number', min: 1, placeholder: 'номер', style: 'width:80px' });
-  const name = h('input', { type: 'text', placeholder: 'название темы' });
+  const save = () => act(async () => { await api('PUT', `/api/channels/${encodeURIComponent(c.chat_id)}/topics`, { topics }); await loadChannels(); redraw(); }, tr('Темы сохранены'));
+  const id = h('input', { type: 'number', min: 1, placeholder: tr('номер'), style: 'width:80px' });
+  const name = h('input', { type: 'text', placeholder: tr('название темы') });
   return h('div', { class: 'topics' },
-    h('p', { class: 'muted small', text: 'Темы форума. Telegram не даёт боту их список: новые темы студия запоминает сама, остальные добавьте вручную. Номер темы — второе число в ссылке на сообщение темы: t.me/c/…/номер/…' }),
-    topics.map((t, i) => h('div', { class: 'row small' }, h('span', { text: `${t.name} · №${t.id}` }), h('button', { class: 'ghost small-btn', text: '✕', title: 'Убрать тему', onclick: () => { topics.splice(i, 1); save(); } }))),
-    h('div', { class: 'row' }, id, name, h('button', { class: 'ghost small-btn', text: '＋ тема', onclick: () => {
+    h('p', { class: 'muted small', text: tr('Темы форума. Telegram не даёт боту их список: новые темы студия запоминает сама, остальные добавьте вручную. Номер темы — второе число в ссылке на сообщение темы: t.me/c/…/номер/…') }),
+    topics.map((t, i) => h('div', { class: 'row small' }, h('span', { text: `${t.name} · №${t.id}` }), h('button', { class: 'ghost small-btn', text: '✕', title: tr('Убрать тему'), onclick: () => { topics.splice(i, 1); save(); } }))),
+    h('div', { class: 'row' }, id, name, h('button', { class: 'ghost small-btn', text: tr('＋ тема'), onclick: () => {
       const n = Number(id.value);
-      if (!(n >= 1)) { toast('Номер темы — целое число больше нуля', 'err'); return; }
+      if (!(n >= 1)) { toast(tr('Номер темы — целое число больше нуля'), 'err'); return; }
       topics.push({ id: n, name: name.value.trim() }); save();
     } })));
 }
@@ -90,36 +91,36 @@ export function showChannels() {
   const use = (c) => { setTarget(c.chat_id); closeDialog(); };
   const addTo = (c) => { setTarget([...chats(), c.chat_id].join(', ')); where.value = /** @type {HTMLInputElement} */ ($('#chat')).value; draw(); };
   const check = (id) => act(async () => { const r = await api('POST', '/api/channels', { chat_id: id }); await loadChannels(); draw(); return r; },
-    (r) => `«${r.channel.title}»: ` + (r.can_post ? 'бот может публиковать' : 'у бота нет права публиковать'));
+    (r) => `«${r.channel.title}»: ` + (r.can_post ? tr('бот может публиковать') : tr('у бота нет права публиковать')));
   const draw = () => {
     const current = chats();
     // a channel typed in the field but never checked is listed too, so «Проверить» is one click away
     const typed = current.filter((id) => !channelOf(id)).map((id) => /** @type {Channel} */ ({ chat_id: id, title: null, is_forum: false, topics: [], checked_at: null, is_default: false }));
     box.replaceChildren(...[...S.channels, ...typed].map((c) => h('div', { class: 'channel' + (current.includes(c.chat_id) ? ' on' : '') },
       h('div', { class: 'row', style: 'margin:0' },
-        h('b', { text: c.title || c.chat_id }), h('span', { class: 'muted small', text: c.chat_id + (c.type ? ' · ' + ({ channel: 'канал', supergroup: c.is_forum ? 'форум' : 'группа', group: 'группа', private: 'личка' }[c.type] || c.type) : '') + (c.is_default ? ' · по умолчанию' : '') }),
+        h('b', { text: c.title || c.chat_id }), h('span', { class: 'muted small', text: c.chat_id + (c.type ? ' · ' + ({ channel: tr('канал'), supergroup: c.is_forum ? tr('форум') : tr('группа'), group: tr('группа'), private: tr('личка') }[c.type] || c.type) : '') + (c.is_default ? tr(' · по умолчанию') : '') }),
         h('span', { class: 'grow' }),
-        h('button', { class: 'ghost small-btn', text: 'Сюда', title: 'Публиковать этот черновик только в этот канал', onclick: () => use(c) }),
-        current.includes(c.chat_id) ? null : h('button', { class: 'ghost small-btn', text: '＋', title: 'Добавить к каналам этого черновика', onclick: () => addTo(c) }),
-        h('button', { class: 'ghost small-btn', text: c.checked_at ? 'Проверить снова' : 'Проверить', onclick: () => check(c.chat_id) }),
-        c.checked_at ? h('button', { class: 'ghost small-btn', text: 'Ссылки', title: 'Пригласительные ссылки: своя на каждую площадку и сколько по ней вступили', onclick: () => showInviteLinks(c) }) : null,
-        c.checked_at && !c.is_default ? h('button', { class: 'ghost small-btn', text: '✕', title: 'Убрать из списка (в Telegram ничего не меняется)', onclick: () => act(async () => { await api('DELETE', '/api/channels/' + encodeURIComponent(c.chat_id)); await loadChannels(); draw(); }) }) : null),
+        h('button', { class: 'ghost small-btn', text: tr('Сюда'), title: tr('Публиковать этот черновик только в этот канал'), onclick: () => use(c) }),
+        current.includes(c.chat_id) ? null : h('button', { class: 'ghost small-btn', text: '＋', title: tr('Добавить к каналам этого черновика'), onclick: () => addTo(c) }),
+        h('button', { class: 'ghost small-btn', text: c.checked_at ? tr('Проверить снова') : tr('Проверить'), onclick: () => check(c.chat_id) }),
+        c.checked_at ? h('button', { class: 'ghost small-btn', text: tr('Ссылки'), title: tr('Пригласительные ссылки: своя на каждую площадку и сколько по ней вступили'), onclick: () => showInviteLinks(c) }) : null,
+        c.checked_at && !c.is_default ? h('button', { class: 'ghost small-btn', text: '✕', title: tr('Убрать из списка (в Telegram ничего не меняется)'), onclick: () => act(async () => { await api('DELETE', '/api/channels/' + encodeURIComponent(c.chat_id)); await loadChannels(); draw(); }) }) : null),
       rightsLine(c),
       c.is_forum ? topicsEditor(c, draw) : null)));
-    if (!S.channels.length && !typed.length) box.append(h('p', { class: 'muted', text: 'Каналов пока нет: добавьте первый ниже.' }));
+    if (!S.channels.length && !typed.length) box.append(h('p', { class: 'muted', text: tr('Каналов пока нет: добавьте первый ниже.') }));
   };
   draw();
-  const add = h('input', { type: 'text', placeholder: '@канал или -100…' });
-  const where = h('input', { type: 'text', style: 'width:100%', value: /** @type {HTMLInputElement} */ ($('#chat')).value, placeholder: '@канал, @другой', onchange: (e) => { setTarget(e.target.value); draw(); } });
-  openDialog([h('h3', { text: 'Каналы' }),
+  const add = h('input', { type: 'text', placeholder: tr('@канал или -100…') });
+  const where = h('input', { type: 'text', style: 'width:100%', value: /** @type {HTMLInputElement} */ ($('#chat')).value, placeholder: tr('@канал, @другой'), onchange: (e) => { setTarget(e.target.value); draw(); } });
+  openDialog([h('h3', { text: tr('Каналы') }),
     S.config.public ? h('div', { class: 'connect-channel' },
-      h('p', { text: 'Подключите канал, которым вы управляете. Студия проверит ваши права и права бота.' }),
-      h('a', { class: 'btn primary', href: `https://t.me/${S.config.bot_username}?startchannel=richstudio&admin=post_messages+edit_messages+delete_messages+invite_users`, target: '_blank', rel: 'noopener', text: '＋ Добавить бота в канал' }),
-      h('p', { class: 'muted small', text: 'Выберите канал в Telegram и выдайте боту право публикации сообщений. Затем вернитесь сюда и обновите список. Если бот уже добавлен, укажите @username или числовой id канала ниже.' }),
-      h('button', { class: 'ghost', text: 'Обновить список каналов', onclick: () => act(async () => { await loadChannels(); draw(); }) })) : null,
-    h('label', { class: 'small muted', text: 'Куда публиковать этот черновик (несколько через запятую: пост уйдёт в каждый)' }), where,
+      h('p', { text: tr('Подключите канал, которым вы управляете. Студия проверит ваши права и права бота.') }),
+      h('a', { class: 'btn primary', href: `https://t.me/${S.config.bot_username}?startchannel=richstudio&admin=post_messages+edit_messages+delete_messages+invite_users`, target: '_blank', rel: 'noopener', text: tr('＋ Добавить бота в канал') }),
+      h('p', { class: 'muted small', text: tr('Выберите канал в Telegram и выдайте боту право публикации сообщений. Затем вернитесь сюда и обновите список. Если бот уже добавлен, укажите @username или числовой id канала ниже.') }),
+      h('button', { class: 'ghost', text: tr('Обновить список каналов'), onclick: () => act(async () => { await loadChannels(); draw(); }) })) : null,
+    h('label', { class: 'small muted', text: tr('Куда публиковать этот черновик (несколько через запятую: пост уйдёт в каждый)') }), where,
     box,
-    h('div', { class: 'row' }, add, h('button', { text: 'Добавить и проверить', onclick: () => { if (add.value.trim()) check(add.value.trim()); } })),
-    h('p', { class: 'muted small', text: S.config.public ? 'После привязки нажмите «Сюда», чтобы выбрать канал для черновика.' : 'Студия спрашивает у Telegram название и права бота. Бот должен быть админом канала с правом «Публикация сообщений».' })]);
+    h('div', { class: 'row' }, add, h('button', { text: tr('Добавить и проверить'), onclick: () => { if (add.value.trim()) check(add.value.trim()); } })),
+    h('p', { class: 'muted small', text: S.config.public ? tr('После привязки нажмите «Сюда», чтобы выбрать канал для черновика.') : tr('Студия спрашивает у Telegram название и права бота. Бот должен быть админом канала с правом «Публикация сообщений».') })]);
   renderPreview();
 }

@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RichPost — студия публикаций</title>
+<title data-i18n="RichPost — студия публикаций">RichPost — студия публикаций</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233390ec'/><path d='M8 16l14-6-3 13-4-4-3 3v-4l7-6-9 5z' fill='white'/></svg>">
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/static/tg.css">
@@ -16,56 +17,57 @@
 <body>
 <header class="top">
   <div class="brand">RichPost</div>
-  <button id="account-menu" class="ghost account-menu" hidden title="Ваша учётка и выход"></button>
-  <input id="title" class="title-input" placeholder="Название черновика">
-  <button id="btn-new" class="ghost" title="Новый черновик">Новый</button>
-  <button id="btn-import" class="ghost" title="Создать черновик из сообщения Telegram">Импорт</button>
-  <button id="btn-undo" class="ghost" title="Отменить (Ctrl+Z вне текстовых полей)" disabled>↶</button>
-  <button id="btn-redo" class="ghost" title="Вернуть (Ctrl+Shift+Z)" disabled>↷</button>
-  <button id="btn-save" title="Сохранить (Ctrl+S)">Сохранить</button>
+  <label class="locale-control"><span class="sr-only" data-i18n="Язык интерфейса">Язык интерфейса</span><select id="locale-select" aria-label="Язык интерфейса" data-i18n-aria-label="Язык интерфейса"><option value="ru">RU</option><option value="en">EN</option></select></label>
+  <button id="account-menu" class="ghost account-menu" hidden title="Ваша учётка и выход" data-i18n-title="Ваша учётка и выход"></button>
+  <input id="title" class="title-input" placeholder="Название черновика" data-i18n-placeholder="Название черновика">
+  <button id="btn-new" class="ghost" title="Новый черновик" data-i18n-title="Новый черновик" data-i18n="Новый">Новый</button>
+  <button id="btn-import" class="ghost" title="Создать черновик из сообщения Telegram" data-i18n-title="Создать черновик из сообщения Telegram" data-i18n="Импорт">Импорт</button>
+  <button id="btn-undo" class="ghost" title="Отменить (Ctrl+Z вне текстовых полей)" data-i18n-title="Отменить (Ctrl+Z вне текстовых полей)" disabled>↶</button>
+  <button id="btn-redo" class="ghost" title="Вернуть (Ctrl+Shift+Z)" data-i18n-title="Вернуть (Ctrl+Shift+Z)" disabled>↷</button>
+  <button id="btn-save" title="Сохранить (Ctrl+S)" data-i18n-title="Сохранить (Ctrl+S)" data-i18n="Сохранить">Сохранить</button>
   <span id="save-state" class="muted small"></span>
   <span class="grow"></span>
   <rs-health id="health"></rs-health>
-  <button id="spec-badge" class="badge" title="Версия Bot API, по которой строится редактор">Bot API …</button>
-  <button id="spec-refresh" class="ghost icon-btn" title="Обновить спецификацию Bot API сейчас">↻</button>
+  <button id="spec-badge" class="badge" title="Версия Bot API, по которой строится редактор" data-i18n-title="Версия Bot API, по которой строится редактор">Bot API …</button>
+  <button id="spec-refresh" class="ghost icon-btn" title="Обновить спецификацию Bot API сейчас" data-i18n-title="Обновить спецификацию Bot API сейчас">↻</button>
   <input id="chat" type="text" hidden>
-  <button id="btn-check" class="ghost chat-btn" title="Канал этого черновика: выбрать, проверить права бота, темы форума">Канал</button>
-  <select id="topic" class="topic-select" title="Тема форума, в которую уйдёт пост" hidden></select>
-  <button id="btn-me" class="ghost" title="Отправить пост себе в личку (TG_PREVIEW_CHAT)">Мне в личку</button>
+  <button id="btn-check" class="ghost chat-btn" title="Канал этого черновика: выбрать, проверить права бота, темы форума" data-i18n-title="Канал этого черновика: выбрать, проверить права бота, темы форума" data-i18n="Канал">Канал</button>
+  <select id="topic" class="topic-select" title="Тема форума, в которую уйдёт пост" data-i18n-title="Тема форума, в которую уйдёт пост" hidden></select>
+  <button id="btn-me" class="ghost" title="Отправить пост себе в личку (TG_PREVIEW_CHAT)" data-i18n-title="Отправить пост себе в личку (TG_PREVIEW_CHAT)" data-i18n="Мне в личку">Мне в личку</button>
   <span class="split" id="publish-split">
-    <button id="btn-publish" class="primary">Опубликовать</button><button id="btn-more" class="primary more" title="Отложить, опрос, Live Photo и платный контент, заменить пост" aria-haspopup="menu" aria-expanded="false" aria-controls="publish-menu">▾</button>
+    <button id="btn-publish" class="primary" data-i18n="Опубликовать">Опубликовать</button><button id="btn-more" class="primary more" title="Отложить, опрос, Live Photo и платный контент, заменить пост" data-i18n-title="Отложить, опрос, Live Photo и платный контент, заменить пост" aria-haspopup="menu" aria-expanded="false" aria-controls="publish-menu">▾</button>
     <span id="publish-menu" class="menu" role="menu" hidden>
-      <button id="btn-schedule" role="menuitem" class="ghost" title="Опубликовать в заданное время">Отложить…</button>
-      <button id="btn-poll" role="menuitem" class="ghost" title="Опрос или викторина в канал">Опрос…</button>
-      <button id="btn-media-post" role="menuitem" class="ghost" title="Live Photo или фото и видео за звёзды отдельным сообщением">Live Photo, платное…</button>
-      <button id="btn-replace" role="menuitem" class="ghost" title="Заменить уже опубликованный пост этим">Заменить пост…</button>
+      <button id="btn-schedule" role="menuitem" class="ghost" title="Опубликовать в заданное время" data-i18n-title="Опубликовать в заданное время" data-i18n="Отложить…">Отложить…</button>
+      <button id="btn-poll" role="menuitem" class="ghost" title="Опрос или викторина в канал" data-i18n-title="Опрос или викторина в канал" data-i18n="Опрос…">Опрос…</button>
+      <button id="btn-media-post" role="menuitem" class="ghost" title="Live Photo или фото и видео за звёзды отдельным сообщением" data-i18n-title="Live Photo или фото и видео за звёзды отдельным сообщением" data-i18n="Live Photo, платное…">Live Photo, платное…</button>
+      <button id="btn-replace" role="menuitem" class="ghost" title="Заменить уже опубликованный пост этим" data-i18n-title="Заменить уже опубликованный пост этим" data-i18n="Заменить пост…">Заменить пост…</button>
     </span>
   </span>
 </header>
-<nav class="tabs view-tabs" id="view-tabs" aria-label="Что показать">
-  <button data-view="edit" class="on">Редактор</button>
-  <button data-view="preview">Предпросмотр</button>
+<nav class="tabs view-tabs" id="view-tabs" aria-label="Что показать" data-i18n-aria-label="Что показать">
+  <button data-view="edit" class="on" data-i18n="Редактор">Редактор</button>
+  <button data-view="preview" data-i18n="Предпросмотр">Предпросмотр</button>
 </nav>
 
 <main class="layout">
   <aside class="side">
     <nav class="tabs" id="side-tabs">
-      <button data-tab="drafts" class="on">Черновики</button>
-      <button data-tab="posts">Посты</button>
-      <button data-tab="uploads">Файлы</button>
+      <button data-tab="drafts" class="on" data-i18n="Черновики">Черновики</button>
+      <button data-tab="posts" data-i18n="Посты">Посты</button>
+      <button data-tab="uploads" data-i18n="Файлы">Файлы</button>
     </nav>
     <div class="side-body" data-pane="drafts"><ul id="drafts" class="list"></ul></div>
     <div class="side-body" data-pane="posts" hidden><p id="updates-state" class="small"></p>
       <div id="suggested" class="suggested" hidden></div>
-      <select id="posts-filter" aria-label="Какие посты показать"><option value="">Все посты</option><option value="failed">Не вышли (ошибка)</option><option value="scheduled">Отложенные</option><option value="sent">Опубликованные</option></select>
+      <select id="posts-filter" aria-label="Какие посты показать" data-i18n-aria-label="Какие посты показать"><option value="" data-i18n="Все посты">Все посты</option><option value="failed" data-i18n="Не вышли (ошибка)">Не вышли (ошибка)</option><option value="scheduled" data-i18n="Отложенные">Отложенные</option><option value="sent" data-i18n="Опубликованные">Опубликованные</option></select>
       <ul id="posts" class="list"></ul></div>
     <div class="side-body" data-pane="uploads" hidden>
-      <label class="upload"><input id="upload" type="file" multiple hidden>＋ Загрузить файлы</label>
+      <label class="upload"><input id="upload" type="file" multiple hidden><span data-i18n="＋ Загрузить файлы">＋ Загрузить файлы</span></label>
       <div class="row files-tools">
-        <a id="export" class="btn ghost small-btn" href="/api/export" download title="Zip с базой (черновики, посты, история правок) и всеми файлами">Скачать бэкап</a>
-        <button id="media-cleanup" class="ghost small-btn" hidden title="Файлы, которых нет ни в одном черновике и ни в одном живом посте"></button>
+        <a id="export" class="btn ghost small-btn" href="/api/export" download title="Zip с базой (черновики, посты, история правок) и всеми файлами" data-i18n-title="Zip с базой (черновики, посты, история правок) и всеми файлами" data-i18n="Скачать бэкап">Скачать бэкап</a>
+        <button id="media-cleanup" class="ghost small-btn" hidden title="Файлы, которых нет ни в одном черновике и ни в одном живом посте" data-i18n-title="Файлы, которых нет ни в одном черновике и ни в одном живом посте"></button>
       </div>
-      <p class="muted small">Файлы хранятся в сервисе и отправляются в Telegram при публикации. В посте указываются как <code>upload:имя</code>.</p>
+      <p class="muted small"><span data-i18n="Файлы хранятся в сервисе и отправляются в Telegram при публикации. В посте указываются как ">Файлы хранятся в сервисе и отправляются в Telegram при публикации. В посте указываются как </span><code data-i18n="upload:имя">upload:имя</code>.</p>
       <ul id="uploads" class="list uploads"></ul>
     </div>
   </aside>
@@ -74,10 +76,10 @@
     <rs-edit-bar id="edit-bar"></rs-edit-bar>
     <div id="import-info" class="panel small" hidden></div>
     <nav class="tabs mode-tabs" id="mode-tabs">
-      <button data-mode="blocks" class="on" title="Конструктор из блоков; формы строятся из спецификации Bot API">Визуально</button>
-      <button data-mode="html" title="Rich HTML: покрывает всё, включая новые теги">HTML</button>
-      <button data-mode="markdown" title="Rich Markdown (GFM + разрешённые теги)">Markdown</button>
-      <button data-mode="json" title="Весь запрос как JSON: любое поле API">JSON</button>
+      <button data-mode="blocks" class="on" title="Конструктор из блоков; формы строятся из спецификации Bot API" data-i18n-title="Конструктор из блоков; формы строятся из спецификации Bot API" data-i18n="Визуально">Визуально</button>
+      <button data-mode="html" title="Rich HTML: покрывает всё, включая новые теги" data-i18n-title="Rich HTML: покрывает всё, включая новые теги">HTML</button>
+      <button data-mode="markdown" title="Rich Markdown (GFM + разрешённые теги)" data-i18n-title="Rich Markdown (GFM + разрешённые теги)">Markdown</button>
+      <button data-mode="json" title="Весь запрос как JSON: любое поле API" data-i18n-title="Весь запрос как JSON: любое поле API">JSON</button>
       <span class="grow"></span>
       <span class="muted small" id="mode-hint"></span>
       <button id="check-pill" class="check-pill" type="button" hidden></button>
@@ -85,34 +87,37 @@
     <div id="pane-blocks" class="pane"></div>
     <div id="pane-html" class="pane" hidden>
       <div class="snip-bar" id="snip-html"></div>
-      <rs-code-editor id="src-html" language="html" placeholder="<h1>Заголовок</h1>&#10;<p>Текст поста</p>"></rs-code-editor>
+      <rs-code-editor id="src-html" language="html" placeholder="&lt;h1&gt;Заголовок&lt;/h1&gt;&#10;&lt;p&gt;Текст поста&lt;/p&gt;" data-i18n-placeholder="&lt;h1&gt;Заголовок&lt;/h1&gt;
+&lt;p&gt;Текст поста&lt;/p&gt;"></rs-code-editor>
     </div>
     <div id="pane-markdown" class="pane" hidden>
       <div class="snip-bar" id="snip-markdown"></div>
-      <rs-code-editor id="src-markdown" language="markdown" placeholder="# Заголовок&#10;&#10;Текст поста"></rs-code-editor>
+      <rs-code-editor id="src-markdown" language="markdown" placeholder="# Заголовок&#10;&#10;Текст поста" data-i18n-placeholder="# Заголовок
+
+Текст поста"></rs-code-editor>
     </div>
     <div id="pane-json" class="pane" hidden>
-      <p class="muted small">Полный запрос: <code>rich_message</code>, <code>reply_markup</code> и <code>options</code> (любые параметры sendRichMessage). Поля, которых студия ещё не знает, тоже уйдут в Telegram.</p>
+      <p class="muted small"><span data-i18n="Полный запрос: ">Полный запрос: </span><code>rich_message</code>, <code>reply_markup</code><span data-i18n=" и "> и </span><code>options</code><span data-i18n=" (любые параметры sendRichMessage). Поля, которых студия ещё не знает, тоже уйдут в Telegram."> (любые параметры sendRichMessage). Поля, которых студия ещё не знает, тоже уйдут в Telegram.</span></p>
       <rs-code-editor id="src-json" language="json"></rs-code-editor>
-      <div class="row"><button id="json-apply">Применить JSON</button><span id="json-err" class="err small"></span></div>
-      <p class="muted small">Правки JSON сохраняются в черновике. Чтобы обновить предпросмотр и отправляемый пост, нажмите «Применить JSON».</p>
+      <div class="row"><button id="json-apply" data-i18n="Применить JSON">Применить JSON</button><span id="json-err" class="err small"></span></div>
+      <p class="muted small" data-i18n="Правки JSON сохраняются в черновике. Чтобы обновить предпросмотр и отправляемый пост, нажмите «Применить JSON».">Правки JSON сохраняются в черновике. Чтобы обновить предпросмотр и отправляемый пост, нажмите «Применить JSON».</p>
     </div>
 
     <details class="panel" id="panel-media" open>
-      <summary>Медиа поста <span class="muted small">(для HTML и Markdown: <code>tg://photo?id=…</code>)</span></summary>
+      <summary><span data-i18n="Медиа поста ">Медиа поста </span><span class="muted small"><span data-i18n="(для HTML и Markdown: ">(для HTML и Markdown: </span><code>tg://photo?id=…</code>)</span></summary>
       <div id="media-list"></div>
-      <button id="media-add" class="ghost small-btn">＋ медиа</button>
+      <button id="media-add" class="ghost small-btn" data-i18n="＋ медиа">＋ медиа</button>
     </details>
     <details class="panel" id="panel-kb">
-      <summary>Кнопки под постом <span class="muted small">(reply_markup)</span></summary>
+      <summary><span data-i18n="Кнопки под постом ">Кнопки под постом </span><span class="muted small">(reply_markup)</span></summary>
       <div id="kb"></div>
     </details>
     <details class="panel" id="panel-after">
-      <summary>После публикации <span class="muted small">(закреп, первый комментарий, опрос)</span></summary>
+      <summary><span data-i18n="После публикации ">После публикации </span><span class="muted small" data-i18n="(закреп, первый комментарий, опрос)">(закреп, первый комментарий, опрос)</span></summary>
       <div id="after"></div>
     </details>
     <details class="panel" id="panel-opts">
-      <summary>Параметры отправки</summary>
+      <summary data-i18n="Параметры отправки">Параметры отправки</summary>
       <div id="opts"></div>
     </details>
     <div id="validation" class="validation"></div>
@@ -120,10 +125,10 @@
 
   <section class="preview-col">
     <div class="preview-bar">
-      <strong>Предпросмотр</strong>
+      <strong data-i18n="Предпросмотр">Предпросмотр</strong>
       <span class="grow"></span>
-      <button id="theme-toggle" class="ghost small-btn" title="Светлая/тёмная тема Telegram">☾</button>
-      <button id="open-render" class="ghost small-btn" title="Открыть рендер отдельной страницей">↗</button>
+      <button id="theme-toggle" class="ghost small-btn" title="Светлая/тёмная тема Telegram" data-i18n-title="Светлая/тёмная тема Telegram">☾</button>
+      <button id="open-render" class="ghost small-btn" title="Открыть рендер отдельной страницей" data-i18n-title="Открыть рендер отдельной страницей">↗</button>
     </div>
     <rs-parse-check id="parse-check"></rs-parse-check>
     <rs-preview id="preview"></rs-preview>

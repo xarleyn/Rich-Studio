@@ -1,3 +1,4 @@
+import { tr } from '../i18n.js';
 // Local, lazily loaded source editor. Post state stays outside: value/spec/snippets in, source-change/snippet out.
 import { css, html, LitElement } from '../../vendor/lit-core.min.js';
 import { htmlTags, jsonSource, snippetSource } from '../source-completion.js';
@@ -42,7 +43,7 @@ export class RsCodeEditor extends LitElement {
     this.snippets = {};
     this.ready = false;
     this.message = '';
-    this.position = 'Строка 1, столбец 1';
+    this.position = tr('Строка 1, столбец 1');
     this.buffer = '';
     this.loading = false;
     /** @type {import('../../vendor/code-editor.js').EditorView | undefined} */
@@ -103,7 +104,7 @@ export class RsCodeEditor extends LitElement {
       }
       this.observer?.disconnect();
     } catch {
-      this.message = 'Подсказки временно недоступны. Текст можно редактировать и сохранять.';
+      this.message = tr('Подсказки временно недоступны. Текст можно редактировать и сохранять.');
     } finally { this.loading = false; }
   }
 
@@ -178,17 +179,17 @@ export class RsCodeEditor extends LitElement {
       cm.autocompletion({ override: sources }),
       cm.keymap.of([{ key: 'Tab', run: cm.acceptCompletion }, ...cm.closeBracketsKeymap, ...cm.completionKeymap,
         ...cm.defaultKeymap, ...cm.historyKeymap, ...cm.searchKeymap, ...cm.foldKeymap, cm.indentWithTab]),
-      cm.EditorView.contentAttributes.of({ 'aria-label': `Редактор ${this.language === 'markdown' ? 'Markdown' : this.language.toUpperCase()}`, spellcheck: 'false', autocapitalize: 'off' }),
-      cm.EditorState.phrases.of({ 'Find': 'Найти', 'Replace': 'Заменить', 'next': 'Далее', 'previous': 'Назад', 'all': 'Все',
-        'match case': 'Учитывать регистр', 'by word': 'Слова целиком', 'regexp': 'Регулярное выражение', 'replace': 'Заменить',
-        'replace all': 'Заменить всё', 'close': 'Закрыть', 'Fold line': 'Свернуть строку', 'Unfold line': 'Развернуть строку' }),
+      cm.EditorView.contentAttributes.of({ 'aria-label': tr`Редактор ${this.language === 'markdown' ? 'Markdown' : this.language.toUpperCase()}`, spellcheck: 'false', autocapitalize: 'off' }),
+      cm.EditorState.phrases.of({ 'Find': tr('Найти'), 'Replace': tr('Заменить'), 'next': tr('Далее'), 'previous': tr('Назад'), 'all': tr('Все'),
+        'match case': tr('Учитывать регистр'), 'by word': tr('Слова целиком'), 'regexp': tr('Регулярное выражение'), 'replace': tr('Заменить'),
+        'replace all': tr('Заменить всё'), 'close': tr('Закрыть'), 'Fold line': tr('Свернуть строку'), 'Unfold line': tr('Развернуть строку') }),
       ...(this.language === 'json' ? [cm.linter(cm.jsonParseLinter()), cm.lintGutter()] : []),
       cm.EditorView.updateListener.of((update) => {
         if (update.docChanged) { this.buffer = update.state.doc.toString(); this.message = ''; this.fireChange(); }
         if (update.docChanged || update.selectionSet) {
           const at = update.state.selection.main.head;
           const line = update.state.doc.lineAt(at);
-          this.position = `Строка ${line.number}, столбец ${at - line.from + 1}`;
+          this.position = tr`Строка ${line.number}, столбец ${at - line.from + 1}`;
         }
       }),
     ];
@@ -220,22 +221,22 @@ export class RsCodeEditor extends LitElement {
       const text = JSON.stringify(JSON.parse(this.value), null, 2);
       if (this.view) this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text }, userEvent: 'input' });
       else { this.value = text; this.fireChange(); }
-    } catch { this.message = 'Сначала исправьте ошибку JSON — она отмечена в тексте.'; }
+    } catch { this.message = tr('Сначала исправьте ошибку JSON — она отмечена в тексте.'); }
   }
 
   render() {
     this.fallback.hidden = this.ready;
     this.fallback.placeholder = this.placeholder;
-    this.fallback.setAttribute('aria-label', `Редактор ${this.language}`);
+    this.fallback.setAttribute('aria-label', tr`Редактор ${this.language}`);
     return html`<div class="frame">
       <div class="bar"><span class="language">${this.language === 'markdown' ? 'Markdown' : this.language.toUpperCase()}</span>
-        <button type="button" ?disabled=${!this.ready} @click=${this.suggest} title="Показать подсказки (Ctrl+Space)">Подсказки <span class="shortcut">⌃Space</span></button>
-        <button type="button" ?disabled=${!this.ready} @click=${this.search} title="Поиск и замена (Ctrl+F)">Найти</button>
-        ${this.language === 'json' ? html`<button type="button" @click=${this.format}>Форматировать</button>` : ''}
+        <button type="button" ?disabled=${!this.ready} @click=${this.suggest} title="${tr("Показать подсказки (Ctrl+Space)")}">${tr("Подсказки ")}<span class="shortcut">⌃Space</span></button>
+        <button type="button" ?disabled=${!this.ready} @click=${this.search} title="${tr("Поиск и замена (Ctrl+F)")}">${tr("Найти")}</button>
+        ${this.language === 'json' ? html`<button type="button" @click=${this.format}>${tr("Форматировать")}</button>` : ''}
       </div>
       <div class="mount" ?hidden=${!this.ready}></div>
       ${this.fallback}
-      <div class="status"><span>${this.position}</span><span>${this.language === 'markdown' ? '/ в начале строки — сниппеты' : 'Ctrl+Space — подсказки'}</span>
+      <div class="status"><span>${this.position}</span><span>${this.language === 'markdown' ? tr('/ в начале строки — сниппеты') : tr('Ctrl+Space — подсказки')}</span>
         ${this.message ? html`<span class="message" role="status">${this.message}</span>` : ''}</div>
     </div>`;
   }

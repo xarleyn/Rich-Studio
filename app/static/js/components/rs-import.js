@@ -1,3 +1,4 @@
+import { tr } from '../i18n.js';
 // Import form owns presentation only; requests and editor changes stay in the controller.
 import { css, html, LitElement } from '../../vendor/lit-core.min.js';
 import { parseTelegramLink } from '../import-links.js';
@@ -37,19 +38,19 @@ export class RsImport extends LitElement {
   render() {
     const invalid = this.validation();
     return html`
-      <label for="url">Ссылка на сообщение</label>
+      <label for="url">${tr("Ссылка на сообщение")}</label>
       <input id="url" type="text" inputmode="url" placeholder="https://t.me/simple_agi/203"
         .value=${this.url} ?disabled=${this.busy} aria-describedby="import-feedback"
         @input=${(e) => { this.url = e.target.value; this.error = ''; }}
         @keydown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); this.submit('link'); } }}>
-      <p>Создадим новый черновик с визуальными блоками, HTML и Markdown. Текущий пост сохранится отдельно.</p>
+      <p>${tr("Создадим новый черновик с визуальными блоками, HTML и Markdown. Текущий пост сохранится отдельно.")}</p>
       <p id="import-feedback" role="status" class=${invalid || this.error ? 'error' : ''}>${invalid || this.error || this.message}</p>
-      ${this.botUrl ? html`<p>Откройте бота, нажмите Start, затем перешлите нужное сообщение. Ожидание действует 10 минут.</p>
-        <a href=${this.botUrl} target="_blank" rel="noopener noreferrer">Открыть бота Telegram ↗</a>` : ''}
+      ${this.botUrl ? html`<p>${tr("Откройте бота, нажмите Start, затем перешлите нужное сообщение. Ожидание действует 10 минут.")}</p>
+        <a href=${this.botUrl} target="_blank" rel="noopener noreferrer">${tr("Открыть бота Telegram ↗")}</a>` : ''}
       <div class="actions">
-        <button ?disabled=${this.busy || !this.url.trim() || !!invalid} @click=${() => this.submit('link')}>${this.busy ? 'Ожидание…' : 'Импортировать'}</button>
+        <button ?disabled=${this.busy || !this.url.trim() || !!invalid} @click=${() => this.submit('link')}>${this.busy ? tr('Ожидание…') : tr('Импортировать')}</button>
         ${this.forwardAvailable ? html`<button class="secondary" ?disabled=${this.busy || !this.url.trim() || !!invalid}
-          @click=${() => this.submit('forward')}>Через пересылку боту</button>` : ''}
+          @click=${() => this.submit('forward')}>${tr("Через пересылку боту")}</button>` : ''}
       </div>`;
   }
 }

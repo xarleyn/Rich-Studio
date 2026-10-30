@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // RichText field: contenteditable with a toolbar, chips for entities, DOM <-> RichText.
 import { closeDialog, editJson, openDialog } from './dialogs.js';
 import { clone, h, toast } from './dom.js';
@@ -42,7 +43,7 @@ export function richTextEditor(obj, key, opts) {
     const { rt, images } = htmlToRt(html);
     insertFragment(ed, rtToDom(rt));
     sync();
-    if (images) toast('Картинки из вставленного текста пропущены: перетащите или вставьте их отдельно, они станут блоками «Фото».');
+    if (images) toast(tr('Картинки из вставленного текста пропущены: перетащите или вставьте их отдельно, они станут блоками «Фото».'));
   });
   ed.addEventListener('focus', () => { activeRte = { ed, sync }; showToolbar(ed); });
   ed.addEventListener('blur', () => setTimeout(() => { const a = document.activeElement; if (!(a && a.classList && a.classList.contains('rte')) && !toolbar.contains(a) && !toolbar.matches(':hover')) toolbar.classList.remove('on'); }, 150));
@@ -57,18 +58,18 @@ export function showToolbar(ed) {
   toolbar.replaceChildren();
   const btn = (label, title, fn) => h('button', { type: 'button', text: label, title, onmousedown: (e) => { e.preventDefault(); fn(); } });
   toolbar.append(
-    btn('Ж', 'Жирный (Ctrl+B)', () => wrapSelection('bold')), btn('К', 'Курсив (Ctrl+I)', () => wrapSelection('italic')),
-    btn('Ч', 'Подчёркнутый (Ctrl+U)', () => wrapSelection('underline')), btn('З', 'Зачёркнутый', () => wrapSelection('strikethrough')),
-    btn('▒', 'Спойлер', () => wrapSelection('spoiler')), btn('🖍', 'Маркер', () => wrapSelection('marked')),
-    btn('</>', 'Код', () => wrapSelection('code')), btn('x₂', 'Нижний индекс', () => wrapSelection('subscript')), btn('x²', 'Верхний индекс', () => wrapSelection('superscript')),
-    btn('🔗', 'Ссылка (Ctrl+K)', () => editLink()),
-    btn('⌫', 'Убрать форматирование', () => clearFormatting()));
+    btn(tr('Ж'), tr('Жирный (Ctrl+B)'), () => wrapSelection('bold')), btn(tr('К'), tr('Курсив (Ctrl+I)'), () => wrapSelection('italic')),
+    btn(tr('Ч'), tr('Подчёркнутый (Ctrl+U)'), () => wrapSelection('underline')), btn(tr('З'), tr('Зачёркнутый'), () => wrapSelection('strikethrough')),
+    btn('▒', tr('Спойлер'), () => wrapSelection('spoiler')), btn('🖍', tr('Маркер'), () => wrapSelection('marked')),
+    btn('</>', tr('Код'), () => wrapSelection('code')), btn('x₂', tr('Нижний индекс'), () => wrapSelection('subscript')), btn('x²', tr('Верхний индекс'), () => wrapSelection('superscript')),
+    btn('🔗', tr('Ссылка (Ctrl+K)'), () => editLink()),
+    btn('⌫', tr('Убрать форматирование'), () => clearFormatting()));
   const others = rtTypes().filter((t) => t.const && !RT_WRAP[t.const] && t.const !== 'url');
-  const sel = h('select', { title: 'Вставить элемент из спецификации', onmousedown: (e) => e.stopPropagation(), onchange: (e) => {
+  const sel = h('select', { title: tr('Вставить элемент из спецификации'), onmousedown: (e) => e.stopPropagation(), onchange: (e) => {
     const name = e.target.value; e.target.value = '';
     if (!name) return;
     insertEntity(name);
-  } }, h('option', { value: '', text: '＋ элемент…' }), others.map((t) => h('option', { value: t.name, title: t.desc, text: (RT_LABELS[t.const] || t.const) + (isNewType(t.name) ? ' · новое' : '') })));
+  } }, h('option', { value: '', text: tr('＋ элемент…') }), others.map((t) => h('option', { value: t.name, title: t.desc, text: (RT_LABELS[t.const] || t.const) + (isNewType(t.name) ? tr(' · новое') : '') })));
   toolbar.append(sel);
   const r = ed.getBoundingClientRect();
   toolbar.classList.add('on');
@@ -118,15 +119,15 @@ export function editLink() {
   const a = found && target.ed.contains(found) ? /** @type {HTMLElement} */ (found) : null;
   // the text is editable when it is plain: a selection with formatting inside keeps its formatting
   const plainText = a ? !a.querySelector('*') : !r || r.collapsed || !r.cloneContents().querySelector('*');
-  const text = h('input', { type: 'text', value: a ? a.textContent : r ? r.toString() : '', placeholder: 'Текст ссылки', 'aria-label': 'Текст ссылки' });
-  const url = h('input', { type: 'url', value: a ? a.dataset.url || '' : '', placeholder: 'https://…', 'aria-label': 'Адрес' });
+  const text = h('input', { type: 'text', value: a ? a.textContent : r ? r.toString() : '', placeholder: tr('Текст ссылки'), 'aria-label': tr('Текст ссылки') });
+  const url = h('input', { type: 'url', value: a ? a.dataset.url || '' : '', placeholder: 'https://…', 'aria-label': tr('Адрес') });
   const err = h('span', { class: 'err small' });
   const save = () => {
     const u = url.value.trim();
     const bad = linkError(u);
     if (bad) { err.textContent = bad; url.focus(); return; }
     const t = text.value;
-    if (plainText && !t.trim()) { err.textContent = 'Впишите текст ссылки'; text.focus(); return; }
+    if (plainText && !t.trim()) { err.textContent = tr('Впишите текст ссылки'); text.focus(); return; }
     closeDialog();
     if (a) {
       a.dataset.url = u; a.title = linkTitle(u);
@@ -141,16 +142,16 @@ export function editLink() {
   };
   const onEnter = (e) => { if (e.key === 'Enter') save(); };
   text.addEventListener('keydown', onEnter); url.addEventListener('keydown', onEnter);
-  const actions = [h('button', { class: 'ghost', value: 'cancel', text: 'Отмена' })];
-  if (a) actions.unshift(h('button', { class: 'danger', type: 'button', text: 'Убрать ссылку', onclick: () => { closeDialog(); a.replaceWith(...a.childNodes); target.sync(); } }));
-  actions.push(h('button', { type: 'button', class: 'primary', text: a ? 'Сохранить' : 'Вставить', onclick: save }));
-  openDialog([h('h3', { text: a ? 'Ссылка' : 'Новая ссылка' }),
-    plainText ? h('label', { class: 'stack' }, 'Текст', text) : null,
-    h('label', { class: 'stack' }, 'Адрес', url), err], actions);
+  const actions = [h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') })];
+  if (a) actions.unshift(h('button', { class: 'danger', type: 'button', text: tr('Убрать ссылку'), onclick: () => { closeDialog(); a.replaceWith(...a.childNodes); target.sync(); } }));
+  actions.push(h('button', { type: 'button', class: 'primary', text: a ? tr('Сохранить') : tr('Вставить'), onclick: save }));
+  openDialog([h('h3', { text: a ? tr('Ссылка') : tr('Новая ссылка') }),
+    plainText ? h('label', { class: 'stack' }, tr('Текст'), text) : null,
+    h('label', { class: 'stack' }, tr('Адрес'), url), err], actions);
   (plainText && !text.value ? text : url).focus();
 }
 
-const linkTitle = (url) => url + ' · Ctrl+K: изменить';
+const linkTitle = (url) => url + tr(' · Ctrl+K: изменить');
 
 export function wrapEl(kind, url) {
   if (kind === 'url') return h('a', { 'data-url': url, title: linkTitle(url) });
@@ -162,7 +163,7 @@ export function wrapEl(kind, url) {
 export function wrapSelection(kind, url) {
   if (!activeRte) return;
   const r = selectionIn(activeRte.ed);
-  if (!r || r.collapsed) { toast('Сначала выделите текст'); return; }
+  if (!r || r.collapsed) { toast(tr('Сначала выделите текст')); return; }
   const w = wrapEl(kind, url);
   w.append(r.extractContents());
   r.insertNode(w);
@@ -208,9 +209,9 @@ export function editEntity(value, onSave, onDelete) {
   const name = rtTypes().find((t) => t.const === value.type)?.name;
   if (!name) { editJson(value, onSave); return; }
   const v = clone(value);
-  const actions = [h('button', { class: 'ghost', value: 'cancel', text: 'Отмена' })];
-  if (onDelete) actions.unshift(h('button', { class: 'danger', type: 'button', text: 'Удалить', onclick: () => { closeDialog(); onDelete(); } }));
-  actions.push(h('button', { type: 'button', text: 'Готово', onclick: () => { closeDialog(); onSave(v); } }));
+  const actions = [h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') })];
+  if (onDelete) actions.unshift(h('button', { class: 'danger', type: 'button', text: tr('Удалить'), onclick: () => { closeDialog(); onDelete(); } }));
+  actions.push(h('button', { type: 'button', text: tr('Готово'), onclick: () => { closeDialog(); onSave(v); } }));
   openDialog([h('h3', { text: RT_LABELS[value.type] || value.type }), h('p', { class: 'muted small', text: T(name).description }), objectFields(name, v, 5)], actions);
 }
 

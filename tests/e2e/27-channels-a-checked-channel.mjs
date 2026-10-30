@@ -9,7 +9,7 @@ export default async function ({ page, check }) {
   await page.keyboard.press('Tab');
   await page.waitForTimeout(500);
   await page.locator('dialog[open] .channel', { hasText: '@kept_chan' }).locator('button', { hasText: 'Проверить' }).click();
-  await page.waitForTimeout(600);
+  await page.waitForFunction(() => [...document.querySelectorAll('dialog[open] .channel')].some((el) => el.textContent.includes('@kept_chan') && el.textContent.includes('публикация')));
   const dialogText = await page.locator('dialog[open] .channels').textContent();
   await page.keyboard.press('Escape');
   // saves go one at a time: this one may wait behind an autosave, so wait for it rather than for a fixed time

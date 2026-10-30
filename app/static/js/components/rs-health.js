@@ -1,9 +1,10 @@
+import { tr } from '../i18n.js';
 // <rs-health>: the studio's own health in the header, from GET /api/health. A dot when all is well,
 // a dot and the number of problems otherwise, red without a number when the studio does not answer, grey when it
 // wants the key; the page fetches the report and opens the details on `details`.
 import { css, html, LitElement } from '../../vendor/lit-core.min.js';
 
-const WORD = { ok: 'в порядке', warn: 'требует внимания', fail: 'есть сбой', down: 'не отвечает', locked: 'просит ключ API' };
+const WORD = { ok: tr('в порядке'), warn: tr('требует внимания'), fail: tr('есть сбой'), down: tr('не отвечает'), locked: tr('просит ключ API') };
 
 export class RsHealth extends LitElement {
   // `state`: '' while `report` is current, 'down' when the studio did not answer, 'locked' on 401
@@ -34,9 +35,9 @@ export class RsHealth extends LitElement {
     const status = this.state || (r ? r.status : 'unknown');
     const problems = !this.state && r ? r.problems : [];
     const title = status === 'unknown'
-      ? 'Состояние студии проверяется'
-      : 'Студия ' + WORD[status] + (problems.length ? ':\n' + problems.join('\n') : '') + '\nПодробнее по нажатию';
-    return html`<button class=${status} title=${title} aria-label=${'Состояние студии: ' + (WORD[status] || 'проверяется')}
+      ? tr('Состояние студии проверяется')
+      : tr('Студия ') + WORD[status] + (problems.length ? ':\n' + problems.join('\n') : '') + tr('\nПодробнее по нажатию');
+    return html`<button class=${status} title=${title} aria-label=${tr('Состояние студии: ') + (WORD[status] || tr('проверяется'))}
   @click=${() => this.dispatchEvent(new CustomEvent('details', { bubbles: true, composed: true }))}>
   <span class="dot"></span>${problems.length ? html`<span>${problems.length}</span>` : ''}
 </button>`;

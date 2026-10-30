@@ -1,3 +1,4 @@
+import { tr, dateLocale } from './i18n.js';
 // Editing a published or scheduled post: the draft is its working copy, <rs-edit-bar> says which post it is.
 import { api } from './api.js';
 import { closeDialog, openDialog } from './dialogs.js';
@@ -9,7 +10,7 @@ import { loadPosts } from './posts.js';
 import { chatLabel, dirty, editing, S, saveState } from './state.js';
 import { whenPicker } from './when.js';
 
-const when = (t) => new Date(t * 1000).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+const when = (t) => new Date(t * 1000).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' });
 
 /** Open a post for editing: its working-copy draft if there is one, otherwise a new draft from the post. */
 export async function editPost(p) {
@@ -20,7 +21,7 @@ export async function editPost(p) {
   setDraft(null, null);
   // the draft keeps the name the post was written under, so the list does not fill with «Правка поста #N»
   const origin = (p.draft_id && S.drafts.find((d) => d.id === p.draft_id)?.title) || p.title || '';
-  $('#title').value = 'Правка: ' + (origin || 'пост ' + (p.message_id ? '#' + p.message_id : p.chat_id));
+  $('#title').value = tr('Правка: ') + (origin || tr('пост ') + (p.message_id ? '#' + p.message_id : p.chat_id));
   editing.value = full;
   loadPost(full.payload);
   resetHistory();
@@ -35,15 +36,15 @@ export async function followDraft(d) {
 
 export function leaveEditing() {
   editing.value = null;
-  dirty.value = true; saveState.value = 'есть изменения';
+  dirty.value = true; saveState.value = tr('есть изменения');
   saveDraft(true).catch((e) => toast(e.message, 'err'));
 }
 
 export async function updatePost() {
   const p = editing.value;
   if (!p) return;
-  if (!confirm(`Обновить пост ${p.message_id ? '#' + p.message_id + ' ' : ''}в ${p.chat_id} содержимым редактора?`)) return;
-  const done = { scheduled: 'Отложенный пост обновлён', missed: 'Пропущенный пост обновлён: отложите его заново' }[p.status] || 'Пост обновлён в канале';
+  if (!confirm(tr`Обновить пост ${p.message_id ? '#' + p.message_id + ' ' : ''}в ${p.chat_id} содержимым редактора?`)) return;
+  const done = { scheduled: tr('Отложенный пост обновлён'), missed: tr('Пропущенный пост обновлён: отложите его заново') }[p.status] || tr('Пост обновлён в канале');
   await act(async () => {
     // the version this editor read: a change made elsewhere since then (an agent, another tab) gives 409, not a silent overwrite
     const send = (version) => api('POST', `/api/posts/${p.id}/edit?post_version=${version}`, buildPost());
@@ -54,12 +55,12 @@ export async function updatePost() {
       if (e.status !== 409) throw e;
       const now = await api('GET', '/api/posts/' + p.id);
       editing.value = now;
-      if (!confirm('Пост уже изменили в другом месте (агент или другая вкладка). Заменить его содержимым редактора? Прежняя версия останется в истории.')) return null;
+      if (!confirm(tr('Пост уже изменили в другом месте (агент или другая вкладка). Заменить его содержимым редактора? Прежняя версия останется в истории.'))) return null;
       r = await send(now.version);
     }
     editing.value = r;
     return r;
-  }, (r) => (r ? done : 'Пост не изменён'));
+  }, (r) => (r ? done : tr('Пост не изменён')));
   loadPosts();
 }
 
@@ -71,17 +72,17 @@ export async function refreshEditing(id) {
 export function reschedulePost(p) {
   const base = p.status === 'scheduled' && p.scheduled_at ? p.scheduled_at * 1000 : Date.now() + 3600e3;
   const pick = whenPicker(base, p.id);
-  openDialog([h('h3', { text: p.status === 'missed' ? 'Отложить заново' : 'Перенести публикацию' }),
-    h('p', { class: 'small' }, 'Пост в ', h('b', { text: chatLabel(p.chat_id) || p.chat_id }), p.title ? ': ' + p.title : ''), pick.el],
-    [h('button', { class: 'ghost', value: 'cancel', text: 'Отмена' }), h('button', { type: 'button', class: 'primary', text: 'Перенести', onclick: async () => {
+  openDialog([h('h3', { text: p.status === 'missed' ? tr('Отложить заново') : tr('Перенести публикацию') }),
+    h('p', { class: 'small' }, tr('Пост в '), h('b', { text: chatLabel(p.chat_id) || p.chat_id }), p.title ? ': ' + p.title : ''), pick.el],
+    [h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') }), h('button', { type: 'button', class: 'primary', text: tr('Перенести'), onclick: async () => {
       const at = pick.value();
-      if (!at || at * 1000 < Date.now()) { toast('Выберите время в будущем', 'err'); return; }
+      if (!at || at * 1000 < Date.now()) { toast(tr('Выберите время в будущем'), 'err'); return; }
       closeDialog();
       await act(async () => {
         const r = await api('POST', `/api/posts/${p.id}/reschedule`, { at });
         if (editing.value && editing.value.id === p.id) editing.value = r;
         return r;
-      }, 'Перенесено на ' + when(at));
+      }, tr('Перенесено на ') + when(at));
       loadPosts();
     } })]);
 }
@@ -89,26 +90,26 @@ export function reschedulePost(p) {
 /** Earlier versions of the post: what each one changed, a small preview, and «В редактор» for any of them. */
 export async function showHistory(p) {
   const [now, versions] = await Promise.all([api('GET', '/api/posts/' + p.id), api('GET', `/api/posts/${p.id}/versions`)]);
-  const load = (payload) => { closeDialog(); loadPost(payload); changed(); toast('Загружено в редактор. «Обновить пост» вернёт его в канал', 'ok'); };
+  const load = (payload) => { closeDialog(); loadPost(payload); changed(); toast(tr('Загружено в редактор. «Обновить пост» вернёт его в канал'), 'ok'); };
   // newest first: each entry is compared with the one it replaced
-  const all = [{ label: now.status === 'sent' ? 'Сейчас в канале' : 'Сейчас в очереди', meta: '', payload: now.payload },
-    ...versions.map((v) => ({ label: 'До замены ' + when(v.replaced_at), meta: v.actor && v.actor !== 'ui' ? v.actor : '', payload: v.payload }))];
+  const all = [{ label: now.status === 'sent' ? tr('Сейчас в канале') : tr('Сейчас в очереди'), meta: '', payload: now.payload },
+    ...versions.map((v) => ({ label: tr('До замены ') + when(v.replaced_at), meta: v.actor && v.actor !== 'ui' ? v.actor : '', payload: v.payload }))];
   const row = (e, i) => {
     const older = all[i + 1];
     const preview = h('div', { class: 'version-preview', hidden: true });
-    const toggle = h('button', { class: 'ghost small-btn', text: 'Показать', onclick: () => {
+    const toggle = h('button', { class: 'ghost small-btn', text: tr('Показать'), onclick: () => {
       if (!preview.firstChild) { const pv = /** @type {any} */ (document.createElement('rs-preview')); pv.post = e.payload; preview.append(pv); }
       preview.hidden = !preview.hidden;
-      toggle.textContent = preview.hidden ? 'Показать' : 'Скрыть';
+      toggle.textContent = preview.hidden ? tr('Показать') : tr('Скрыть');
     } });
     return h('li', { class: 'version' },
       h('div', { class: 'row' }, h('b', { text: e.label }), h('span', { class: 'meta', text: e.meta }), h('span', { class: 'grow' }), toggle,
-        h('button', { class: 'ghost small-btn', text: 'В редактор', onclick: () => load(e.payload) })),
+        h('button', { class: 'ghost small-btn', text: tr('В редактор'), onclick: () => load(e.payload) })),
       older ? diffView(postLines(older.payload), postLines(e.payload), JSON.stringify(older.payload) !== JSON.stringify(e.payload))
-        : h('p', { class: 'muted small', text: all.length > 1 ? 'Первая версия' : 'Пост ещё не заменяли.' }),
+        : h('p', { class: 'muted small', text: all.length > 1 ? tr('Первая версия') : tr('Пост ещё не заменяли.') }),
       preview);
   };
-  openDialog([h('h3', { text: 'История поста' }), h('ul', { class: 'list history' }, all.map(row))]);
+  openDialog([h('h3', { text: tr('История поста') }), h('ul', { class: 'list history' }, all.map(row))]);
 }
 
 /** The post as lines a person reads: each block's text, then the buttons under it and the poll after it. */
@@ -119,11 +120,11 @@ export function postLines(payload) {
     for (const el of body ? [...body.children] : []) {
       const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
       if (t) lines.push(t);
-      else if (el.querySelector('img, video, audio, .tg-media')) lines.push('[медиа]');
+      else if (el.querySelector('img, video, audio, .tg-media')) lines.push(tr('[медиа]'));
     }
   } catch { /* a broken payload shows no lines */ }
-  for (const r of payload?.reply_markup?.inline_keyboard || []) for (const b of r || []) lines.push('Кнопка «' + (b?.text || '') + '»' + (b?.url ? ' → ' + b.url : ''));
-  if (payload?.poll_after) lines.push('Опрос после поста: ' + (payload.poll_after.question || ''));
+  for (const r of payload?.reply_markup?.inline_keyboard || []) for (const b of r || []) lines.push(tr('Кнопка «') + (b?.text || '') + '»' + (b?.url ? ' → ' + b.url : ''));
+  if (payload?.poll_after) lines.push(tr('Опрос после поста: ') + (payload.poll_after.question || ''));
   return lines;
 }
 
@@ -146,8 +147,8 @@ export function lineDiff(a, b) {
 function diffView(older, newer, payloadChanged) {
   const d = lineDiff(older, newer);
   const changedLines = d.filter((x) => x.op !== '=');
-  if (!changedLines.length) return h('p', { class: 'muted small', text: payloadChanged ? 'Текст тот же, изменились оформление или параметры' : 'Без изменений' });
+  if (!changedLines.length) return h('p', { class: 'muted small', text: payloadChanged ? tr('Текст тот же, изменились оформление или параметры') : tr('Без изменений') });
   const same = d.length - changedLines.length;
   return h('div', { class: 'diff' }, changedLines.map((x) => h('div', { class: x.op === '+' ? 'add' : 'del', text: (x.op === '+' ? '+ ' : '− ') + x.t })),
-    same ? h('div', { class: 'muted small', text: 'без изменений: ' + same }) : null);
+    same ? h('div', { class: 'muted small', text: tr('без изменений: ') + same }) : null);
 }

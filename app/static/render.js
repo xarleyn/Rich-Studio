@@ -8,6 +8,18 @@
 (function (global) {
   'use strict';
 
+  let language = new URLSearchParams(global.location?.search || '').get('lang') === 'en' ? 'en' : 'ru';
+  const EN = {
+    'нет файла': 'no file', 'Фото': 'Photo', 'Видео': 'Video', 'Аудио': 'Audio', 'Голосовое': 'Voice message', 'Файл': 'File',
+    'Копирует: ': 'Copies: ', 'без действия': 'no action', ' (у читателя: его часовой пояс)': " (reader's local time zone)",
+    'текст: ': 'text: ', 'Этого элемента нет в рендере предпросмотра, но Telegram его получит: ': 'Not supported by the preview renderer; sent to Telegram: ',
+    'Думаю…': 'Thinking…', 'Блок, которого нет в рендере предпросмотра. Telegram его получит.': 'Block not supported by the preview renderer; sent to Telegram.',
+    'Блок «': 'Block “', 'Карта: нет координат': 'Map: no coordinates', 'нет в media: ': 'not in media: ', 'тег <': 'tag <',
+    'Пустой пост': 'Empty post', 'Ошибка рендера: ': 'Render error: ',
+  };
+  const uiText = (text) => language === 'en' ? EN[text] ?? text : text;
+  function setLocale(value) { language = value === 'en' ? 'en' : 'ru'; }
+
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /** @returns {HTMLElement} */
@@ -40,7 +52,7 @@
     const spoiler = media && media.has_spoiler;
     let node;
     if (!src) {
-      node = el('div', { class: 'tg-media-ph' }, el('span', { class: 'tg-media-kind', text: kindLabel(kind) }), el('small', { text: label || 'нет файла' }));
+      node = el('div', { class: 'tg-media-ph' }, el('span', { class: 'tg-media-kind', text: kindLabel(kind) }), el('small', { text: label || uiText('нет файла') }));
     } else if (kind === 'photo') {
       node = el('img', { src, alt: '', loading: 'lazy' });
     } else if (kind === 'video' || kind === 'animation') {
@@ -57,7 +69,7 @@
   }
 
   function kindLabel(k) {
-    return ({ photo: 'Фото', video: 'Видео', animation: 'GIF', audio: 'Аудио', voice_note: 'Голосовое', voice: 'Голосовое', document: 'Файл' })[k] || k;
+    return ({ photo: uiText('Фото'), video: uiText('Видео'), animation: 'GIF', audio: uiText('Аудио'), voice_note: uiText('Голосовое'), voice: uiText('Голосовое'), document: uiText('Файл') })[k] || k;
   }
 
   // ---------- math ----------
@@ -82,7 +94,7 @@
     if (/T/.test(fmt)) { opts.hour = '2-digit'; opts.minute = '2-digit'; opts.second = '2-digit'; } else if (/t/.test(fmt)) { opts.hour = '2-digit'; opts.minute = '2-digit'; }
     if (/r/.test(fmt)) {
       const diff = Math.round((d.getTime() - Date.now()) / 1000);
-      const rtf = new Intl.RelativeTimeFormat('ru', { numeric: 'auto' });
+      const rtf = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
       const a = Math.abs(diff);
       if (a < 60) return rtf.format(diff, 'second');
       if (a < 3600) return rtf.format(Math.round(diff / 60), 'minute');
@@ -90,7 +102,7 @@
       return rtf.format(Math.round(diff / 86400), 'day');
     }
     if (!Object.keys(opts).length) { opts.dateStyle = 'medium'; opts.timeStyle = 'short'; }
-    return d.toLocaleString('ru-RU', opts);
+    return d.toLocaleString(language === 'en' ? 'en-GB' : 'ru-RU', opts);
   }
 
   // ---------- buttons ----------
@@ -98,7 +110,7 @@
     if (!b || typeof b !== 'object') return null;
     const action = ['url', 'callback_data', 'web_app', 'login_url', 'switch_inline_query', 'switch_inline_query_current_chat', 'switch_inline_query_chosen_chat', 'copy_text', 'disabled', 'pay', 'callback_game'].find((k) => b[k] !== undefined);
     const icon = { url: '↗', copy_text: '⧉', switch_inline_query: '↪', switch_inline_query_chosen_chat: '↪', login_url: '🔑', web_app: '▣' }[action] || '';
-    const title = action === 'url' ? b.url : action === 'copy_text' ? 'Копирует: ' + (b.copy_text && b.copy_text.text) : action === 'callback_data' ? 'callback: ' + b.callback_data : action || 'без действия';
+    const title = action === 'url' ? b.url : action === 'copy_text' ? uiText('Копирует: ') + (b.copy_text && b.copy_text.text) : action === 'callback_data' ? 'callback: ' + b.callback_data : action || uiText('без действия');
     const btn = el('span', { class: 'tg-btn' + (b.style ? ' tg-btn-' + b.style : '') + (action === 'disabled' ? ' tg-btn-disabled' : ''), title },
       renderRT(b.text, ctx), icon ? el('span', { class: 'tg-btn-ico', text: icon }) : null);
     if (action === 'url' && b.url && /^https?:\/\//i.test(b.url) && safeUrl(b.url)) btn.addEventListener('click', () => window.open(b.url, '_blank', 'noopener'));
@@ -126,7 +138,7 @@
     else if (t === 'email_address') frag.append(el('a', { href: 'mailto:' + rt.email_address }, inner()));
     else if (t === 'phone_number') frag.append(el('a', { href: 'tel:' + rt.phone_number }, inner()));
     else if (['mention', 'hashtag', 'cashtag', 'bot_command', 'bank_card_number'].includes(t)) frag.append(el('span', { class: 'tg-link' }, inner()));
-    else if (t === 'date_time') frag.append(el('span', { class: 'tg-time', title: formatTime(rt.unix_time, 'wDT') + ' (у читателя: его часовой пояс)' }, rt.text ? inner() : formatTime(rt.unix_time, rt.date_time_format)));
+    else if (t === 'date_time') frag.append(el('span', { class: 'tg-time', title: formatTime(rt.unix_time, 'wDT') + uiText(' (у читателя: его часовой пояс)') }, rt.text ? inner() : formatTime(rt.unix_time, rt.date_time_format)));
     else if (t === 'custom_emoji') frag.append(el('span', { class: 'tg-emoji', title: 'custom emoji ' + rt.custom_emoji_id }, rt.alternative_text || '⭐'));
     else if (t === 'mathematical_expression') frag.append(math(rt.expression || '', false));
     else if (t === 'anchor') frag.append(el('a', { name: rt.name, id: 'anchor-' + rt.name, class: 'tg-anchor' }));
@@ -134,7 +146,7 @@
     else if (t === 'reference') frag.append(el('span', { class: 'tg-ref', id: 'ref-' + rt.name }, inner()));
     else if (t === 'reference_link') frag.append(el('a', { href: '#ref-' + rt.reference_name, class: 'tg-reflink' }, inner()));
     else if (t === 'button') frag.append(buttonEl(rt.button, ctx) || '');
-    else frag.append(unknown('текст: ' + t, rt.text !== undefined ? inner() : JSON.stringify(rt)));
+    else frag.append(unknown(uiText('текст: ') + t, rt.text !== undefined ? inner() : JSON.stringify(rt)));
     return frag;
   }
 
@@ -145,7 +157,7 @@
   }
 
   function unknown(label, content) {
-    return el('span', { class: 'tg-unknown', title: 'Этого элемента нет в рендере предпросмотра, но Telegram его получит: ' + label }, content);
+    return el('span', { class: 'tg-unknown', title: uiText('Этого элемента нет в рендере предпросмотра, но Telegram его получит: ') + label }, content);
   }
 
   // ---------- blocks ----------
@@ -174,7 +186,7 @@
       case 'divider': return el('hr');
       case 'mathematical_expression': return math(b.expression || '', true);
       case 'anchor': return el('a', { name: b.name, id: 'anchor-' + b.name, class: 'tg-anchor' });
-      case 'thinking': return el('div', { class: 'tg-thinking' }, rt(b.text || 'Думаю…'));
+      case 'thinking': return el('div', { class: 'tg-thinking' }, rt(b.text || uiText('Думаю…')));
       case 'list': {
         const items = b.items || [];
         const ordered = items.some((it) => it.value !== undefined || it.type);
@@ -202,8 +214,8 @@
       case 'photo': case 'video': case 'animation': case 'audio': case 'document': case 'voice_note':
         return el('figure', {}, mediaEl(b.type, b[b.type], ctx), caption(b.caption, ctx));
       default:
-        return el('div', { class: 'tg-unknown tg-unknown-block', title: 'Блок, которого нет в рендере предпросмотра. Telegram его получит.' },
-          el('b', { text: 'Блок «' + b.type + '»' }), el('pre', { text: JSON.stringify(b, null, 1) }));
+        return el('div', { class: 'tg-unknown tg-unknown-block', title: uiText('Блок, которого нет в рендере предпросмотра. Telegram его получит.') },
+          el('b', { text: uiText('Блок «') + b.type + '»' }), el('pre', { text: JSON.stringify(b, null, 1) }));
     }
   }
 
@@ -259,7 +271,7 @@
         grid.append(tile);
       }
       box.append(grid, el('div', { class: 'tg-map-pin', text: '📍' }), el('a', { class: 'tg-map-attr', href: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`, target: '_blank', rel: 'noopener', text: '© OpenStreetMap' }));
-    } else box.append(el('div', { class: 'tg-media-ph', text: 'Карта: нет координат' }));
+    } else box.append(el('div', { class: 'tg-media-ph', text: uiText('Карта: нет координат') }));
     return box;
   }
 
@@ -335,7 +347,7 @@
         // Telegram drops a <tg-time> without text, so the reader sees nothing there
         const u = parseInt(attr('unix'), 10);
         if (!node.textContent.trim()) { node.remove(); return; }
-        rep = el('span', { class: 'tg-time', title: formatTime(u, 'wDT') + ' (у читателя: его часовой пояс)' }, kids());
+        rep = el('span', { class: 'tg-time', title: formatTime(u, 'wDT') + uiText(' (у читателя: его часовой пояс)') }, kids());
       }
       else if (tag === 'tg-collage') {
         const caps = kids().filter((k) => k.nodeType === 1 && k.tagName.toLowerCase() === 'figcaption');
@@ -355,7 +367,7 @@
         /** @type {{ kind: string, media: any, id?: string }} */
         const info = mediaFromSrc(attr('src'), ctx) || { kind: tag === 'tg-document' ? 'document' : tag === 'img' ? 'photo' : tag, media: null };
         const kind = tag === 'tg-document' ? 'document' : info.kind;
-        rep = mediaEl(kind, info.media || (info.id ? 'нет в media: ' + info.id : null), ctx);
+        rep = mediaEl(kind, info.media || (info.id ? uiText('нет в media: ') + info.id : null), ctx);
         if (node.hasAttribute('tg-spoiler')) rep.classList.add('tg-media-spoiler');
       } else if (tag === 'blockquote' && node.hasAttribute('expandable')) {
         rep = expandable(el('div', {}, kids()), null);
@@ -382,7 +394,7 @@
         const m = lang && /language-([\w+#-]+)/.exec(lang.className);
         if (m) node.dataset.lang = m[1];
       } else if (tag.startsWith('tg-')) {
-        rep = unknown('тег <' + tag + '>', kids());
+        rep = unknown(uiText('тег <') + tag + '>', kids());
       }
       if (rep) node.replaceWith(rep);
     };
@@ -620,12 +632,12 @@
       if (rm.blocks) body.append(renderBlocks(rm.blocks, ctx));
       else if (rm.html) body.append(renderHtml(rm.html, ctx));
       else if (rm.markdown) body.append(renderMarkdown(rm.markdown, ctx));
-      else body.append(el('p', { class: 'tg-empty', text: 'Пустой пост' }));
+      else body.append(el('p', { class: 'tg-empty', text: uiText('Пустой пост') }));
     } catch (e) {
-      body.append(el('pre', { class: 'tg-error', text: 'Ошибка рендера: ' + e.message }));
+      body.append(el('pre', { class: 'tg-error', text: uiText('Ошибка рендера: ') + e.message }));
     }
     const bubble = el('div', { class: 'tg-bubble' }, body,
-      el('div', { class: 'tg-meta' }, opts.views ? el('span', { text: '👁 ' + opts.views }) : null, el('span', { text: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) })));
+      el('div', { class: 'tg-meta' }, opts.views ? el('span', { text: '👁 ' + opts.views }) : null, el('span', { text: new Date().toLocaleTimeString(language === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' }) })));
     const kb = post && post.reply_markup && post.reply_markup.inline_keyboard;
     const wrap = el('div', { class: 'tg-msg' }, opts.channelTitle ? el('div', { class: 'tg-channel', text: opts.channelTitle }) : null, bubble);
     if (Array.isArray(kb) && kb.length) {
@@ -690,5 +702,5 @@
     return out.join('').replace(/ +/g, ' ').replace(/<br> /g, '<br>').replace(/ <\/pre>/g, '</pre>').replace(/ ?(<math-block:[^>]*>|<hr>|<anchor>) ?/g, '$1').trim().replace(/ ?(<\/?(?:p|h\d|li[^>]*|ul|ol|blockquote|tr|t[hd][^>]*|table[^>]*|footer|summary|details[^>]*|pre[^>]*|caption|cite|pullquote|expandable)>) ?/g, '$1');
   }
 
-  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline };
+  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline, setLocale };
 })(window);

@@ -1,3 +1,4 @@
+import { tr, dateLocale } from './i18n.js';
 // Picking a publication time: quick choices, the time zone in sight, and what is already queued.
 import { h } from './dom.js';
 import { chatLabel, S } from './state.js';
@@ -21,15 +22,15 @@ export function presets(now = new Date()) {
   const hour = new Date(now.getTime() + 3600e3); hour.setSeconds(0, 0);
   const monday = (8 - now.getDay()) % 7 || 7;
   return [
-    { label: 'Через час', ms: hour.getTime() },
-    { label: 'Сегодня в 19:00', ms: at(0, 19) },
-    { label: 'Завтра в 9:00', ms: at(1, 9) },
-    { label: 'Завтра в 19:00', ms: at(1, 19) },
-    { label: 'В понедельник в 9:00', ms: at(monday, 9) },
+    { label: tr('Через час'), ms: hour.getTime() },
+    { label: tr('Сегодня в 19:00'), ms: at(0, 19) },
+    { label: tr('Завтра в 9:00'), ms: at(1, 9) },
+    { label: tr('Завтра в 19:00'), ms: at(1, 19) },
+    { label: tr('В понедельник в 9:00'), ms: at(monday, 9) },
   ].filter((p, i, all) => p.ms > now.getTime() + 60e3 && all.findIndex((q) => q.ms === p.ms) === i); // on Sunday «завтра» is Monday
 }
 
-const fmt = (ms) => new Date(ms).toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmt = (ms) => new Date(ms).toLocaleString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /**
  * Date and time field with quick choices, the time zone, and the posts already queued for the next week.
@@ -37,13 +38,13 @@ const fmt = (ms) => new Date(ms).toLocaleString('ru-RU', { weekday: 'short', day
  * @param {string} [skipId] a post that is being moved, left out of the queue
  */
 export function whenPicker(initialMs, skipId) {
-  const inp = /** @type {HTMLInputElement} */ (h('input', { type: 'datetime-local', value: localValue(initialMs), 'aria-label': 'Дата и время' }));
+  const inp = /** @type {HTMLInputElement} */ (h('input', { type: 'datetime-local', value: localValue(initialMs), 'aria-label': tr('Дата и время') }));
   const human = h('span', { class: 'muted small' });
   const zone = h('p', { class: 'muted small' });
   const show = () => {
     const ms = new Date(inp.value).getTime();
-    human.textContent = ms ? fmt(ms) + (ms < Date.now() ? ' — уже прошло' : '') : '';
-    zone.textContent = 'Время по часовому поясу этого браузера: ' + zoneLabel(ms || Date.now()) + '.';
+    human.textContent = ms ? fmt(ms) + (ms < Date.now() ? tr(' — уже прошло') : '') : '';
+    zone.textContent = tr('Время по часовому поясу этого браузера: ') + zoneLabel(ms || Date.now()) + '.';
   };
   inp.addEventListener('input', show);
   const quick = h('div', { class: 'row presets' }, presets().map((p) => h('button', { type: 'button', class: 'ghost small-btn', text: p.label, onclick: () => { inp.value = localValue(p.ms); show(); } })));
@@ -54,8 +55,8 @@ export function whenPicker(initialMs, skipId) {
   const el = h('div', { class: 'when' }, quick, h('div', { class: 'row' }, inp, human),
     zone,
     queued.length
-      ? h('details', { class: 'queue', open: queued.length <= 5 }, h('summary', { class: 'small', text: 'Уже в очереди на неделю: ' + queued.length }),
+      ? h('details', { class: 'queue', open: queued.length <= 5 }, h('summary', { class: 'small', text: tr('Уже в очереди на неделю: ') + queued.length }),
         h('ul', { class: 'list small' }, queued.slice(0, 20).map((p) => h('li', {}, h('span', { text: fmt((p.scheduled_at || 0) * 1000) }), h('span', { class: 'meta', text: (chatLabel(p.chat_id) || p.chat_id) + ' · ' + (p.title || p.kind) })))))
-      : h('p', { class: 'muted small', text: 'На ближайшую неделю в очереди ничего нет.' }));
+      : h('p', { class: 'muted small', text: tr('На ближайшую неделю в очереди ничего нет.') }));
   return { el, input: inp, value: () => Math.floor(new Date(inp.value).getTime() / 1000) };
 }

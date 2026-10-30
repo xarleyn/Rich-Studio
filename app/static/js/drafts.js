@@ -1,3 +1,4 @@
+import { tr, dateLocale, locale } from './i18n.js';
 // Drafts list, open, save, new.
 import { api } from './api.js';
 import { showTarget } from './channels.js';
@@ -20,10 +21,10 @@ function setChannels(ids) {
 // ---------- drafts ----------
 /** Whether the draft already went out: «правка» for a post's working copy, else what its posts are now. */
 function draftBadge(d) {
-  if (d.post_id) return h('span', { class: 'badge', text: 'правка', title: 'Рабочая копия опубликованного поста' });
+  if (d.post_id) return h('span', { class: 'badge', text: tr('правка'), title: tr('Рабочая копия опубликованного поста') });
   const own = S.posts.filter((p) => p.draft_id === d.id && kindOf(p).editable);
-  if (own.some((p) => p.status === 'sent')) return h('span', { class: 'badge ok', text: 'опубликован', title: 'Пост из этого черновика уже вышел' });
-  if (own.some((p) => p.status === 'scheduled')) return h('span', { class: 'badge w', text: 'отложен', title: 'Пост из этого черновика ждёт своего времени' });
+  if (own.some((p) => p.status === 'sent')) return h('span', { class: 'badge ok', text: tr('опубликован'), title: tr('Пост из этого черновика уже вышел') });
+  if (own.some((p) => p.status === 'scheduled')) return h('span', { class: 'badge w', text: tr('отложен'), title: tr('Пост из этого черновика ждёт своего времени') });
   return null;
 }
 
@@ -41,13 +42,13 @@ function showDrafts(list) {
 export function renderDrafts() {
   const ul = $('#drafts');
   ul.replaceChildren(...S.drafts.map((d) => h('li', { class: d.id === S.draftId ? 'on' : '', onclick: () => openDraft(d.id) },
-    h('span', {}, d.title || 'Без названия', draftBadge(d)),
+    h('span', {}, d.title || tr('Без названия'), draftBadge(d)),
     // where it goes, so drafts for different channels never mix up
-    h('span', { class: 'meta chan', text: '→ ' + (d.chat_ids && d.chat_ids.length ? d.chat_ids.map(chatLabel).join(', ') : (S.config.default_chat ? chatLabel(S.config.default_chat) + ' (по умолчанию)' : 'канал не выбран')) }),
-    h('span', { class: 'meta' }, new Date(d.updated_at * 1000).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }),
-      h('a', { href: '/render/draft/' + d.id, target: '_blank', title: 'Рендер отдельной страницей', text: '↗', onclick: (e) => e.stopPropagation() }),
-      h('a', { href: '#', title: 'Удалить черновик', text: '✕', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); if (confirm('Удалить черновик «' + (d.title || 'Без названия') + '»?')) { await api('DELETE', '/api/drafts/' + d.id); if (S.draftId === d.id) newDraft(); loadDrafts(); } } })))));
-  if (!S.drafts.length) ul.append(h('li', { class: 'muted small', text: 'Черновиков нет. Нажмите «Сохранить».' }));
+    h('span', { class: 'meta chan', text: '→ ' + (d.chat_ids && d.chat_ids.length ? d.chat_ids.map(chatLabel).join(', ') : (S.config.default_chat ? chatLabel(S.config.default_chat) + tr(' (по умолчанию)') : tr('канал не выбран'))) }),
+    h('span', { class: 'meta' }, new Date(d.updated_at * 1000).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' }),
+      h('a', { href: '/render/draft/' + d.id + '?lang=' + locale, target: '_blank', title: tr('Рендер отдельной страницей'), text: '↗', onclick: (e) => e.stopPropagation() }),
+      h('a', { href: '#', title: tr('Удалить черновик'), text: '✕', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); if (confirm(tr('Удалить черновик «') + (d.title || tr('Без названия')) + '»?')) { await api('DELETE', '/api/drafts/' + d.id); if (S.draftId === d.id) newDraft(); loadDrafts(); } } })))));
+  if (!S.drafts.length) ul.append(h('li', { class: 'muted small', text: tr('Черновиков нет. Нажмите «Сохранить».') }));
 }
 
 export async function openDraft(id) {
@@ -66,7 +67,7 @@ function showDraft(d, keepHistory) {
   loadPost(d.payload);
   showTarget();
   if (keepHistory) pushHistory(); else resetHistory();
-  dirty.value = false; saveState.value = 'сохранено';
+  dirty.value = false; saveState.value = tr('сохранено');
   if (migrated) changed(); // the old remembered channel moves into the draft
   store.set('lastDraft', d.id);
   showAddress(d.id);
@@ -75,8 +76,10 @@ function showDraft(d, keepHistory) {
 
 // the address bar names the open draft: the link can be bookmarked or given by an agent (/?draft=<id>)
 function showAddress(id) {
-  const url = id ? '?draft=' + encodeURIComponent(id) : location.pathname;
-  if (location.search !== (id ? url : '')) history.replaceState(null, '', url);
+  const url = new URL(location.href);
+  url.searchParams.delete('post');
+  if (id) url.searchParams.set('draft', id); else url.searchParams.delete('draft');
+  history.replaceState(null, '', url);
 }
 
 // ---------- the open draft changed elsewhere (an agent, another tab) ----------
@@ -93,14 +96,14 @@ export async function watchDrafts() {
   if (!mine || S.draftVersion === null || mine.version <= S.draftVersion) return;
   const current = await api('GET', '/api/drafts/' + mine.id).catch(() => null);
   if (!current || pending || S.draftId !== current.id) return;
-  const conflict = () => draftConflict({ message: 'черновик изменили в другом месте (агент или другая вкладка), пока вы печатали', current });
+  const conflict = () => draftConflict({ message: tr('черновик изменили в другом месте (агент или другая вкладка), пока вы печатали'), current });
   if (dirty.value) { conflict(); return; }
   await followDraft(current);
   // typed something while the requests were on the way: ask instead of overwriting it
   if (pending || S.draftId !== current.id) return;
   if (dirty.value) { conflict(); return; }
   showDraft(current, true);
-  toast('Черновик изменили в другом месте (агент или другая вкладка): показана новая версия. Ctrl+Z вернёт прежнюю', 'ok');
+  toast(tr('Черновик изменили в другом месте (агент или другая вкладка): показана новая версия. Ctrl+Z вернёт прежнюю'), 'ok');
 }
 
 // one save at a time: a second one sent before the first returns would carry a stale version and get 409
@@ -138,7 +141,7 @@ async function doSave(snap, silent, overwrite) {
   // the left-behind draft as its earlier saves left it, so a second one neither POSTs again nor sends a stale version
   if (slot === shown) { slot.id = S.draftId; slot.version = S.draftVersion; }
   const { id, version } = slot;
-  const body = { ...snap.body, title: snap.body.title.trim() || 'Пост ' + new Date().toLocaleDateString('ru-RU') };
+  const body = { ...snap.body, title: snap.body.title.trim() || tr('Пост ') + new Date().toLocaleDateString(dateLocale) };
   let d;
   try {
     // the version this tab started from: if another tab or an agent saved since, the server answers 409
@@ -146,7 +149,7 @@ async function doSave(snap, silent, overwrite) {
   } catch (e) {
     if (e.status !== 409) throw e;
     if (slot === shown) draftConflict(e.detail);
-    else toast(`Черновик «${body.title}» не сохранён: его изменили в другом месте. Откройте его из списка`, 'err');
+    else toast(tr`Черновик «${body.title}» не сохранён: его изменили в другом месте. Откройте его из списка`, 'err');
     return null;
   }
   slot.id = d.id; slot.version = d.version;
@@ -158,15 +161,15 @@ async function doSave(snap, silent, overwrite) {
   // only what was sent is saved: a change made while the request was on the way stays unsaved and saves next
   const rest = (b) => JSON.stringify({ ...b, title: '' });
   if (sameTitle && rest(snapshot()) === rest(snap.body)) {
-    dirty.value = false; saveState.value = 'сохранено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    dirty.value = false; saveState.value = tr('сохранено ') + new Date().toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
   } else {
-    dirty.value = true; saveState.value = 'есть изменения';
+    dirty.value = true; saveState.value = tr('есть изменения');
     autosave();
   }
   store.set('lastDraft', d.id);
   showAddress(d.id);
   if (body.chat_ids.length) store.del('chat'); // the channel lives in the draft now
-  if (!silent) toast('Черновик сохранён', 'ok');
+  if (!silent) toast(tr('Черновик сохранён'), 'ok');
   loadDrafts();
   return d;
 }
@@ -178,10 +181,10 @@ function draftConflict(detail) {
   if (S.conflict) return;
   S.conflict = true;
   const theirs = detail && detail.current;
-  const d = openDialog([h('h3', { text: 'Черновик изменился' }),
-    h('p', { text: capitalize((detail && detail.message) || 'черновик изменили в другом месте') + '. Ваши правки в этой вкладке пока не сохранены.' })],
-  [theirs ? h('button', { class: 'ghost', text: 'Открыть их версию', onclick: () => { closeDialog(d); openDraft(theirs.id); } }) : null,
-    h('button', { text: theirs ? 'Сохранить мою поверх' : 'Сохранить мою как новый', onclick: () => {
+  const d = openDialog([h('h3', { text: tr('Черновик изменился') }),
+    h('p', { text: capitalize((detail && detail.message) || tr('черновик изменили в другом месте')) + tr('. Ваши правки в этой вкладке пока не сохранены.') })],
+  [theirs ? h('button', { class: 'ghost', text: tr('Открыть их версию'), onclick: () => { closeDialog(d); openDraft(theirs.id); } }) : null,
+    h('button', { text: theirs ? tr('Сохранить мою поверх') : tr('Сохранить мою как новый'), onclick: () => {
       closeDialog(d);
       if (!theirs) S.draftId = null;
       saveDraft(false, true).catch((e) => toast(e.message, 'err'));
@@ -195,7 +198,7 @@ export async function newDraft() {
   setDraft(null, null); editing.value = null;
   $('#title').value = '';
   setChannels(null);
-  loadPost({ rich_message: { blocks: [{ type: 'heading', size: 1, text: 'Заголовок' }, { type: 'paragraph', text: 'Текст поста' }] } });
+  loadPost({ rich_message: { blocks: [{ type: 'heading', size: 1, text: tr('Заголовок') }, { type: 'paragraph', text: tr('Текст поста') }] } });
   showTarget();
   resetHistory();
   dirty.value = false; saveState.value = '';

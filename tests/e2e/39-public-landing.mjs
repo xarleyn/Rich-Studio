@@ -7,7 +7,7 @@ export default async function ({ browser, check, BASE }) {
   try {
     await page.goto(BASE + '/landing');
     await page.locator('#hero-title').waitFor();
-    check('Landing explains RichPost and has working app destinations', (await page.title()).startsWith('RichPost')
+    check('Landing explains RichPost and has working app destinations', (await page.title()).includes('RichPost')
       && (await page.locator('a.button.primary').first().getAttribute('href')).startsWith('http')
       && await page.locator('.steps li').count() === 3);
     await page.screenshot({ path: 'test-results/ui/landing-hero-1400.png' });
