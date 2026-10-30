@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Validation messages in the author's words («Раскрывашка №3 › Заголовок: пустой текст») and a jump to that block.
 import { cardOf } from './forms.js';
 import { BLOCK_LABELS, FIELD_LABELS, RT_LABELS } from './labels.js';
@@ -23,15 +24,15 @@ export function readIssue(msg) {
     const t = tokens[i];
     const next = cur == null ? undefined : cur[t];
     if (typeof t === 'number') {
-      if (parent === 'blocks') { names.push(`${BLOCK_LABELS[next?.type] || next?.type || 'Блок'} №${t + 1}`); if (next && typeof next === 'object') { block = next; field = undefined; } }
+      if (parent === 'blocks') { names.push(`${BLOCK_LABELS[next?.type] || next?.type || tr('Блок')} №${t + 1}`); if (next && typeof next === 'object') { block = next; field = undefined; } }
       else if (parent === 'cells' && typeof tokens[i + 1] === 'number') {
         const c = /** @type {number} */ (tokens[i + 1]);
-        names.push(`ячейка ${t + 1}:${c + 1}`);
+        names.push(tr`ячейка ${t + 1}:${c + 1}`);
         cur = next?.[c]; i++; parent = ''; continue;
       }
-      else if (parent === 'items') names.push(`пункт ${t + 1}`);
-      else if (parent === 'media') names.push(`медиа ${t + 1}`);
-      else if (parent === 'buttons') names.push(`кнопка ${t + 1}`);
+      else if (parent === 'items') names.push(tr`пункт ${t + 1}`);
+      else if (parent === 'media') names.push(tr`медиа ${t + 1}`);
+      else if (parent === 'buttons') names.push(tr`кнопка ${t + 1}`);
       else if (next && typeof next === 'object' && RT_LABELS[next.type]) names.push(RT_LABELS[next.type]); // a piece of rich text
     } else if (!CONTAINERS.has(t) || typeof tokens[i + 1] !== 'number') {
       names.push(FIELD_LABELS[t] || t);

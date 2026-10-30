@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Lookups in the Bot API spec and default values for new blocks and fields.
 import { S } from './state.js';
 
@@ -32,8 +33,8 @@ export function defaultFor(types, fieldName) {
   if (t === 'Boolean' || t === 'True') return false;
   if (t === 'Array of InputRichBlock') return [{ type: 'paragraph', text: '' }];
   if (t === 'Array of InputRichBlockListItem') return [{ blocks: [{ type: 'paragraph', text: '' }] }, { blocks: [{ type: 'paragraph', text: '' }] }];
-  if (t === 'Array of Array of RichBlockTableCell') return [[cell('Колонка 1', true), cell('Колонка 2', true)], [cell(''), cell('')]];
-  if (t === 'Array of RichMessageButton') return [{ text: 'Кнопка', url: '' }];
+  if (t === 'Array of Array of RichBlockTableCell') return [[cell(tr('Колонка 1'), true), cell(tr('Колонка 2'), true)], [cell(''), cell('')]];
+  if (t === 'Array of RichMessageButton') return [{ text: tr('Кнопка'), url: '' }];
   if (t.startsWith('Array of')) return [];
   if (t === 'Location') return { latitude: 55.7522, longitude: 37.6156 };
   return defaultObject(t);

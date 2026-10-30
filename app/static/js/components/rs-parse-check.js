@@ -1,3 +1,4 @@
+import { tr } from '../i18n.js';
 // <rs-parse-check>: the preview checked against Telegram's own parser.
 // After «Мне в личку» Telegram answers with the blocks it made of the post. The page compares their outline
 // with the preview's (RichRender.outline) and passes the result here; this bar says whether they agree, lets the
@@ -40,17 +41,17 @@ export class RsParseCheck extends LitElement {
     const c = this.check;
     if (!c) return nothing;
     if (c.status === 'stale') {
-      return html`<div class="bar" role="status"><span class="what muted">Пост изменился после отправки в личку. Отправьте ещё раз, чтобы сверить с Telegram.</span></div>`;
+      return html`<div class="bar" role="status"><span class="what muted">${tr("Пост изменился после отправки в личку. Отправьте ещё раз, чтобы сверить с Telegram.")}</span></div>`;
     }
     const same = c.status === 'same';
     return html`<div class="bar" role="status">
-  <span class="what ${same ? 'ok' : 'diff'}">${same ? '✓ Telegram разобрал пост так же, как предпросмотр' : '≠ Telegram разобрал пост иначе, чем показывает предпросмотр'}</span>
+  <span class="what ${same ? 'ok' : 'diff'}">${same ? tr('✓ Telegram разобрал пост так же, как предпросмотр') : tr('≠ Telegram разобрал пост иначе, чем показывает предпросмотр')}</span>
   <button aria-pressed=${this.showing ? 'true' : 'false'} @click=${() => this.fire('toggle')}
-    title="Показать пост из блоков, которые вернул Telegram">Как разобрал Telegram</button>
+    title="${tr("Показать пост из блоков, которые вернул Telegram")}">${tr("Как разобрал Telegram")}</button>
   ${this.convertible ? html`<button @click=${() => this.fire('to-blocks')}
-    title="Заменить визуальный режим блоками Telegram; исходный текст останется в своей вкладке">В визуальный</button>` : nothing}
+    title="${tr("Заменить визуальный режим блоками Telegram; исходный текст останется в своей вкладке")}">${tr("В визуальный")}</button>` : nothing}
   ${!same && c.mine !== undefined ? html`<div class="where">
-    <span class="muted">Предпросмотр:</span><code>${c.mine}</code>
+    <span class="muted">${tr("Предпросмотр:")}</span><code>${c.mine}</code>
     <span class="muted">Telegram:</span><code>${c.theirs}</code></div>` : nothing}
 </div>`;
   }

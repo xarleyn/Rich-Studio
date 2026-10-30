@@ -1,3 +1,4 @@
+import { tr, dateLocale, locale, rememberLocale, translateDocument } from './i18n.js';
 /* Rich Studio editor.
  * The visual editor has no hard-coded list of blocks: the palette, the
  * forms and the inline entity menu are generated from the Bot API spec
@@ -84,12 +85,12 @@ function bindActions() {
   $('#btn-import').onclick = () => act(showImport);
   $('#btn-undo').onclick = undo;
   $('#btn-redo').onclick = redo;
-  $('#btn-new').onclick = () => { if (!dirty.value || confirm('Есть несохранённые изменения. Создать новый черновик?')) newDraft(); };
+  $('#btn-new').onclick = () => { if (!dirty.value || confirm(tr('Есть несохранённые изменения. Создать новый черновик?'))) newDraft(); };
   $('#title').oninput = () => { dirty.value = true; autosave(); };
   // the channel belongs to the draft: changing it is a change of the draft
   // dirty at once: a publish right after the change must not go by the old saved channels; only the redraw waits
   const redrawTarget = debounce(() => { showTarget(); renderPreview(); }, 300);
-  $('#chat').oninput = () => { dirty.value = true; saveState.value = 'есть изменения'; autosave(); redrawTarget(); };
+  $('#chat').oninput = () => { dirty.value = true; saveState.value = tr('есть изменения'); autosave(); redrawTarget(); };
   bindTarget();
   addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
@@ -107,32 +108,32 @@ function bindActions() {
     // Telegram's answer holds the post as its parser understood it: the preview is checked against it
     if (r.parsed) parsed.value = { ...r.parsed, key: parseKey(post) };
     return r;
-  }, (r) => 'Отправлено вам в личку (#' + r.message_id + ')');
+  }, (r) => tr('Отправлено вам в личку (#') + r.message_id + ')');
   const check = $('#parse-check');
   check.addEventListener('toggle', () => { showParsed.value = !showParsed.value; });
   check.addEventListener('to-blocks', parsedToBlocks);
   $('#btn-publish').onclick = async () => {
     const where = targetLabel();
-    if (!where) { toast('Укажите канал (@username или id) в поле справа сверху', 'err'); return; }
+    if (!where) { toast(tr('Укажите канал (@username или id) в поле справа сверху'), 'err'); return; }
     const e = editing.value;
-    if (!confirm((e ? `Это опубликует НОВЫЙ пост. Чтобы изменить пост ${e.message_id ? '#' + e.message_id : ''} в ${e.chat_id}, нажмите «Обновить пост» над редактором.\n\n` : '') + 'Опубликовать пост в ' + where + '?')) return;
+    if (!confirm((e ? tr`Это опубликует НОВЫЙ пост. Чтобы изменить пост ${e.message_id ? '#' + e.message_id : ''} в ${e.chat_id}, нажмите «Обновить пост» над редактором.\n\n` : '') + tr('Опубликовать пост в ') + where + '?')) return;
     await act(async () => { if (dirty.value || !S.draftId) await saveDraft(true); return api('POST', '/api/send', { post: buildPost(), ...target(), draft_id: S.draftId, as_new: true }); },
-      (r) => sentReport(r.results.length > 1 ? 'Опубликовано' : 'Опубликовано, message_id ' + r.message.message_id, r));
+      (r) => sentReport(r.results.length > 1 ? tr('Опубликовано') : tr('Опубликовано, message_id ') + r.message.message_id, r));
     loadPosts();
   };
   $('#btn-schedule').onclick = () => {
     const pick = whenPicker(Date.now() + 3600e3);
     const e = editing.value;
-    openDialog([h('h3', { text: 'Отложить публикацию' }),
-      h('p', { class: 'small' }, 'Куда: ', h('b', { text: targetLabel() || 'канал не указан' })),
-      ...(e ? [h('p', { class: 'err small', text: `Это отложит НОВЫЙ пост. Чтобы изменить пост ${e.message_id ? '#' + e.message_id : ''} в ${e.chat_id}, нажмите «Обновить пост» над редактором.` })] : []),
+    openDialog([h('h3', { text: tr('Отложить публикацию') }),
+      h('p', { class: 'small' }, tr('Куда: '), h('b', { text: targetLabel() || tr('канал не указан') })),
+      ...(e ? [h('p', { class: 'err small', text: tr`Это отложит НОВЫЙ пост. Чтобы изменить пост ${e.message_id ? '#' + e.message_id : ''} в ${e.chat_id}, нажмите «Обновить пост» над редактором.` })] : []),
       pick.el,
-      h('p', { class: 'muted small', text: 'Пост отправит сервис в указанное время, поэтому контейнер должен работать в этот момент.' })],
-      [h('button', { class: 'ghost', value: 'cancel', text: 'Отмена' }), h('button', { type: 'button', class: 'primary', text: 'Запланировать', onclick: async () => {
+      h('p', { class: 'muted small', text: tr('Пост отправит сервис в указанное время, поэтому контейнер должен работать в этот момент.') })],
+      [h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') }), h('button', { type: 'button', class: 'primary', text: tr('Запланировать'), onclick: async () => {
         const at = pick.value();
-        if (!at || at * 1000 < Date.now()) { toast('Выберите время в будущем', 'err'); return; }
+        if (!at || at * 1000 < Date.now()) { toast(tr('Выберите время в будущем'), 'err'); return; }
         closeDialog();
-        await act(async () => { if (dirty.value || !S.draftId) await saveDraft(true); return api('POST', '/api/schedule', { post: buildPost(), ...target(), draft_id: S.draftId, at, as_new: true }); }, 'Запланировано на ' + new Date(at * 1000).toLocaleString('ru-RU'));
+        await act(async () => { if (dirty.value || !S.draftId) await saveDraft(true); return api('POST', '/api/schedule', { post: buildPost(), ...target(), draft_id: S.draftId, at, as_new: true }); }, tr('Запланировано на ') + new Date(at * 1000).toLocaleString(dateLocale));
         loadPosts();
       } })]);
   };
@@ -141,15 +142,15 @@ function bindActions() {
     const sent = S.posts.filter((p) => ['sent', 'scheduled'].includes(p.status));
     const mid = h('input', { type: 'number', placeholder: 'message_id' });
     const where = chats();
-    openDialog([h('h3', { text: 'Заменить опубликованный пост' }),
-      sent.length ? h('ul', { class: 'list' }, sent.slice(0, 15).map((p) => h('li', { onclick: () => { closeDialog(); replacePost(p); } }, h('span', { text: `${chatLabel(p.chat_id)} #${p.message_id || '—'} · ${STATUS_LABELS[p.status] || p.status}` }), h('span', { class: 'meta', text: new Date((p.sent_at || p.scheduled_at || p.created_at) * 1000).toLocaleString('ru-RU') })))) : h('p', { class: 'muted', text: 'Через студию ещё ничего не публиковалось.' }),
+    openDialog([h('h3', { text: tr('Заменить опубликованный пост') }),
+      sent.length ? h('ul', { class: 'list' }, sent.slice(0, 15).map((p) => h('li', { onclick: () => { closeDialog(); replacePost(p); } }, h('span', { text: `${chatLabel(p.chat_id)} #${p.message_id || '—'} · ${STATUS_LABELS[p.status] || p.status}` }), h('span', { class: 'meta', text: new Date((p.sent_at || p.scheduled_at || p.created_at) * 1000).toLocaleString(dateLocale) })))) : h('p', { class: 'muted', text: tr('Через студию ещё ничего не публиковалось.') }),
       h('p', { class: 'muted small', text: where.length > 1
-        ? 'Пост по message_id ищется в одном канале, а у черновика их ' + where.length + ': оставьте один в окне «Каналы».'
-        : 'Или любой пост бота в ' + chatLabel(where[0] || S.config.default_chat || '') + ' по message_id (видно в ссылке на пост: t.me/канал/ID):' }), where.length > 1 ? null : mid],
-      [h('button', { class: 'ghost', value: 'cancel', text: 'Отмена' }), h('button', { type: 'button', text: 'Заменить по id', onclick: async () => {
+        ? tr('Пост по message_id ищется в одном канале, а у черновика их ') + where.length + tr(': оставьте один в окне «Каналы».')
+        : tr('Или любой пост бота в ') + chatLabel(where[0] || S.config.default_chat || '') + tr(' по message_id (видно в ссылке на пост: t.me/канал/ID):') }), where.length > 1 ? null : mid],
+      [h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') }), h('button', { type: 'button', text: tr('Заменить по id'), onclick: async () => {
         const id = parseInt(mid.value, 10); if (!id || where.length > 1) return;
         closeDialog();
-        await act(() => api('POST', '/api/edit', { post: buildPost(), chat_id: where[0] || chat(), message_id: id }), 'Пост #' + id + ' обновлён');
+        await act(() => api('POST', '/api/edit', { post: buildPost(), chat_id: where[0] || chat(), message_id: id }), tr('Пост #') + id + tr(' обновлён'));
       } })]);
   };
 
@@ -162,7 +163,7 @@ function bindActions() {
   $('#theme-toggle').onclick = () => { dark.value = !dark.value; };
   $('#open-render').onclick = () => act(async () => {
     if (dirty.value || !S.draftId) await saveDraft(true);
-    window.open('/render/draft/' + S.draftId + '?theme=' + (dark.value ? 'dark' : 'light'), '_blank', 'noopener');
+    window.open('/render/draft/' + S.draftId + '?theme=' + (dark.value ? 'dark' : 'light') + '&lang=' + locale, '_blank', 'noopener');
   });
 
   $$('#side-tabs button').forEach((b) => b.onclick = () => {
@@ -174,7 +175,7 @@ function bindActions() {
   $('#posts-filter').onchange = () => loadPosts().catch((e) => toast(e.message, 'err'));
   $$('#mode-tabs button').forEach((b) => b.onclick = () => setMode(b.dataset.mode));
   $('#json-apply').onclick = () => {
-    try { const v = JSON.parse($('#src-json').value); loadPost(v); setMode('json', true); changed(); toast('JSON применён', 'ok'); } catch (e) { $('#json-err').textContent = e.message; }
+    try { const v = JSON.parse($('#src-json').value); loadPost(v); setMode('json', true); changed(); toast(tr('JSON применён'), 'ok'); } catch (e) { $('#json-err').textContent = e.message; }
   };
   $('#media-add').onclick = () => { addMediaEntry('photo', ''); changed(); };
   $('#upload').onchange = (e) => upload([...e.target.files]);
@@ -193,15 +194,33 @@ function bindActions() {
 
 // ---------- boot ----------
 async function boot() {
+  translateDocument();
+  RichRender.setLocale(locale);
+  const selector = $('#locale-select');
+  selector.value = locale;
+  selector.onchange = async () => {
+    selector.disabled = true;
+    try {
+      if (S.spec && dirty.value) {
+        const saved = await saveDraft(true);
+        if (!saved || dirty.value) { selector.value = locale; return; }
+      }
+      rememberLocale(selector.value);
+      const url = new URL(location.href);
+      url.searchParams.set('lang', selector.value);
+      location.replace(url);
+    } catch (e) { selector.value = locale; toast(e.message, 'err'); }
+    finally { selector.disabled = false; }
+  };
   try {
     await migrateStoredKey();
     if (!await prepareAccount()) return;
     [S.spec, S.config] = await Promise.all([api('GET', '/api/spec'), api('GET', '/api/config')]);
-  } catch (e) { document.body.prepend(h('p', { class: 'err', style: 'padding:12px', text: 'Не удалось загрузить сервис: ' + e.message })); return; }
+  } catch (e) { document.body.prepend(h('p', { class: 'err', style: 'padding:12px', text: tr('Не удалось загрузить сервис: ') + e.message })); return; }
   dark.value = store.get('dark', dark.value);
   $('#chat').value = S.config.default_chat || '';
-  $('#chat').placeholder = S.config.default_chat || '@канал или id';
-  if (!S.config.token_set) toast('TG_BOT_TOKEN не задан: редактор и предпросмотр работают, отправка нет. Добавьте токен в .env и перезапустите.', 'err');
+  $('#chat').placeholder = S.config.default_chat || tr('@канал или id');
+  if (!S.config.token_set) toast(tr('TG_BOT_TOKEN не задан: редактор и предпросмотр работают, отправка нет. Добавьте токен в .env и перезапустите.'), 'err');
   updateBadge();
   snippetBar('html'); snippetBar('markdown'); bindCode('html'); bindCode('markdown'); bindCode('json');
   bindEffects();
@@ -228,7 +247,7 @@ async function openFromAddress() {
     const p = await api('GET', '/api/posts/' + encodeURIComponent(post)).catch(() => null);
     if (p) { await editPost(p).catch((e) => toast(e.message, 'err')); return; }
   }
-  if (draft || post) toast((draft ? 'Черновика ' + draft : 'Поста ' + post) + ' нет: открыт последний черновик', 'err');
+  if (draft || post) toast((draft ? tr('Черновика ') + draft : tr('Поста ') + post) + tr(' нет: открыт последний черновик'), 'err');
   const last = store.get('lastDraft', null);
   if (last && S.drafts.some((d) => d.id === last)) await openDraft(last); else newDraft();
 }

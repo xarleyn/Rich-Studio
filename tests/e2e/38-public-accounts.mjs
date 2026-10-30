@@ -35,7 +35,7 @@ export default async function ({ browser, check, MOCK }) {
     // Telegram itself is external. Stub only its SDK, keeping all session and account API calls real.
     await first.route('https://telegram.org/js/telegram-widget.js?*', (route) => route.fulfill({
       contentType: 'application/javascript', body: `const s = document.currentScript;
-        const b = document.createElement('button'); b.textContent = 'Войти через Telegram'; b.id = 'telegram-widget-test'; s.after(b);`,
+        const b = document.createElement('button'); b.textContent = s.dataset.lang === 'en' ? 'Log in with Telegram' : 'Войти через Telegram'; b.id = 'telegram-widget-test'; s.after(b);`,
     }));
     const page = await first.newPage();
     const errors = [];
@@ -43,6 +43,13 @@ export default async function ({ browser, check, MOCK }) {
     page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) errors.push(m.text()); });
     await page.goto(base);
     await page.waitForSelector('#telegram-widget-test');
+    await page.selectOption('#locale-select', 'en');
+    await page.waitForFunction(() => document.querySelector('[data-telegram-login]')?.getAttribute('data-lang') === 'en');
+    check('English sign-in translates onboarding and the official Telegram widget', await page.getByRole('heading', { name: 'Your channels. Your posts.' }).isVisible()
+      && await page.locator('#locale-select').isVisible());
+    await page.screenshot({ path: 'test-results/ui/public-login-en-1400.png', fullPage: true });
+    await page.selectOption('#locale-select', 'ru');
+    await page.waitForFunction(() => document.querySelector('[data-telegram-login]')?.getAttribute('data-lang') === 'ru');
     check('Public visitor sees Telegram entry with the editor hidden', await page.locator('#login-screen').isVisible() && !await page.locator('.layout').isVisible());
     const widget = page.locator('[data-telegram-login]');
     check('Official widget receives the right bot, callback and write access',

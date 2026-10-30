@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // HTML and Markdown modes: snippet bars and the source-editor bridge.
 import { $, h } from './dom.js';
 import { changed } from './editor.js';
@@ -21,11 +22,11 @@ export function snippetBar(kind) {
   const bar = $('#snip-' + kind);
   bar.replaceChildren();
   (window.SNIPPETS[kind] || []).forEach((g) => {
-    bar.append(h('div', { class: 'snip-group' }, h('span', { text: g.group }), g.items.map((it) => h('button', {
-      type: 'button', class: it.verified === false ? 'unverified' : '', text: it.label,
-      title: (it.title || it.label) + (it.verified === false ? '\n⚠ синтаксис из сторонних источников, проверьте на тестовом канале' : ''),
+    bar.append(h('div', { class: 'snip-group' }, h('span', { text: tr(g.group) }), g.items.map((it) => h('button', {
+      type: 'button', class: it.verified === false ? 'unverified' : '', text: tr(it.label),
+      title: tr(it.title || it.label) + (it.verified === false ? tr('\n⚠ синтаксис из сторонних источников, проверьте на тестовом канале') : ''),
       onclick: () => {
-        let snip = it.snip;
+        let snip = tr(it.snip);
         if (it.media) snip = snip.replace('$ID$', addMediaEntry(it.media, ''));
         insertAtCursor($('#src-' + kind), snip);
       },
@@ -42,7 +43,8 @@ export function bindCode(kind) {
   });
   ta.addEventListener('snippet', (e) => {
     const { item, from, to } = e.detail;
-    const snip = item.media ? item.snip.replace('$ID$', addMediaEntry(item.media, '')) : item.snip;
+    const template = tr(item.snip);
+    const snip = item.media ? template.replace('$ID$', addMediaEntry(item.media, '')) : template;
     ta.insertSnippet(snip, from, to);
   });
 }

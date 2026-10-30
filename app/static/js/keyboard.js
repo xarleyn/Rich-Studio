@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Inline keyboard under the post and answers to callback buttons.
 import { $, h } from './dom.js';
 import { changed, updatesLabel } from './editor.js';
@@ -7,7 +8,7 @@ import { S } from './state.js';
 // ---------- keyboard under the post ----------
 // what a button does: one of these fields (InlineKeyboardButton); a channel post mostly needs the first three
 const ACTIONS = ['url', 'callback_data', 'copy_text', 'web_app', 'login_url', 'switch_inline_query', 'switch_inline_query_current_chat', 'switch_inline_query_chosen_chat', 'callback_game', 'pay'];
-const KINDS = [['url', 'Ссылка'], ['callback', 'Ответ на нажатие'], ['copy', 'Скопировать текст'], ['other', 'Другое…']];
+const KINDS = [['url', tr('Ссылка')], ['callback', tr('Ответ на нажатие')], ['copy', tr('Скопировать текст')], ['other', tr('Другое…')]];
 /** buttons the person switched to «Другое»: all fields by hand, whatever they hold now */
 const byHand = new WeakSet();
 
@@ -44,18 +45,18 @@ const field = (label, editor, title) => h('div', { class: 'field' }, h('label', 
 function buttonCard(row, ri, bi) {
   const btn = row[bi];
   const kind = kindOf(btn);
-  const text = h('input', { type: 'text', value: typeof btn.text === 'string' ? btn.text : '', placeholder: 'Подпись на кнопке', oninput: (e) => { btn.text = e.target.value; changed(); } });
-  const type = h('select', { 'aria-label': 'Что делает кнопка', onchange: (e) => { setKind(btn, e.target.value); renderKeyboard(); changed(); } },
+  const text = h('input', { type: 'text', value: typeof btn.text === 'string' ? btn.text : '', placeholder: tr('Подпись на кнопке'), oninput: (e) => { btn.text = e.target.value; changed(); } });
+  const type = h('select', { 'aria-label': tr('Что делает кнопка'), onchange: (e) => { setKind(btn, e.target.value); renderKeyboard(); changed(); } },
     KINDS.map(([v, name]) => h('option', { value: v, text: name, selected: v === kind ? true : null })));
   const set = (v) => { changed(); return v; };
-  const body = [field('Текст', text), field('Тип', type)];
-  if (kind === 'url') body.push(field('Ссылка', h('input', { type: 'url', value: btn.url || '', placeholder: 'https://… или t.me/…', oninput: (e) => { btn.url = set(e.target.value); } })));
-  if (kind === 'copy') body.push(field('Что скопировать', h('input', { type: 'text', value: (btn.copy_text && btn.copy_text.text) || '', placeholder: 'Промокод, адрес, ссылка', oninput: (e) => { btn.copy_text = set({ text: e.target.value }); } })));
+  const body = [field(tr('Текст'), text), field(tr('Тип'), type)];
+  if (kind === 'url') body.push(field(tr('Ссылка'), h('input', { type: 'url', value: btn.url || '', placeholder: tr('https://… или t.me/…'), oninput: (e) => { btn.url = set(e.target.value); } })));
+  if (kind === 'copy') body.push(field(tr('Что скопировать'), h('input', { type: 'text', value: (btn.copy_text && btn.copy_text.text) || '', placeholder: tr('Промокод, адрес, ссылка'), oninput: (e) => { btn.copy_text = set({ text: e.target.value }); } })));
   // the remaining optional fields (style, emoji…) stay one «＋ поле…» away; «Другое» shows every field
   const rest = objectFields('InlineKeyboardButton', btn, 3, { exclude: kind === 'other' ? ['text'] : ['text', ...ACTIONS] });
   return h('div', { class: 'obj kb-btn' },
-    h('div', { class: 'row', style: 'margin:0' }, h('span', { class: 'muted small', text: `Ряд ${ri + 1}, кнопка ${bi + 1}` }), h('span', { class: 'grow' }),
-      h('button', { class: 'ghost small-btn', text: '✕', title: 'Убрать кнопку', onclick: () => { setKind(btn, 'url'); row.splice(bi, 1); if (!row.length) S.keyboard.splice(ri, 1); renderKeyboard(); changed(); } })),
+    h('div', { class: 'row', style: 'margin:0' }, h('span', { class: 'muted small', text: tr`Ряд ${ri + 1}, кнопка ${bi + 1}` }), h('span', { class: 'grow' }),
+      h('button', { class: 'ghost small-btn', text: '✕', title: tr('Убрать кнопку'), onclick: () => { setKind(btn, 'url'); row.splice(bi, 1); if (!row.length) S.keyboard.splice(ri, 1); renderKeyboard(); changed(); } })),
     h('div', { class: 'fields' }, body), rest, kind === 'callback' || kind === 'other' ? callbackAnswer(btn) : null);
 }
 
@@ -65,10 +66,10 @@ export function renderKeyboard() {
   S.keyboard.forEach((row, ri) => {
     const r = h('div', { class: 'kb-row' });
     row.forEach((_, bi) => r.append(buttonCard(row, ri, bi)));
-    r.append(h('button', { class: 'ghost small-btn', text: '＋ в ряд', onclick: () => { row.push({ text: 'Кнопка', url: '' }); renderKeyboard(); changed(); } }));
+    r.append(h('button', { class: 'ghost small-btn', text: tr('＋ в ряд'), onclick: () => { row.push({ text: tr('Кнопка'), url: '' }); renderKeyboard(); changed(); } }));
     box.append(r);
   });
-  box.append(h('button', { class: 'ghost small-btn', text: '＋ ряд кнопок', onclick: () => { S.keyboard.push([{ text: 'Кнопка', url: '' }]); renderKeyboard(); changed(); } }));
+  box.append(h('button', { class: 'ghost small-btn', text: tr('＋ ряд кнопок'), onclick: () => { S.keyboard.push([{ text: tr('Кнопка'), url: '' }]); renderKeyboard(); changed(); } }));
 }
 
 // what the bot answers when a callback button is pressed (handled by the studio's update loop)
@@ -81,11 +82,11 @@ export function callbackAnswer(btn) {
     const cur = S.extra.callbacks[key];
     const a = typeof cur === 'string' ? { text: cur } : (cur || {});
     const save = (patch) => { const v = { ...a, ...patch }; if (!v.text) delete S.extra.callbacks[key]; else S.extra.callbacks[key] = v.show_alert ? v : v.text; Object.assign(a, patch); changed(); };
-    box.append(h('label', { class: 'small muted', text: 'Ответ на нажатие (до 200 символов, видит только нажавший)' }),
+    box.append(h('label', { class: 'small muted', text: tr('Ответ на нажатие (до 200 символов, видит только нажавший)') }),
       h('div', { class: 'row', style: 'margin:2px 0' },
-        h('input', { type: 'text', maxlength: '200', value: a.text || '', placeholder: 'Спасибо, голос учтён', oninput: (e) => save({ text: e.target.value }) }),
-        h('label', { class: 'row small', style: 'margin:0;white-space:nowrap' }, h('input', { type: 'checkbox', checked: !!a.show_alert, onchange: (e) => save({ show_alert: e.target.checked || undefined }) }), 'окном')));
-    if (S.updates && S.updates.state !== 'ok') box.append(h('p', { class: 'w small', text: 'Приём событий сейчас не работает (' + updatesLabel() + '): кнопка будет «крутиться» без ответа.' }));
+        h('input', { type: 'text', maxlength: '200', value: a.text || '', placeholder: tr('Спасибо, голос учтён'), oninput: (e) => save({ text: e.target.value }) }),
+        h('label', { class: 'row small', style: 'margin:0;white-space:nowrap' }, h('input', { type: 'checkbox', checked: !!a.show_alert, onchange: (e) => save({ show_alert: e.target.checked || undefined }) }), tr('окном'))));
+    if (S.updates && S.updates.state !== 'ok') box.append(h('p', { class: 'w small', text: tr('Приём событий сейчас не работает (') + updatesLabel() + tr('): кнопка будет «крутиться» без ответа.') }));
   };
   let lastKey = btn.callback_data;
   draw();

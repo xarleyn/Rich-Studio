@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Undo/redo for the whole post: a stack of draft snapshots, one per pause in editing.
 import { computed, signal } from '../vendor/signals-core.js';
 import { autosave, draftPayload, loadPost } from './editor.js';
@@ -53,7 +54,7 @@ function restore(snap) {
   current = snap;
   loadPost(JSON.parse(snap));
   dirty.value = true;
-  saveState.value = 'есть изменения';
+  saveState.value = tr('есть изменения');
   autosave();
 }
 

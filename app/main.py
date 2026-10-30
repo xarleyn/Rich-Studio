@@ -21,6 +21,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 import logs
 import mcp_tools
 import metrics
+import public_site
 import security
 import settings
 import spec
@@ -98,6 +99,11 @@ async def _observe(request: Request, call_next):
                 response = JSONResponse({"detail": "внутренняя ошибка студии", "request_id": rid}, status_code=500)
             status = response.status_code
             response.headers["X-Request-ID"] = rid
+            if (
+                not settings.get().is_landing_host(request.headers.get("host", ""))
+                or request.url.path in public_site.PREVIEW_PATHS
+            ):
+                response.headers["X-Robots-Tag"] = "noindex, nofollow"
             return response
         finally:
             path = _printable(request.url.path)

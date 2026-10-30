@@ -1,10 +1,11 @@
+import { tr, dateLocale } from '../i18n.js';
 // <rs-edit-bar>: shown above the editor while the draft is a working copy of a published or scheduled post.
 // It says which post the editor changes and offers the actions that apply to that post; the page does the work
 // on the events: update, reschedule, history, leave.
 import { css, html, LitElement, nothing } from '../../vendor/lit-core.min.js';
 
-const STATUS = { sent: 'опубликован', scheduled: 'отложен', missed: 'пропущен', sending: 'отправляется' };
-const when = (t) => new Date(t * 1000).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+const STATUS = { sent: tr('опубликован'), scheduled: tr('отложен'), missed: tr('пропущен'), sending: tr('отправляется') };
+const when = (t) => new Date(t * 1000).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' });
 
 export class RsEditBar extends LitElement {
   static properties = { post: { attribute: false } };
@@ -34,15 +35,15 @@ export class RsEditBar extends LitElement {
     const p = this.post;
     if (!p) return nothing;
     const waiting = p.status === 'scheduled' || p.status === 'missed';
-    const at = waiting && p.scheduled_at ? ' на ' + when(p.scheduled_at) : p.sent_at ? ' ' + when(p.sent_at) : '';
+    const at = waiting && p.scheduled_at ? tr(' на ') + when(p.scheduled_at) : p.sent_at ? ' ' + when(p.sent_at) : '';
     return html`<div class="bar" role="status">
-  <span class="what">Правите пост <b>${p.message_id ? '#' + p.message_id : ''} в ${p.chat_id}</b>
+  <span class="what">${tr("Правите пост ")}<b>${p.message_id ? '#' + p.message_id : ''}${tr(" в ")}${p.chat_id}</b>
     <span class="muted">· ${STATUS[p.status] || p.status}${at}</span></span>
   ${p.status === 'sent' || waiting
-    ? html`<button class="primary" @click=${() => this.fire('update')} title="Заменить этот пост содержимым редактора">Обновить пост</button>` : nothing}
-  ${waiting ? html`<button @click=${() => this.fire('reschedule')}>${p.status === 'missed' ? 'Отложить заново' : 'Перенести'}</button>` : nothing}
-  <button @click=${() => this.fire('history')} title="Как пост выглядел до замен">История</button>
-  <button @click=${() => this.fire('leave')} title="Черновик останется, связь с постом снимется" aria-label="Больше не править этот пост">✕</button>
+    ? html`<button class="primary" @click=${() => this.fire('update')} title="${tr("Заменить этот пост содержимым редактора")}">${tr("Обновить пост")}</button>` : nothing}
+  ${waiting ? html`<button @click=${() => this.fire('reschedule')}>${p.status === 'missed' ? tr('Отложить заново') : tr('Перенести')}</button>` : nothing}
+  <button @click=${() => this.fire('history')} title="${tr("Как пост выглядел до замен")}">${tr("История")}</button>
+  <button @click=${() => this.fire('leave')} title="${tr("Черновик останется, связь с постом снимется")}" aria-label="${tr("Больше не править этот пост")}">✕</button>
 </div>`;
   }
 }

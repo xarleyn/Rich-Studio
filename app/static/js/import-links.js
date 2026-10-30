@@ -1,9 +1,10 @@
+import { tr } from './i18n.js';
 // Same contract and shared fixtures as services/import_links.py. Server validation is authoritative.
 const reserved = new Set(['c', 's', 'share', 'joinchat', 'addstickers', 'proxy', 'socks', 'login', 'addlist', 'boost']);
 const id = (value) => /^[1-9][0-9]{0,9}$/.test(value) && Number(value) <= 2147483647;
 
 export function parseTelegramLink(raw) {
-  const error = 'Нужна ссылка https://t.me/канал/сообщение или https://t.me/канал/тема/сообщение.';
+  const error = tr('Нужна ссылка https://t.me/канал/сообщение или https://t.me/канал/тема/сообщение.');
   if (typeof raw !== 'string' || raw.length > 2048 || [...raw.trim()].some((c) => c.charCodeAt(0) <= 32 || c.charCodeAt(0) === 127 || c === '\\' || c === '%')) throw new Error(error);
   let input = raw.trim();
   if (input.startsWith('t.me/')) input = 'https://' + input;
@@ -35,7 +36,7 @@ export function parseTelegramLink(raw) {
     else if (key === 'thread' && id(value)) {
       if (topic_id !== null && topic_id !== Number(value)) throw new Error(error);
       topic_id = Number(value);
-    } else if (!(key === 't' && /^[0-9hms:]{1,20}$/.test(value))) throw new Error(error + ' Параметр ссылки не поддерживается.');
+    } else if (!(key === 't' && /^[0-9hms:]{1,20}$/.test(value))) throw new Error(error + tr(' Параметр ссылки не поддерживается.'));
   }
   const message_id = Number(ids.at(-1));
   const canonical = `https://t.me/${username || 'c/' + channel_id}/${topic_id ? topic_id + '/' : ''}${message_id}${single ? '?single' : ''}`;

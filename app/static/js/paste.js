@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Clipboard HTML (Google Docs, Notion, a web page) -> RichText. Pure: no editor state, no DOM of the page.
 // The HTML is parsed into an inert document (scripts never run, images never load) and only the formatting
 // RichText has survives: bold, italic, underline, strike, code, sub/sup, marker, spoiler and links.
@@ -12,10 +13,10 @@ const SAFE_URL = /^(https?:|tg:|mailto:)/i;
 
 /** Why Telegram would not take the link (the same rule the server applies to buttons). */
 export function linkError(u) {
-  if (!u) return 'Впишите адрес';
+  if (!u) return tr('Впишите адрес');
   if (/^(tg:|mailto:)/i.test(u)) return null;
-  if (/^https?:\/*$/i.test(u)) return 'В адресе нет сайта';
-  try { const p = new URL(u); if (!/^https?:$/.test(p.protocol)) return 'Адрес должен начинаться с https://, http://, tg:// или mailto:'; if (!p.hostname) return 'В адресе нет сайта'; } catch { return 'Это не похоже на адрес: ' + u; }
+  if (/^https?:\/*$/i.test(u)) return tr('В адресе нет сайта');
+  try { const p = new URL(u); if (!/^https?:$/.test(p.protocol)) return tr('Адрес должен начинаться с https://, http://, tg:// или mailto:'); if (!p.hostname) return tr('В адресе нет сайта'); } catch { return tr('Это не похоже на адрес: ') + u; }
   return null;
 }
 

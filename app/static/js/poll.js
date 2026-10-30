@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Poll dialog (sendPoll).
 import { api } from './api.js';
 import { closeDialog, openDialog } from './dialogs.js';
@@ -17,13 +18,13 @@ export function showPoll() {
   const opts = h('div');
   const drawOpts = () => {
     opts.replaceChildren(...P.options.map((o, i) => h('div', { class: 'row', style: 'margin:2px 0' },
-      P.quiz ? h('input', { type: 'radio', name: 'poll-correct', checked: P.correct === i, title: 'Правильный ответ', onchange: () => { P.correct = i; save(); } }) : null,
-      h('input', { type: 'text', value: o, placeholder: 'Вариант ' + (i + 1), oninput: (e) => { P.options[i] = e.target.value; save(); } }),
+      P.quiz ? h('input', { type: 'radio', name: 'poll-correct', checked: P.correct === i, title: tr('Правильный ответ'), onchange: () => { P.correct = i; save(); } }) : null,
+      h('input', { type: 'text', value: o, placeholder: tr('Вариант ') + (i + 1), oninput: (e) => { P.options[i] = e.target.value; save(); } }),
       P.options.length > 2 ? h('button', { class: 'ghost small-btn', text: '✕', onclick: () => { P.options.splice(i, 1); if (P.correct >= P.options.length) P.correct = 0; save(); drawOpts(); } }) : null)),
-    P.options.length < 12 ? h('button', { class: 'ghost small-btn', text: '＋ вариант', onclick: () => { P.options.push(''); save(); drawOpts(); } }) : null);
+    P.options.length < 12 ? h('button', { class: 'ghost small-btn', text: tr('＋ вариант'), onclick: () => { P.options.push(''); save(); drawOpts(); } }) : null);
   };
   const quizBox = h('div');
-  const drawQuiz = () => { drawOpts(); quizBox.replaceChildren(...(P.quiz ? [field('Пояснение после ответа', inp('explanation', { placeholder: 'Почему этот ответ верный' }))] : [])); };
+  const drawQuiz = () => { drawOpts(); quizBox.replaceChildren(...(P.quiz ? [field(tr('Пояснение после ответа'), inp('explanation', { placeholder: tr('Почему этот ответ верный') }))] : [])); };
   drawQuiz();
   const pick = whenPicker(Date.now() + 3600e3);
   const build = () => {
@@ -43,45 +44,45 @@ export function showPoll() {
   };
   const go = async (scheduled) => {
     let poll;
-    try { poll = build(); } catch (e) { toast('Доп. параметры: ' + e.message, 'err'); return; }
+    try { poll = build(); } catch (e) { toast(tr('Доп. параметры: ') + e.message, 'err'); return; }
     /** @type {Json} */
     const body = { poll, pin: P.pin, ...target() };
-    if (scheduled) { const at = pick.value(); if (!at || at * 1000 < Date.now()) { toast('Выберите время в будущем', 'err'); return; } body.at = at; }
-    if (!scheduled && !confirm('Отправить опрос в ' + targetLabel() + '?')) return;
-    const r = await act(() => api('POST', '/api/poll', body), scheduled ? 'Опрос запланирован' : (x) => sentReport('Опрос отправлен', x));
+    if (scheduled) { const at = pick.value(); if (!at || at * 1000 < Date.now()) { toast(tr('Выберите время в будущем'), 'err'); return; } body.at = at; }
+    if (!scheduled && !confirm(tr('Отправить опрос в ') + targetLabel() + '?')) return;
+    const r = await act(() => api('POST', '/api/poll', body), scheduled ? tr('Опрос запланирован') : (x) => sentReport(tr('Опрос отправлен'), x));
     if (r) { closeDialog(d); loadPosts(); }
   };
   // the same poll as an attachment of the draft: it goes out right after the post
   const attach = () => {
     let poll;
-    try { poll = build(); } catch (e) { toast('Доп. параметры: ' + e.message, 'err'); return; }
-    if (!poll.question || poll.options.length < 2) { toast('Нужны вопрос и минимум два варианта', 'err'); return; }
+    try { poll = build(); } catch (e) { toast(tr('Доп. параметры: ') + e.message, 'err'); return; }
+    if (!poll.question || poll.options.length < 2) { toast(tr('Нужны вопрос и минимум два варианта'), 'err'); return; }
     delete poll.close_date; delete poll.disable_notification; // counted from the post's own time and options
     S.extra.poll = poll;
     closeDialog(d);
     renderAfter(); changed();
     const panel = /** @type {HTMLDetailsElement | null} */ (document.getElementById('panel-after'));
     if (panel) { panel.open = true; panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-    toast('Опрос уйдёт сразу после поста', 'ok');
+    toast(tr('Опрос уйдёт сразу после поста'), 'ok');
   };
   const d = openDialog([
-    h('h3', { text: 'Опрос в канал' }),
-    h('p', { class: 'muted small', text: 'Отдельное сообщение (в rich-пост опрос не вкладывается). «После поста» прикрепит его к черновику: опрос уйдёт сразу за постом. Куда: ' + (targetLabel() || 'канал не указан') }),
-    field('Вопрос', inp('question', { maxlength: '300', placeholder: 'Во сколько провести эфир?' })),
-    field('Варианты (2–12)', opts),
-    field('Описание под вопросом (до 1024 символов)', inp('description')),
-    chk('quiz', 'Викторина (один правильный ответ)'), quizBox,
-    chk('multiple', 'Несколько ответов (не для викторины)'),
-    chk('members_only', 'Только подписчики старше 24 часов', 'members_only, только для каналов'),
-    field('Страны, из которых можно голосовать (до 12, например RU, KZ; FT = анонимные номера)', inp('countries', { placeholder: 'пусто = все' })),
-    chk('hide_results', 'Показать результаты только после закрытия'),
-    field('Закрыть через, часов', inp('close_hours', { placeholder: 'не закрывать' })),
-    chk('pin', 'Закрепить опрос'),
-    h('details', {}, h('summary', { class: 'small', text: 'Дополнительные параметры sendPoll (JSON)' }),
+    h('h3', { text: tr('Опрос в канал') }),
+    h('p', { class: 'muted small', text: tr('Отдельное сообщение (в rich-пост опрос не вкладывается). «После поста» прикрепит его к черновику: опрос уйдёт сразу за постом. Куда: ') + (targetLabel() || tr('канал не указан')) }),
+    field(tr('Вопрос'), inp('question', { maxlength: '300', placeholder: tr('Во сколько провести эфир?') })),
+    field(tr('Варианты (2–12)'), opts),
+    field(tr('Описание под вопросом (до 1024 символов)'), inp('description')),
+    chk('quiz', tr('Викторина (один правильный ответ)')), quizBox,
+    chk('multiple', tr('Несколько ответов (не для викторины)')),
+    chk('members_only', tr('Только подписчики старше 24 часов'), tr('members_only, только для каналов')),
+    field(tr('Страны, из которых можно голосовать (до 12, например RU, KZ; FT = анонимные номера)'), inp('countries', { placeholder: tr('пусто = все') })),
+    chk('hide_results', tr('Показать результаты только после закрытия')),
+    field(tr('Закрыть через, часов'), inp('close_hours', { placeholder: tr('не закрывать') })),
+    chk('pin', tr('Закрепить опрос')),
+    h('details', {}, h('summary', { class: 'small', text: tr('Дополнительные параметры sendPoll (JSON)') }),
       h('textarea', { class: 'code', style: 'min-height:60px', value: P.extra, placeholder: '{"allows_revoting": true, "shuffle_options": true}', oninput: (e) => { P.extra = e.target.value; save(); } })),
-    h('details', {}, h('summary', { class: 'small', text: 'Время для «Отложить»' }), pick.el)],
-  [h('button', { class: 'ghost', value: 'cancel', text: 'Закрыть' }),
-    h('button', { class: 'ghost', text: 'После поста', title: 'Прикрепить к черновику: опрос уйдёт сразу после публикации поста', onclick: attach }),
-    h('button', { class: 'ghost', text: 'Отложить', onclick: () => go(true) }),
-    h('button', { class: 'primary', text: 'Отправить', onclick: () => go(false) })]);
+    h('details', {}, h('summary', { class: 'small', text: tr('Время для «Отложить»') }), pick.el)],
+  [h('button', { class: 'ghost', value: 'cancel', text: tr('Закрыть') }),
+    h('button', { class: 'ghost', text: tr('После поста'), title: tr('Прикрепить к черновику: опрос уйдёт сразу после публикации поста'), onclick: attach }),
+    h('button', { class: 'ghost', text: tr('Отложить'), onclick: () => go(true) }),
+    h('button', { class: 'primary', text: tr('Отправить'), onclick: () => go(false) })]);
 }

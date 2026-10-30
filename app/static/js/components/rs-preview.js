@@ -1,3 +1,4 @@
+import { tr } from '../i18n.js';
 // <rs-preview>: the post as Telegram shows it, in its own shadow root.
 // tg.css and KaTeX styles apply only inside, the editor's app.css never reaches the post.
 // The HTML itself comes from RichRender (the sanitizer), never from a Lit template.
@@ -33,8 +34,8 @@ export class RsPreview extends LitElement {
   /** the poll sent right after the post: text only, Lit escapes it */
   pollAfter(poll) {
     const options = Array.isArray(poll.options) ? poll.options : [];
-    return html`<div class="tg-comment-label">Опрос сразу после поста</div><div class="tg-msg"><div class="tg-bubble tg-poll">
-<div class="tg-poll-q">${poll.question || 'Вопрос'}</div><div class="tg-poll-kind">${poll.type === 'quiz' ? 'Викторина' : poll.is_anonymous === false ? 'Опрос' : 'Анонимный опрос'}</div>
+    return html`<div class="tg-comment-label">${tr("Опрос сразу после поста")}</div><div class="tg-msg"><div class="tg-bubble tg-poll">
+<div class="tg-poll-q">${poll.question || tr('Вопрос')}</div><div class="tg-poll-kind">${poll.type === 'quiz' ? tr('Викторина') : poll.is_anonymous === false ? tr('Опрос') : tr('Анонимный опрос')}</div>
 ${options.map((o) => html`<div class="tg-poll-opt">${(o && typeof o === 'object' ? o.text : o) || '…'}</div>`)}</div></div>`;
   }
 
@@ -44,7 +45,7 @@ ${options.map((o) => html`<div class="tg-poll-opt">${(o && typeof o === 'object'
     const poll = post && post.poll_after;
     return html`<link rel="stylesheet" href="/static/vendor/katex/katex.min.css"><link rel="stylesheet" href="/static/tg.css">
 <div class="tg-preview ${this.dark ? 'tg-dark' : ''}" @click=${this.followAnchor}>${post ? RichRender.render(post, { channelTitle: this.channelTitle }) : ''}${comment
-  ? html`<div class="tg-comment-label">Первый комментарий в обсуждении</div>${RichRender.render({ rich_message: comment }, {})}`
+  ? html`<div class="tg-comment-label">${tr("Первый комментарий в обсуждении")}</div>${RichRender.render({ rich_message: comment }, {})}`
   : ''}${poll ? this.pollAfter(poll) : ''}</div>`;
   }
 }

@@ -49,6 +49,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:render
       - run: npm run test:source
+      - run: npm run test:i18n
       - run: npm run test:parity
       - run: npm run test:shots
       - uses: actions/upload-artifact@v7
