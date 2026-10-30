@@ -10,6 +10,11 @@ on:
         options: [check, deploy, tls-check, tls-retry]
         default: check
         required: true
+      confirm_tls_retry:
+        description: "Для tls-retry введите: CONFIRM_TLS_RETRY"
+        type: string
+        default: ""
+        required: false
 
 permissions:
   contents: read
@@ -118,7 +123,7 @@ jobs:
           exit "$problem"
           REMOTE
       - name: Retry automatic certificate provisioning
-        if: inputs.operation == 'tls-retry'
+        if: inputs.operation == 'tls-retry' && inputs.confirm_tls_retry == 'CONFIRM_TLS_RETRY'
         run: |
           ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash -se' <<'REMOTE'
           docker compose -f /opt/richpost/deploy/compose.simple.yml restart caddy > /dev/null 2>&1
