@@ -32,7 +32,7 @@ export default async function ({ page, check, mockLog, push, applyJson }) {
     page.click('#side-tabs [data-tab=posts]'),
   ]);
   const row = page.locator('#posts li').filter({ hasText: 'Голосуем' });
-  await row.waitFor();
+  await row.filter({ hasText: 'нажатия: 👍 1' }).waitFor();
   const statsText = await row.textContent();
   check('Pin, first comment and callback answer work end to end',
     commentShown === 1 && !sentRich.body.pin && !sentRich.body.comment && !!pinned && answer && answer.body.text === 'Спасибо, учтено' && /нажатия: 👍 1/.test(statsText) && /ждёт пересылки/.test(statsText),
