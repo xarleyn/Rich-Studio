@@ -16,17 +16,24 @@ export default async function ({ page, check, mockLog, push, applyJson }) {
   let log = await mockLog();
   const sentRich = log.filter((c) => c.method === 'sendRichMessage').pop();
   const pinned = log.filter((c) => c.method === 'pinChatMessage').pop();
-  const handled = await page.evaluate(() => fetch('/api/updates').then((r) => r.json()).then((s) => s.handled));
   await push({ callback_query: { id: 'cq-e2e', data: 'like', message: { message_id: 1, chat: { id: -1001 } } } }); // unknown message: answered, not counted
   const posts = await page.evaluate(() => fetch('/api/posts').then((r) => r.json()));
   const mine = posts.find((p) => p.comment_status === 'waiting');
   await push({ callback_query: { id: 'cq-e2e2', data: 'like', message: { message_id: mine && (await page.evaluate((id) => fetch('/api/posts/' + id).then((r) => r.json()), mine.id)).message_id, chat: { id: -1001 } } } });
-  await page.waitForFunction(async (before) => (await fetch('/api/updates').then((r) => r.json())).handled >= before + 2, handled);
-  log = await mockLog();
-  const answer = log.filter((c) => c.method === 'answerCallbackQuery').pop();
-  await page.click('#side-tabs [data-tab=posts]');
-  await page.waitForFunction(() => /нажатия: 👍 1/.test(document.querySelector('#posts li')?.textContent || ''));
-  const statsText = await page.locator('#posts li').first().textContent();
+  let answer;
+  const deadline = Date.now() + 15000;
+  while (!answer && Date.now() < deadline) {
+    log = await mockLog();
+    answer = log.find((c) => c.method === 'answerCallbackQuery' && c.body.callback_query_id === 'cq-e2e2');
+    if (!answer) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await Promise.all([
+    page.waitForResponse((response) => new URL(response.url()).pathname === '/api/posts' && response.ok()),
+    page.click('#side-tabs [data-tab=posts]'),
+  ]);
+  const row = page.locator('#posts li').filter({ hasText: 'Голосуем' });
+  await row.waitFor();
+  const statsText = await row.textContent();
   check('Pin, first comment and callback answer work end to end',
     commentShown === 1 && !sentRich.body.pin && !sentRich.body.comment && !!pinned && answer && answer.body.text === 'Спасибо, учтено' && /нажатия: 👍 1/.test(statsText) && /ждёт пересылки/.test(statsText),
     JSON.stringify({ commentShown, pinned: !!pinned, answer: answer && answer.body, statsText }));
