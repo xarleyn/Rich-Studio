@@ -5,6 +5,7 @@ Modules call `settings.get()` at use time (never at import time), so tests and
 """
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -85,6 +86,8 @@ class Settings:
     allowed_hosts: set[str] = field(default_factory=lambda: {"localhost", "127.0.0.1", "[::1]", "::1"})
     # getUpdates loop: button clicks, first comments, reactions, poll results
     updates_on: bool = True
+    updates_mode: str = "polling"
+    webhook_secret: str = ""
     # background loops (spec refresh, scheduler, updates); tests turn them off and drive them directly
     background: bool = True
     spec_url: str = "https://raw.githubusercontent.com/PaulSonOfLars/telegram-bot-api-spec/main/api.json"
@@ -197,6 +200,33 @@ class Settings:
         s.landing_url = env.get("STUDIO_LANDING_URL", "").strip().rstrip("/")
         s.allowed_hosts |= {h.strip().lower() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()}
         s.updates_on = _flag(env, "TG_UPDATES")
+        s.updates_mode = env.get("TG_UPDATES_MODE", "polling").strip().lower()
+        s.webhook_secret = _secret(env, "TG_WEBHOOK_SECRET", problems)
+        if s.updates_mode not in {"polling", "webhook"}:
+            problems.append("TG_UPDATES_MODE: бывает polling или webhook")
+        if s.updates_on and s.updates_mode == "webhook":
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", s.webhook_secret):
+                problems.append("TG_WEBHOOK_SECRET: нужен секрет из 1–256 букв ASCII, цифр, _ или -")
+            try:
+                url = urlsplit(s.public_url)
+                valid_url = (
+                    url.scheme == "https"
+                    and bool(url.hostname)
+                    and not url.username
+                    and not url.password
+                    and not url.query
+                    and not url.fragment
+                    and url.path in ("", "/")
+                    and url.port in (None, 443, 80, 88, 8443)
+                )
+            except ValueError:
+                valid_url = False
+            if valid_url:
+                s.allowed_hosts.add(url.netloc.lower())
+            else:
+                problems.append(
+                    "STUDIO_URL: для вебхука нужен публичный HTTPS-адрес без пути, порт 443, 80, 88 или 8443"
+                )
         s.background = _flag(env, "STUDIO_BACKGROUND")
         s.spec_url = env.get("SPEC_URL", s.spec_url)
         s.spec_refresh_hours = _number(env, "SPEC_REFRESH_HOURS", 12, problems)

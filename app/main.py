@@ -171,7 +171,7 @@ async def lifespan(app):
         if cfg.backup_keep > 0:
             factories.append(backup.loop)
         if cfg.updates_on:
-            factories.append(updates.loop)
+            factories.append(updates.webhook_loop if cfg.updates_mode == "webhook" else updates.loop)
         runner = loops.Loops(factories)  # under a lease: one process runs them (services/loops.py)
         runner.start()
     else:  # no loops, no lease: tests and one-off runs

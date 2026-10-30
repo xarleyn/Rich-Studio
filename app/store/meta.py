@@ -46,3 +46,16 @@ def drop_lease(name: str, owner: str) -> None:
             "delete from meta where key=? and json_extract(value, '$.owner') = ?",
             ("lease:" + name, owner),
         )
+
+
+def claim_webhook_update(update_id: int) -> bool:
+    """Claim once across processes; Telegram retains undelivered updates for up to a day."""
+    now = int(time.time())
+    with conn(root=True) as c:
+        c.execute(
+            "delete from meta where key like 'webhook-update:%' and cast(value as integer) < ?", (now - 7 * 86400,)
+        )
+        cur = c.execute(
+            "insert or ignore into meta(key, value) values(?, ?)", (f"webhook-update:{update_id}", str(now))
+        )
+        return cur.rowcount == 1

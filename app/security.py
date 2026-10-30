@@ -147,6 +147,7 @@ async def guard(request: Request, call_next):
     # logging in and out of the editor (POST, DELETE /api/session) needs no token yet
     public = (
         path in PUBLIC_PATHS
+        or (path == "/api/telegram/webhook" and request.method == "POST")
         or path.startswith("/static/")
         or path in {"/api/auth/config", "/api/auth/telegram/start", "/auth/telegram/callback"}
         or (path == "/api/session" and request.method != "GET")

@@ -14,6 +14,7 @@ import settings
 import store
 import telegram as tg
 from errors import StudioError
+from store.meta import claim_webhook_update
 
 from . import accounts, channels, invite_links, suggested_posts
 
@@ -54,6 +55,7 @@ STATUS = Status()
 
 def public_status() -> dict:
     status = STATUS.as_dict()
+    status["mode"] = settings.get().updates_mode
     if account_context.user_id() is not None:
         status.update(error=None, last_at=None, handled=0)
     return status
@@ -267,5 +269,54 @@ async def loop() -> None:
             STATUS.error = e.description
             await _sleep(60 if e.code == 409 else 10)
         except Exception as e:  # noqa: BLE001 - keep polling whatever happens
+            STATUS.state, STATUS.error = "error", f"{type(e).__name__}: {e}"
+            await _sleep(10)
+
+
+async def receive_webhook(update: dict) -> None:
+    """Claim before processing, as polling does before confirming an update to Telegram."""
+    uid = update["update_id"]
+    if not claim_webhook_update(uid):
+        return
+    with logs.bind(f"update-{uid}"):
+        try:
+            if await handle_update(update):
+                STATUS.handled += 1
+                STATUS.last_at = int(time.time())
+        except Exception:
+            # A handler may already have sent a comment: never repeat an uncertain side effect.
+            log.exception("update %s failed", uid)
+
+
+async def webhook_loop() -> None:
+    """Register the configured webhook under the background lease and keep housekeeping alive."""
+    registered = False
+    while True:
+        metrics.beat("updates", 60, STATUS.error if STATUS.state == "error" else None)
+        if not settings.get().bot_token:
+            STATUS.state = "no_token"
+            await _sleep(30)
+            continue
+        try:
+            if not registered:
+                cfg = settings.get()
+                await tg.call(
+                    "setWebhook",
+                    {
+                        "url": cfg.public_url + "/api/telegram/webhook",
+                        "secret_token": cfg.webhook_secret,
+                        "allowed_updates": ALLOWED_UPDATES,
+                        "max_connections": 1,
+                    },
+                )
+                registered = True
+            STATUS.state, STATUS.error = "ok", None
+            for uid in accounts.all_ids():
+                with accounts.scope(uid):
+                    store.expire_comments(
+                        int(time.time()) - COMMENT_WAIT, "первый комментарий: пересылка в обсуждение не пришла за сутки"
+                    )
+            await _sleep(60)
+        except Exception as e:  # noqa: BLE001 - retry registration or housekeeping without killing the loop
             STATUS.state, STATUS.error = "error", f"{type(e).__name__}: {e}"
             await _sleep(10)
