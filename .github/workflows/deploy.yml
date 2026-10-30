@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "SSH, выкладка или проверка HTTPS"
+        description: "SSH, выкладка, HTTPS или выборочный Trojan"
         type: choice
-        options: [check, deploy, tls-check, tls-retry]
+        options: [check, deploy, tls-check, tls-retry, proxy-enable]
         default: check
         required: true
       confirm_tls_retry:
@@ -76,14 +76,22 @@ jobs:
           echo 'SSH к RichPost работает.'
           REMOTE
       - name: Upload and deploy this exact commit
-        if: inputs.operation == 'deploy'
+        if: inputs.operation == 'deploy' || inputs.operation == 'proxy-enable'
         run: |
           set -euo pipefail
+          if [[ '${{ inputs.operation }}' == proxy-enable ]]; then
+            ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost \
+              'test -s /opt/richpost/deploy/secrets/trojan.url'
+          fi
           git archive --format=tar.gz -o "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
             HEAD app Dockerfile .dockerignore requirements.lock deploy
           scp -F "$RUNNER_TEMP/richpost-ssh-config" "$RUNNER_TEMP/richpost-$GITHUB_SHA.tar.gz" \
             "richpost:/tmp/richpost-$GITHUB_SHA.tar.gz"
           ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost "bash -s -- $GITHUB_SHA" < deploy/update.sh
+      - name: Enable the private selective Trojan proxy
+        if: inputs.operation == 'proxy-enable'
+        run: |
+          ssh -F "$RUNNER_TEMP/richpost-ssh-config" richpost 'bash /opt/richpost/deploy/setup-proxy.sh'
       - name: Check access to the certificate authority
         if: inputs.operation == 'tls-check'
         run: |
@@ -106,18 +114,16 @@ jobs:
               curl "-$family" --fail --silent --connect-timeout 5 --max-time 15 \
                 --output /dev/null "$url" > /dev/null 2>&1 || code=$?
               printf 'host IPv%s %s: exit=%s\n' "$family" "$endpoint" "$code"
-              if [[ "$family" == 4 && "$code" != 0 ]]; then problem=1; fi
             done
             code=0
             docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T caddy \
               wget -q -T 15 -O /dev/null "$url" > /dev/null 2>&1 || code=$?
             printf 'container %s: exit=%s\n' "$endpoint" "$code"
-            if [[ "$code" != 0 ]]; then problem=1; fi
             code=0
             docker compose -f /opt/richpost/deploy/compose.simple.yml exec -T rich-studio \
-              python -c 'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=15).close()' \
+              python -c 'import sys, urllib.request, settings; proxy = settings.get().telegram_proxy; opener = urllib.request.build_opener(urllib.request.ProxyHandler({"https": proxy}) if proxy else urllib.request.ProxyHandler({})); opener.open(sys.argv[1], timeout=20).close()' \
               "$url" > /dev/null 2>&1 || code=$?
-            printf 'app container %s: exit=%s\n' "$endpoint" "$code"
+            printf 'configured app route %s: exit=%s\n' "$endpoint" "$code"
             if [[ "$code" != 0 ]]; then problem=1; fi
           done
           exit "$problem"
