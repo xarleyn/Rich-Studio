@@ -298,3 +298,16 @@ interface HealthReport {
   metrics: Json;
   recent_problems: Json[];
 }
+
+/** Personal credentials: only metadata survives the one-time creation response. */
+interface AccountToken {
+  id: string;
+  name: string;
+  level: 'read' | 'draft' | 'publish';
+  created_at: number;
+  expires_at: number | null;
+  last_used_at: number | null;
+  revoked_at: number | null;
+}
+interface AccountTokensResponse { tokens: AccountToken[]; mcp_url: string; }
+interface AccountTokenCreated { token: AccountToken; secret: string; }

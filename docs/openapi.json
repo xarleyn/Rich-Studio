@@ -902,6 +902,49 @@
     "title": "SessionReq",
     "type": "object"
    },
+   "TokenReq": {
+    "additionalProperties": false,
+    "properties": {
+     "expires_in_days": {
+      "anyOf": [
+       {
+        "maximum": 365.0,
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": 90,
+      "description": "Срок от 1 до 365 дней; null — без срока",
+      "title": "Expires In Days"
+     },
+     "level": {
+      "default": "draft",
+      "description": "Чтение, черновики или публикация",
+      "enum": [
+       "read",
+       "draft",
+       "publish"
+      ],
+      "title": "Level",
+      "type": "string"
+     },
+     "name": {
+      "description": "Название подключения, например Claude laptop",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "TokenReq",
+    "type": "object"
+   },
    "Topic": {
     "properties": {
      "id": {
@@ -986,6 +1029,105 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/account/tokens": {
+   "get": {
+    "description": "Только Telegram-сессия владельца учётки. Секреты и хэши не возвращаются; даты — Unix seconds.\nПри создании токена история сокращается до 100 последних неактивных; всего не более 120 записей.\nТокены других учёток и сервера не видны.",
+    "operationId": "listing_api_account_tokens_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Мои токены API/MCP и адрес подключения",
+    "tags": [
+     "service"
+    ]
+   },
+   "post": {
+    "description": "Секрет возвращается только здесь, один раз. До 20 действующих токенов и 60 попыток создания в час.\nУровень admin недоступен; выданный токен не может управлять токенами или входить в редактор.",
+    "operationId": "create_api_account_tokens_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TokenReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Создать персональный токен API/MCP",
+    "tags": [
+     "service"
+    ]
+   }
+  },
+  "/api/account/tokens/{token_id}": {
+   "delete": {
+    "description": "После отзыва новые запросы с этим токеном отклоняются. Уже принятые операции и расписание сохраняются.\nПовторный отзыв безопасен; чужой или неизвестный id даёт 404. Telegram-сессия остаётся открытой.",
+    "operationId": "revoke_api_account_tokens__token_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token_id",
+      "required": true,
+      "schema": {
+       "title": "Token Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Отозвать свой токен API/MCP",
+    "tags": [
+     "service"
+    ]
+   }
+  },
   "/api/auth/config": {
    "get": {
     "operationId": "config_api_auth_config_get",
