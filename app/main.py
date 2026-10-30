@@ -27,8 +27,8 @@ import settings
 import spec
 import store
 import telegram as tg
-from api import backup as backup_api
 from api import (
+    account_tokens,
     channels,
     drafts,
     health,
@@ -45,6 +45,7 @@ from api import (
     suggested_posts,
     telegram_auth,
 )
+from api import backup as backup_api
 from errors import StorageFull, StudioError
 from security import guard
 from services import accounts, backup, housekeeping, loops, scheduler, updates
@@ -254,6 +255,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         backup_api,
         session,
         telegram_auth,
+        account_tokens,
         landing,
     ):
         app.include_router(module.router)

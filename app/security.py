@@ -21,6 +21,7 @@ import public_site
 import settings
 import store
 from services import accounts
+from store import account_tokens
 
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
@@ -41,6 +42,7 @@ class Principal:
     name: str | None
     level: str
     telegram_id: int | None = None
+    account_session: bool = False
 
     def can(self, level: str) -> bool:
         return LEVELS.index(self.level) >= LEVELS.index(level)
@@ -65,7 +67,10 @@ def by_secret(secret: str) -> Principal | None:
     if key and secrets.compare_digest(secret.encode(), key.encode()):  # str needs ASCII, bytes take any key
         return Principal(None, "admin")
     t = store.token_by_secret(secret)
-    return Principal(t["name"], t["level"]) if t else None
+    if t:
+        return Principal(t["name"], t["level"])
+    t = account_tokens.by_secret(secret) if settings.get().public else None
+    return Principal(t["name"], t["level"], t["telegram_id"]) if t else None
 
 
 def _credentials(request: Request) -> Principal | None:
@@ -79,7 +84,7 @@ def _credentials(request: Request) -> Principal | None:
     if session:
         user = store.accounts.session(session) if settings.get().public else None
         if user:
-            return Principal("tg:" + str(user["telegram_id"]), "publish", user["telegram_id"])
+            return Principal("tg:" + str(user["telegram_id"]), "publish", user["telegram_id"], account_session=True)
         s = store.session_by_secret(session)
         if s and s["token_name"]:
             return Principal(s["token_name"], s["level"])

@@ -28,6 +28,8 @@ def login(req: SessionReq, request: Request, response: Response):
     who = security.by_secret(req.key)
     if who is None:
         raise StudioError("ключ или токен не подошёл", status=401)
+    if who.telegram_id is not None:
+        raise StudioError("Персональный токен предназначен для API/MCP. В редактор войдите через Telegram.", status=403)
     secret = secrets.token_urlsafe(32)
     ttl = settings.get().session_days * 86400
     key_hash = None if who.name else store.hash_secret(settings.get().api_key)

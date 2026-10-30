@@ -8,7 +8,8 @@
 
 | Папка / файл | Что делает | Чего не делает |
 |---|---|---|
-| `app/cli.py` | токены доступа из командной строки (`make token`) | экрана для токенов в редакторе нет намеренно |
+| `app/cli.py` | токены рабочего пространства владельца из командной строки (`make token`) | не выдаёт токены публичных учёток |
+| `api/account_tokens.py`, `services/account_tokens.py`, `store/account_tokens.py` | персональные API/MCP-токены: Telegram-сессия управляет только своими, bearer входит в `accounts.scope` с ролью read/draft/publish | токены не создают другие токены и не обмениваются на браузерные сессии; admin остаётся у оператора. Решение: [0019](decisions/0019-account-tokens.md) |
 | `app/main.py` | `create_app()`: middleware, обработчики ошибок, роутеры, фоновые циклы | логики нет |
 | `app/settings.py` | все переменные окружения в одном `Settings`; модули вызывают `settings.get()` в момент использования; проверка при старте (`SettingsError` со всеми ошибками сразу), секреты из `*_FILE`, правила `STUDIO_MODE=server` | не читает env при импорте других модулей |
 | `app/security.py` | Host, CSRF, Content-Type, CSP; кто спрашивает (`Principal`: именной токен, `STUDIO_API_KEY` или cookie сессии редактора) и уровень по методу запроса (GET — `read`, остальное — `draft`) | уровни выше `draft` проверяют сами маршруты (`api.deps.need`) и инструменты MCP (`mcp_tools.common.level_of`) |

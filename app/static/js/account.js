@@ -3,6 +3,7 @@ import { tr, locale } from './i18n.js';
 import { api, login, probe, setPublicAuth } from './api.js';
 import { closeDialog, dialogs, openDialog } from './dialogs.js';
 import { $, act, h, setStoreScope } from './dom.js';
+import { showAccountTokens } from './account-tokens.js';
 
 /** @type {{telegram: boolean, bot_username: string | null}} */
 let config;
@@ -69,6 +70,9 @@ export async function prepareAccount() {
     h('p', { class: 'muted', text: user ? (user.username ? '@' + user.username : 'Telegram ID: ' + user.telegram_id) : tr('Доступ владельца сервиса') }),
     h('a', { class: 'btn', href: `https://t.me/${config.bot_username}`, target: '_blank', rel: 'noopener', text: tr('Открыть бота') }),
     h('p', { class: 'muted small', text: tr('Нажмите «Запустить» в боте, чтобы получать предпросмотры в личные сообщения.') }),
+    ...(user ? [h('button', { type: 'button', text: tr('Токены API и MCP'), onclick: () => {
+      closeDialog(); showAccountTokens();
+    } })] : []),
   ], [h('button', { class: 'ghost', value: 'cancel', text: tr('Закрыть') }), h('button', { type: 'button', text: tr('Выйти'), onclick: () => act(async () => {
     await api('DELETE', '/api/session'); location.reload();
   }) })]);

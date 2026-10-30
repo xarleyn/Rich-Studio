@@ -26,3 +26,4 @@
 | [0018](0018-telegram-message-import.md) | Импорт по ссылке: MTProto, ограниченный веб-виджет и явная пересылка |
 
 | [0017](0017-source-editors.md) | CodeMirror 6 для HTML, Markdown и JSON, локальный bundle без миникарты |
+| [0019](0019-account-tokens.md) | Персональные API/MCP-токены из Telegram-учётки, роли и отзыв в интерфейсе |
