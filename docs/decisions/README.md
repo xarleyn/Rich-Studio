@@ -24,3 +24,4 @@
 | [0014](0014-public-telegram-accounts.md) | Публичный Telegram-вход, отдельные базы учёток и проверка прав перед отправкой |
 | [0015](0015-selective-trojan.md) | Выборочный Trojan для Bot API и Let’s Encrypt через внутренний HTTP CONNECT |
 | [0016](0016-public-account-security-limits.md) | Текущие права для событий и комментариев, квота базы публичной учётки |
+| [0017](0017-source-editors.md) | CodeMirror 6 для HTML, Markdown и JSON, локальный bundle без миникарты |

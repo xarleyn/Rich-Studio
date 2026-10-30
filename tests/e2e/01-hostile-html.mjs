@@ -24,7 +24,7 @@ export default async function ({ page, check, applyJson, alerts, csp, BASE }) {
   page.on('console', onConsole);
   const cspBefore = csp.length;
   await page.click('#mode-tabs [data-mode=html]');
-  await page.fill('#src-html', evil);
+  await page.fill('#src-html .cm-content', evil);
   await page.waitForTimeout(700);
   await page.evaluate(() => document.querySelector('#preview').shadowRoot.querySelectorAll('a, .tg-btn').forEach((a) => a.click()));
   await page.waitForTimeout(500);

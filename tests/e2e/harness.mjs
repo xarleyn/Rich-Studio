@@ -32,7 +32,7 @@ export async function start() {
   const showJson = () => page.click('#mode-tabs [data-mode=json]');
   // the draft's channels live in a hidden field; the header button and the «Каналы» dialog edit it
   const setChat = (v) => page.evaluate((x) => { const i = /** @type {HTMLInputElement} */ (document.querySelector('#chat')); i.value = x; i.dispatchEvent(new Event('input')); }, v);
-  const applyJson = async (post) => { await showJson(); await page.fill('#src-json', JSON.stringify(post)); await page.click('#json-apply'); await page.waitForTimeout(400); };
+  const applyJson = async (post) => { await showJson(); await page.fill('#src-json .cm-content', JSON.stringify(post)); await page.click('#json-apply'); await page.waitForTimeout(400); };
 
   return { BASE, MOCK, browser, page, check, results, errors, csp, alerts: () => alerts, mockLog, push, state, showJson, setChat, applyJson };
 }

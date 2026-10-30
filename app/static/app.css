@@ -105,6 +105,7 @@ dialog .ok { color: var(--ok); } dialog .w { color: var(--warn); }
 .tabs { display: flex; gap: 2px; align-items: center; border-bottom: 1px solid var(--border); }
 .tabs button { background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; }
 .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+#mode-tabs { flex-wrap: wrap; }
 .side .tabs { position: sticky; top: 0; background: var(--panel); z-index: 1; }
 .side-body { padding: 8px; }
 .list { list-style: none; margin: 0; padding: 0; }

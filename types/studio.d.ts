@@ -231,6 +231,8 @@ interface EditorState {
   format: 'blocks' | 'html' | 'markdown';
   mode: string;
   buf: { blocks: Json[]; html: string; markdown: string };
+  /** Unapplied JSON source is saved with the draft, including syntax errors; it never becomes the sent post implicitly. */
+  pendingJson: string | null;
   media: Json[];
   flags: Json;
   keyboard: ButtonRow[];

@@ -49,13 +49,15 @@ export function callbacksFor(kb) {
 
 // Drafts keep the text of every mode, not only the one that is sent
 export function draftPayload() {
-  return { ...buildPost(), _studio: { format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown } } };
+  return { ...buildPost(), _studio: { format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown,
+    ...(S.pendingJson !== null ? { json: S.pendingJson } : {}) } } };
 }
 
 export function loadPost(post) {
   post = clone(post || {});
   const studio = post._studio;
   delete post._studio;
+  S.pendingJson = typeof studio?.buffers?.json === 'string' ? studio.buffers.json : null;
   S.topicChat = undefined; // the loaded post's topic belongs to the channel it is opened with
   const rm = post.rich_message || {};
   S.buf = { blocks: [], html: '', markdown: '' };
@@ -78,12 +80,19 @@ export function loadPost(post) {
   }
   setMode(S.format, true);
   renderAll();
+  // A new draft (even with identical text) must not inherit another draft's local text undo stack.
+  ['html', 'markdown', 'json'].forEach((kind) => $('#src-' + kind).resetHistory());
 }
 
 export function renderAll() {
   renderBlocksPane();
+  ['html', 'markdown', 'json'].forEach((kind) => {
+    $('#src-' + kind).spec = S.spec;
+    $('#src-' + kind).snippets = window.SNIPPETS;
+  });
   $('#src-html').value = S.buf.html;
   $('#src-markdown').value = S.buf.markdown;
+  $('#src-json').value = S.pendingJson ?? JSON.stringify(buildPost(), null, 2);
   renderMedia();
   renderKeyboard();
   renderOptions();
@@ -99,7 +108,7 @@ export function setMode(mode, silent) {
   $$('#mode-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   ['blocks', 'html', 'markdown', 'json'].forEach((m) => { $('#pane-' + m).hidden = m !== mode; });
   $('#panel-media').hidden = mode === 'blocks';
-  if (mode === 'json') { $('#src-json').value = JSON.stringify(buildPost(), null, 2); $('#json-err').textContent = ''; }
+  if (mode === 'json') { $('#src-json').value = S.pendingJson ?? JSON.stringify(buildPost(), null, 2); $('#json-err').textContent = ''; }
   const hints = { blocks: 'отправляется как rich_message.blocks', html: 'отправляется как rich_message.html', markdown: 'отправляется как rich_message.markdown', json: 'активный формат: ' + S.format };
   $('#mode-hint').textContent = hints[mode];
   if (!silent) changed();

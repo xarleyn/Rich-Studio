@@ -9,7 +9,7 @@ export default async function ({ page, check, state, showJson }) {
   await page.waitForTimeout(300);
   // the mock answers with the blocks the real Telegram made of this source
   await page.click('#mode-tabs [data-mode=markdown]');
-  await page.fill('#src-markdown', captured['md-math'].source);
+  await page.fill('#src-markdown .cm-content', captured['md-math'].source);
   await page.waitForTimeout(400);
   await page.click('#btn-me');
   await page.waitForSelector('#parse-check >> text=так же', { timeout: 5000 }).catch(() => {});
@@ -25,9 +25,9 @@ export default async function ({ page, check, state, showJson }) {
   await showJson();
   const blocks = (await state()).rich_message.blocks;
   await page.click('#mode-tabs [data-mode=markdown]');
-  const sourceKept = await page.inputValue('#src-markdown');
+  const sourceKept = await page.locator('#src-markdown').evaluate((el) => el.value);
   // a source the mock does not know comes back as one plain paragraph: Telegram "parsed it otherwise"
-  await page.fill('#src-markdown', '**жирный** текст');
+  await page.fill('#src-markdown .cm-content', '**жирный** текст');
   await page.waitForTimeout(400);
   const stale = await barText();
   await page.click('#btn-me');

@@ -62,6 +62,7 @@
 
 ## Куда добавлять новое
 
+- Текстовые редакторы HTML/Markdown/JSON: компонент `static/js/components/rs-code-editor.js` принимает текст, спецификацию и каталог сниппетов; сообщает о правках через события. `source-completion.js` строит подсказки, `code.js` связывает события с состоянием поста и медиа. CodeMirror вендорен и загружается при открытии режима. Неприменённый JSON хранится в `S.pendingJson` и `_studio.buffers.json`; `buildPost()` его не отправляет. См. [0017](decisions/0017-source-editors.md).
 - Новый метод Bot API для постов: функция в `services/posts.py` + маршрут в `api/posts.py` + тест в `tests/`.
 - Новый тип сообщения (как опрос или Live Photo): запись в `services/kinds.py` с проверкой, маршрут или инструмент MCP через `posts.send_kind`, диалог в редакторе. Отправка, планировщик, правка, кнопки и список постов берут остальное из записи.
 - Новое событие от Telegram: ветка в `services/updates.handle_update` и тип в `ALLOWED_UPDATES`.
