@@ -23,3 +23,4 @@
 | [0013](0013-message-kinds-registry.md) | Типы сообщений (пост, опрос, Live Photo, платный контент) в одном реестре `services/kinds.py` |
 | [0014](0014-public-telegram-accounts.md) | Публичный Telegram-вход, отдельные базы учёток и проверка прав перед отправкой |
 | [0015](0015-selective-trojan.md) | Выборочный Trojan для Bot API и Let’s Encrypt через внутренний HTTP CONNECT |
+| [0016](0016-public-account-security-limits.md) | Текущие права для событий и комментариев, квота базы публичной учётки |

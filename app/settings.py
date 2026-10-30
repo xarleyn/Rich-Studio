@@ -68,6 +68,7 @@ class Settings:
     public: bool = False
     bot_username: str = "YourBot"
     account_storage_mb: float = 500.0
+    account_database_mb: float = 50.0
     data_dir: Path = Path("/data")
     bot_token: str = ""
     default_chat: str = ""
@@ -162,6 +163,9 @@ class Settings:
         server = s.mode == "server"
         s.public = _flag(env, "STUDIO_PUBLIC", "off")
         s.account_storage_mb = _number(env, "ACCOUNT_STORAGE_MB", 500, problems)
+        s.account_database_mb = _number(env, "ACCOUNT_DATABASE_MB", 50, problems)
+        if not 1 <= s.account_database_mb <= 1024 * 1024:
+            problems.append("ACCOUNT_DATABASE_MB: нужно от 1 до 1048576 МБ")
         s.bot_username = env.get("TG_BOT_USERNAME", s.bot_username).strip().lstrip("@")
         if s.public:
             if not s.bot_username or not s.bot_username.isascii() or not s.bot_username.replace("_", "").isalnum():

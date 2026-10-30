@@ -6,6 +6,7 @@ Telegram transport in telegram/, storage in store/, the Bot API spec in spec/.
 
 import asyncio
 import contextlib
+import getpass
 import logging
 import os
 import sys
@@ -42,7 +43,7 @@ from api import (
     suggested_posts,
     telegram_auth,
 )
-from errors import StudioError
+from errors import StorageFull, StudioError
 from security import guard
 from services import accounts, backup, housekeeping, loops, scheduler, updates
 
@@ -134,11 +135,15 @@ def _data_dir_writable(cfg: settings.Settings) -> None:
         if locked:
             raise PermissionError(13, f"{locked} не записывается")
     except OSError as e:
+        uid, gid = getattr(os, "getuid", None), getattr(os, "getgid", None)
+        if uid and gid:
+            owner = f"{uid()}"
+            action = f"если папку создал Docker или прежний образ от root: sudo chown -R {uid()}:{gid()} data"
+        else:
+            owner = getpass.getuser()
+            action = "разрешите этому пользователю запись в папку и её файлы в свойствах безопасности Windows"
         raise settings.SettingsError(
-            [
-                f"нет записи в DATA_DIR={cfg.data_dir} ({e.strerror}) для пользователя {os.getuid()}; "
-                f"если папку создал Docker или прежний образ от root: sudo chown -R {os.getuid()}:{os.getgid()} data"
-            ]
+            [f"нет записи в DATA_DIR={cfg.data_dir} ({e.strerror}) для пользователя {owner}; {action}"]
         ) from None
 
 
@@ -188,6 +193,10 @@ async def _studio_error(request: Request, e: Exception):
     return JSONResponse({"detail": e.detail}, status_code=e.status)
 
 
+async def _storage_full(request: Request, e: Exception):
+    return JSONResponse({"detail": str(e)}, status_code=413)
+
+
 async def _telegram_error(request: Request, e: Exception):
     assert isinstance(e, tg.TelegramError)  # noqa: S101
     body = {"detail": f"Telegram: {e.description}", "error_code": e.code}
@@ -219,6 +228,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
     app.middleware("http")(guard)
     app.middleware("http")(_observe)  # added last = runs first: also sees what the guard refused
     app.add_exception_handler(StudioError, _studio_error)
+    app.add_exception_handler(StorageFull, _storage_full)
     app.add_exception_handler(tg.TelegramError, _telegram_error)
     app.add_exception_handler(tg.NoAnswer, _no_answer)
     for module in (

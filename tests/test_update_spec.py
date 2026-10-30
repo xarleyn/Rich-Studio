@@ -65,6 +65,7 @@ def test_newer_version_is_written_as_downloaded(bundled, monkeypatch, capsys):
         (b"", 503),
         (json.dumps({**BUNDLED, "version": "Bot API 1.0"}).encode(), 200),  # older
     ],
+    ids=["invalid-json", "invalid-shape", "unavailable", "older-version"],
 )
 def test_bad_or_older_download_keeps_the_bundled_spec(bundled, monkeypatch, body, status):
     before = bundled.read_bytes()

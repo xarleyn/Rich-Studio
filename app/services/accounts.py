@@ -35,14 +35,37 @@ def verify_login(data: dict[str, str]) -> dict:
 
 
 @contextlib.contextmanager
-def scope(uid: int | None, *, trusted: bool = False) -> Iterator[None]:
+def scope(uid: int | None) -> Iterator[None]:
     """Bind storage and transport together; context propagates to async tasks and worker threads."""
-    with account_context.bind(uid, (_trusted if trusted else authorize) if uid is not None else None):
+    with account_context.bind(uid, authorize if uid is not None else None):
         yield
 
 
-async def _trusted(method: str, params: dict) -> dict:
-    return params
+async def send_comment(source_chat, discussion, message_id: int, comment: dict) -> dict:
+    """One reply to an automatic forward, with current source rights and the current linked discussion.
+
+    The discussion need not be in the user's channel list. This exception permits only this exact reply;
+    all reads and other calls retain the normal account policy, restored even when the send fails.
+    """
+    params = {"chat_id": discussion, "rich_message": comment, "reply_parameters": {"message_id": message_id}}
+    uid = account_context.user_id()
+    if uid is None:
+        return await tg.call("sendRichMessage", params)
+
+    async def comment_policy(method: str, values: dict) -> dict:
+        if method != "sendRichMessage" or values != params:
+            return await authorize(method, values)
+        source = linked_target(source_chat)
+        await check_member(source, "channel")
+        chat = await tg.call("getChat", {"chat_id": source})
+        if chat.get("id") != source or chat.get("type") != "channel" or chat.get("linked_chat_id") != discussion:
+            raise StudioError("Группа больше не является обсуждением исходного канала.", status=403)
+        if _paid_or_business(values):
+            raise StudioError("Платная рассылка и бизнес-подключения здесь недоступны.", status=403)
+        return values
+
+    with account_context.bind(uid, comment_policy):
+        return await tg.call("sendRichMessage", params)
 
 
 def initialize(uid: int) -> None:
