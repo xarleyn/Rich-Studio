@@ -75,7 +75,7 @@ def telegram() -> dict:
             "этого бота читает другой процесс или стоит вебхук: остановите его или задайте TG_UPDATES=off",
             details=details,
         )
-    if err and (last["ok_at"] is None or err["at"] > last["ok_at"]):
+    if err:  # metrics clears resolved errors in call order, even when clock readings are equal
         return _check(
             "telegram",
             "warn",

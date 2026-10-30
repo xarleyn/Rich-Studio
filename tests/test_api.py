@@ -575,7 +575,8 @@ def test_malformed_blocks_are_reported_not_crashing(client, rm):
 def test_absurdly_deep_payload_is_an_error_not_a_crash(client):
     blocks: list = []
     node = blocks
-    for _ in range(3000):
+    # Exceeds the validator's 200-level budget while remaining encodable by the HTTP client.
+    for _ in range(110):
         inner: list = []
         node.append({"type": "blockquote", "blocks": inner})
         node = inner
@@ -665,7 +666,7 @@ def test_api_key_protects_media_render_and_docs(client, monkeypatch):
     for path in ("/media/a.png", "/render/draft/x", "/docs", "/openapi.json", "/api/spec?key=secret"):
         assert client.get(path).status_code == 401, path
     assert client.get("/static/js/main.js").status_code == 200
-    assert client.get("/api/spec", cookies={"rs_key": "secret"}).status_code == 401  # the old script-set cookie
+    assert client.get("/api/spec", headers={"Cookie": "rs_key=secret"}).status_code == 401  # old script-set cookie
     assert client.post("/api/session", json={"key": "secret"}).status_code == 200  # the editor's login
     assert client.get("/api/spec").status_code == 200
 
@@ -673,9 +674,9 @@ def test_api_key_protects_media_render_and_docs(client, monkeypatch):
 def test_editor_modules_are_served_as_javascript(client):
     # browsers refuse <script type="module"> with a wrong MIME type, and a missing import breaks the whole editor
     static = Path(__file__).resolve().parent.parent / "app" / "static"
-    assert '<script type="module" src="/static/js/main.js">' in (static / "index.html").read_text()
+    assert '<script type="module" src="/static/js/main.js">' in (static / "index.html").read_text("utf-8")
     for f in (static / "js").glob("*.js"):
-        for name in re.findall(r"from '\./([\w-]+\.js)'", f.read_text()):
+        for name in re.findall(r"from '\./([\w-]+\.js)'", f.read_text("utf-8")):
             r = client.get(f"/static/js/{name}")
             assert r.status_code == 200, (f.name, name)
             assert "javascript" in r.headers["content-type"], name

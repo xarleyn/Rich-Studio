@@ -103,6 +103,7 @@ def telegram_call(
     if ok:
         if not quiet or last is None or last.get("quiet"):
             telegram_last["ok_at"] = time.time()
+            telegram_last["error"] = None
     elif about_the_studio(code, error or ""):  # classified here: a refused post must not overwrite a setup error
         telegram_last["error"] = {
             "at": time.time(),

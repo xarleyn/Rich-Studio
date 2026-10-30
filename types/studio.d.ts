@@ -4,6 +4,32 @@
 
 type Json = Record<string, any>;
 
+/** GET /api/imports/telegram */
+interface TelegramImportStatus {
+  mtproto_configured: boolean;
+  own_session: boolean;
+  bot_username: string;
+  forward_available: boolean;
+}
+
+/** POST /api/imports/telegram; also the result of a completed forward import. */
+interface TelegramImportResult {
+  draft: DraftRow & { payload: Json };
+  source: { url: string; username: string | null; channel_id: number | null; message_id: number; topic_id: number | null; single: boolean; provider: 'mtproto' | 'web' | 'forward' };
+  warnings: string[];
+  block_count: number;
+  media_count: number;
+}
+
+/** GET /api/imports/forward/{id} */
+interface TelegramForwardImport {
+  id: string;
+  expires_at: number;
+  state: 'waiting' | 'armed' | 'processing' | 'done' | 'failed' | 'expired';
+  result: TelegramImportResult | null;
+  error: string | null;
+}
+
 interface SpecField {
   name: string;
   types: string[];
@@ -231,6 +257,7 @@ interface EditorState {
   format: 'blocks' | 'html' | 'markdown';
   mode: string;
   buf: { blocks: Json[]; html: string; markdown: string };
+  importMeta: Json;
   media: Json[];
   flags: Json;
   keyboard: ButtonRow[];

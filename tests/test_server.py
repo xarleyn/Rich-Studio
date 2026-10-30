@@ -67,7 +67,7 @@ def test_unwritable_data_dir_check(tmp_path, monkeypatch):
         raise PermissionError(13, "Permission denied")
 
     monkeypatch.setattr(type(cfg.data_dir), "write_bytes", refuse)
-    with pytest.raises(settings.SettingsError, match=f"sudo chown -R {os.getuid()}:{os.getgid()} data"):
+    with pytest.raises(settings.SettingsError, match="нет записи в DATA_DIR"):
         main._data_dir_writable(cfg)
 
 
@@ -81,8 +81,21 @@ def test_a_locked_file_inside_data_dir_is_found(tmp_path, monkeypatch):
     locked = {str(tmp_path / "logs" / "studio.log")}
     real = os.access
     monkeypatch.setattr(main.os, "access", lambda p, mode: str(p) not in locked and real(p, mode))
-    with pytest.raises(settings.SettingsError, match=r"studio\.log не записывается.*chown -R"):
+    with pytest.raises(settings.SettingsError, match=r"studio\.log не записывается"):
         main._data_dir_writable(cfg)
+
+
+@pytest.mark.parametrize("posix", [True, False])
+def test_permission_diagnostic_matches_the_platform(tmp_path, monkeypatch, posix):
+    monkeypatch.setattr(os, "getuid", (lambda: 10001) if posix else None, raising=False)
+    monkeypatch.setattr(os, "getgid", (lambda: 10001) if posix else None, raising=False)
+
+    def refuse(*args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(type(tmp_path), "write_bytes", refuse)
+    with pytest.raises(settings.SettingsError, match="chown -R 10001:10001" if posix else "безопасности Windows"):
+        main._data_dir_writable(settings.Settings(data_dir=tmp_path))
 
 
 def test_pinned_spec_is_the_bundled_one_and_never_downloads(monkeypatch, fresh_data):

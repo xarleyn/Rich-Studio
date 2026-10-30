@@ -68,12 +68,16 @@ class Settings:
     public: bool = False
     bot_username: str = "YourBot"
     account_storage_mb: float = 500.0
+    account_database_mb: float = 50.0
     data_dir: Path = Path("/data")
     bot_token: str = ""
     default_chat: str = ""
     preview_chat: str = ""
     api_key: str = ""
     api_base: str = "https://api.telegram.org"
+    import_api_id: int = 0
+    import_api_hash: str = ""
+    import_proxy: str = ""  # MTProto needs its own HTTP CONNECT / SOCKS5 route
     # where the person opens the studio: agents get links to drafts and previews from it
     public_url: str = "http://localhost:7424"
     landing_url: str = ""
@@ -161,6 +165,9 @@ class Settings:
         server = s.mode == "server"
         s.public = _flag(env, "STUDIO_PUBLIC", "off")
         s.account_storage_mb = _number(env, "ACCOUNT_STORAGE_MB", 500, problems)
+        s.account_database_mb = _number(env, "ACCOUNT_DATABASE_MB", 50, problems)
+        if not 1 <= s.account_database_mb <= 1024 * 1024:
+            problems.append("ACCOUNT_DATABASE_MB: нужно от 1 до 1048576 МБ")
         s.bot_username = env.get("TG_BOT_USERNAME", s.bot_username).strip().lstrip("@")
         if s.public:
             if not s.bot_username or not s.bot_username.isascii() or not s.bot_username.replace("_", "").isalnum():
@@ -173,6 +180,25 @@ class Settings:
         s.preview_chat = env.get("TG_PREVIEW_CHAT", "").strip()
         s.api_key = _secret(env, "STUDIO_API_KEY", problems)
         s.api_base = env.get("TG_API_BASE", s.api_base).rstrip("/")
+        s.import_api_id = int(_number(env, "TG_IMPORT_API_ID", 0, problems, whole=True))
+        s.import_api_hash = _secret(env, "TG_IMPORT_API_HASH", problems)
+        s.import_proxy = _secret(env, "TG_IMPORT_PROXY_URL", problems)
+        if bool(s.import_api_id) != bool(s.import_api_hash):
+            problems.append("TG_IMPORT_API_ID и TG_IMPORT_API_HASH задаются вместе")
+        if s.import_proxy:
+            try:
+                p = urlsplit(s.import_proxy)
+                if (
+                    p.scheme not in {"http", "socks5"}
+                    or not p.hostname
+                    or p.path not in {"", "/"}
+                    or p.query
+                    or p.fragment
+                ):
+                    raise ValueError
+                _ = p.port
+            except ValueError:
+                problems.append("TG_IMPORT_PROXY_URL: нужен http:// или socks5:// адрес прокси без пути")
         s.public_url = env.get("STUDIO_URL", s.public_url).strip().rstrip("/") or s.public_url
         s.landing_url = env.get("STUDIO_LANDING_URL", "").strip().rstrip("/")
         s.allowed_hosts |= {h.strip().lower() for h in env.get("ALLOWED_HOSTS", "").split(",") if h.strip()}

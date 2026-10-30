@@ -4,7 +4,13 @@ import json
 import time
 import uuid
 
+import account_context
+from errors import StudioError
+
 from .db import conn, row
+
+MAX_DRAFT_BYTES = 1024 * 1024
+MAX_DRAFTS = 1000
 
 
 def list_drafts() -> list[dict]:
@@ -36,7 +42,17 @@ def save_draft(
     did = did or uuid.uuid4().hex[:12]
     data = json.dumps(payload, ensure_ascii=False)
     chats = json.dumps([str(x) for x in chat_ids], ensure_ascii=False) if chat_ids else None
+    public = account_context.user_id() is not None
+    if public and sum(len(s.encode("utf-8")) for s in (did, title, data, post_id or "", chats or "")) > MAX_DRAFT_BYTES:
+        raise StudioError("Черновик вместе с названием и параметрами больше 1 МБ.", status=413)
     with conn() as c:
+        if public:
+            c.execute("begin immediate")
+            if (
+                not c.execute("select 1 from drafts where id=?", (did,)).fetchone()
+                and c.execute("select count(*) from drafts").fetchone()[0] >= MAX_DRAFTS
+            ):
+                raise StudioError("Лимит черновиков учётки исчерпан. Удалите ненужные черновики.", status=413)
         if version is not None:
             cur = c.execute(
                 """update drafts set title=?, payload=?, updated_at=?, post_id=?, chat_ids=?, version=version+1

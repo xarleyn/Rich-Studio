@@ -5,10 +5,12 @@ import logging
 import logging.handlers
 import os
 import re
+import runpy
 import subprocess
 import sys
 import threading
 import time
+import urllib.error
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -441,6 +443,7 @@ def test_copy_rotated_away_while_reading_is_skipped(log_file, monkeypatch):
     assert logs.read("INFO", limit=1)[0]["msg"] == "kept"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode 0600; Windows uses the DATA_DIR ACL")
 def test_log_is_readable_only_by_its_owner(log_file):
     logging.getLogger("rich-studio.test").info("x")
     assert os.stat(log_file).st_mode & 0o777 == 0o600
@@ -542,22 +545,22 @@ def test_session_hook_is_silent_when_ok(tmp_path):
     assert seen["key"] == "env-key"  # the environment wins over .env
 
 
-def test_session_hook_tells_only_the_agent_when_the_studio_is_down_or_locked(tmp_path):
+def test_session_hook_tells_only_the_agent_when_the_studio_is_down_or_locked(tmp_path, monkeypatch, capsys):
     out, _ = _run_hook(tmp_path, 401, {"detail": "нужен ключ"})
     msg = json.loads(out.stdout)
     assert "systemMessage" not in msg  # the person is not bothered at every session start
     assert "401" in msg["hookSpecificOutput"]["additionalContext"] and "from-dotenv" not in out.stdout
-    env = dict(os.environ, STUDIO_URL="http://127.0.0.1:9", CLAUDE_PROJECT_DIR=str(tmp_path))  # nothing listens there
-    down = subprocess.run(  # noqa: S603
-        [sys.executable, str(ROOT / ".claude/hooks/studio_health.py")],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
-    assert down.returncode == 0, down.stderr
-    msg = json.loads(down.stdout)
+    # A closed port may time out instead of refusing on Windows/firewalls. Test the actual refusal deterministically.
+    hook = runpy.run_path(str(ROOT / ".claude/hooks/studio_health.py"))
+
+    class Refused:
+        def open(self, *args, **kwargs):
+            raise urllib.error.URLError(ConnectionRefusedError())
+
+    with monkeypatch.context() as patch:
+        patch.setattr(urllib.request, "build_opener", lambda *args: Refused())
+        hook["main"]()
+    msg = json.loads(capsys.readouterr().out)
     assert "systemMessage" not in msg
     assert "не запущена" in msg["hookSpecificOutput"]["additionalContext"]
     assert "docker compose up -d" in msg["hookSpecificOutput"]["additionalContext"]

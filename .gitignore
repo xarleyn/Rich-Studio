@@ -1,4 +1,5 @@
 .env
+telegram-import.session.txt
 data/
 __pycache__/
 .coverage

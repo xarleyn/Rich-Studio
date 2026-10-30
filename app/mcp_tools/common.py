@@ -13,7 +13,7 @@ import security
 import settings
 import store
 import telegram as tg
-from errors import Conflict, NotFound, StudioError
+from errors import Conflict, NotFound, StorageFull, StudioError
 from models import Post
 from services import idempotency
 
@@ -151,6 +151,8 @@ def errors_as_tool_errors(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Aw
     async def wrapper(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
+        except StorageFull as e:
+            raise ToolError(str(e)) from None
         except StudioError as e:
             detail = e.detail if isinstance(e.detail, str) else json.dumps(e.detail, ensure_ascii=False)
             raise ToolError(detail) from None

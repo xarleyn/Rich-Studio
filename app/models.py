@@ -101,6 +101,12 @@ class FetchReq(BaseModel):
     filename: str | None = Field(None, description="Имя файла; по умолчанию из ссылки")
 
 
+class ImportReq(BaseModel):
+    url: str = Field(
+        ..., min_length=1, max_length=2048, description="Ссылка t.me на сообщение; поддерживаются темы форума"
+    )
+
+
 class DraftReq(BaseModel):
     title: str = ""
     post: dict

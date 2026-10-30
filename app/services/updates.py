@@ -13,6 +13,7 @@ import metrics
 import settings
 import store
 import telegram as tg
+from errors import StudioError
 
 from . import accounts, channels, invite_links, suggested_posts
 
@@ -89,6 +90,10 @@ def poll_results(poll: dict) -> dict:
 
 async def handle_update(u: dict) -> str | None:
     """Dispatch one bot update to the databases that own its post, channel or invite link."""
+    from services import import_forward
+
+    if import_forward.receive(u):
+        return "import"
     if not settings.get().public:
         return await _handle_update(u)
     ids = accounts.all_ids()
@@ -104,9 +109,21 @@ async def handle_update(u: dict) -> str | None:
         return None
     handled = None
     for uid in ids:
-        with accounts.scope(uid, trusted=True):
+        with accounts.scope(uid):
             if _owns_update(u):
-                handled = await _handle_update(u) or handled
+                try:
+                    # Comments check current rights at the final transport boundary and record a refusal.
+                    message = u.get("message") or {}
+                    if uid is not None and not message.get("is_automatic_forward"):
+                        target = _update_chat(u)
+                        if str(target) != str(uid):
+                            target = accounts.linked_target(target)
+                            channel = store.get_channel(target) or {}
+                            await accounts.check_member(target, channel.get("type"))
+                    handled = await _handle_update(u) or handled
+                except Exception:  # one revoked/unreachable account must not stop other recipients
+                    log.exception("account %s update refused or failed", uid)
+                    continue
                 if u.get("callback_query"):
                     return handled  # one answer, even if several admins linked the same channel
     if handled:
@@ -117,20 +134,29 @@ async def handle_update(u: dict) -> str | None:
 
 
 def _owns_update(u: dict) -> bool:
+    return _update_chat(u) is not None
+
+
+def _update_chat(u: dict):
+    """Resolve the authorizing chat from this account's stored objects, including chat-less poll updates."""
     if cq := u.get("callback_query"):
         msg = cq.get("message") or {}
         chat, mid = (msg.get("chat") or {}).get("id"), msg.get("message_id")
-        return bool(store.find_post(chat, mid) or _preview_callbacks(chat, mid))
+        return chat if store.find_post(chat, mid) or _preview_callbacks(chat, mid) else None
     if poll := u.get("poll"):
-        return bool(store.find_poll(poll.get("id")))
+        post = store.find_poll(poll.get("id")) or {}
+        return post.get("chat_num") or post.get("chat_id")
     if rc := u.get("message_reaction_count"):
-        return bool(store.find_post((rc.get("chat") or {}).get("id"), rc.get("message_id")))
+        chat = (rc.get("chat") or {}).get("id")
+        return chat if store.find_post(chat, rc.get("message_id")) else None
     event = u.get("message") or u.get("edited_message") or u.get("chat_member") or u.get("chat_join_request") or {}
     if (origin := event.get("forward_origin")) and event.get("is_automatic_forward"):
-        return bool(store.find_post((origin.get("chat") or {}).get("id"), origin.get("message_id")))
+        chat = (origin.get("chat") or {}).get("id")
+        return chat if store.find_post(chat, origin.get("message_id")) else None
     if link := (event.get("invite_link") or {}).get("invite_link"):
-        return bool(store.invite_links.get(link))
-    return bool(event.get("chat") and store.get_channel(event["chat"].get("id")))
+        return (store.invite_links.get(link) or {}).get("chat_id")
+    chat = (event.get("chat") or {}).get("id")
+    return chat if chat is not None and store.get_channel(chat) else None
 
 
 async def _handle_update(u: dict) -> str | None:
@@ -177,17 +203,10 @@ async def _handle_update(u: dict) -> str | None:
             return None
         comment = p["payload"].get("comment")
         try:
-            res = await tg.call(
-                "sendRichMessage",
-                {
-                    "chat_id": m["chat"]["id"],
-                    "rich_message": comment,
-                    "reply_parameters": {"message_id": m["message_id"]},
-                },
-            )
+            res = await accounts.send_comment(origin["chat"]["id"], m["chat"]["id"], m["message_id"], comment)
             store.update_post(p["id"], comment_status="sent", comment_message_id=res["message_id"])
-        except tg.TelegramError as e:
-            store.update_post(p["id"], comment_status="failed", error=f"первый комментарий: {e.description}")
+        except (StudioError, tg.TelegramError) as e:
+            store.update_post(p["id"], comment_status="failed", error=f"первый комментарий: {e}")
         except Exception as e:  # noqa: BLE001 - mid-send: the update is already confirmed, so say it once here
             store.update_post(
                 p["id"],

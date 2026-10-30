@@ -15,6 +15,19 @@ class StudioError(Exception):
             self.status = status
 
 
+class StorageFull(RuntimeError):
+    """An account database cannot grow. Not StudioError: an earlier send may already have succeeded.
+
+    Idempotency must retain an uncertain key when this interrupts recording a Telegram result.
+    """
+
+    def __init__(self):
+        super().__init__(
+            "Лимит базы учётки исчерпан. Удалите ненужные черновики. "
+            "Если выполнялась публикация, проверьте канал перед повтором: сообщение могло уйти."
+        )
+
+
 class NotFound(StudioError):
     status = 404
 

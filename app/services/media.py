@@ -216,12 +216,12 @@ def _refuse(host: str) -> StudioError:
     )
 
 
-async def _public_only(host: str, port: int, proxied: bool = False) -> str | None:
+async def _public_only(host: str, port: int, proxied: bool = False, *, force: bool = False) -> str | None:
     """The address to connect to: the host resolved once, refused when any of its addresses is the studio itself,
     the local network or another non-public one; a local name (_internal_name) is refused before any lookup.
     None with MEDIA_FETCH_PRIVATE (connect by name as usual), or when a public-looking name behind a proxy does not
     resolve here (a network where only the proxy sees the internet)."""
-    if settings.get().media_fetch_private and account_context.user_id() is None:
+    if not force and settings.get().media_fetch_private and account_context.user_id() is None:
         return None
     # before any lookup: behind a proxy an unresolved name goes to the proxy, which may well reach the inside
     if _internal_name(host):
@@ -266,7 +266,7 @@ def _proxy_for(scheme: str, host: str) -> str | None:
 USER_AGENT = f"RichStudio/{settings.VERSION} (media fetch)"
 
 
-async def fetch(url: str, filename: str | None = None) -> dict:
+async def fetch(url: str, filename: str | None = None, *, public_only: bool = False) -> dict:
     """Download a file by http(s) link into the uploads, so a post can use it as upload:<name>.
     Only public addresses, checked again on every redirect; written under a temporary name until complete.
     Through the system proxy when one is set for the link: then the proxy connects by name, so the address check
@@ -284,7 +284,7 @@ async def fetch(url: str, filename: str | None = None) -> dict:
                     raise StudioError("url: нужна ссылка http(s)")
                 proxy = _proxy_for(parts.scheme, parts.hostname)
                 port = parts.port or (443 if parts.scheme == "https" else 80)
-                ip = await _public_only(parts.hostname, port, proxied=proxy is not None)
+                ip = await _public_only(parts.hostname, port, proxied=proxy is not None, force=public_only)
                 target, headers, ext = _pinned(url, None if proxy else ip)
                 async with (
                     httpx.AsyncClient(

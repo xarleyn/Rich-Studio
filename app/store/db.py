@@ -6,7 +6,9 @@ import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
+import account_context
 import settings
+from errors import StorageFull
 
 SCHEMA = """
 create table if not exists drafts(
@@ -68,8 +70,19 @@ def conn(*, root: bool = False) -> Iterator[sqlite3.Connection]:
     # the studio writes a handful of rows a minute, so it costs nothing
     c.execute("pragma synchronous = FULL")
     try:
+        if not root and account_context.user_id() is not None:
+            page_size = c.execute("pragma page_size").fetchone()[0]
+            pages = max(1, int(cfg.account_database_mb * 1024 * 1024) // page_size)
+            # SQLite enforces this inside the writer transaction, including concurrent HTTP/MCP writers.
+            # An existing larger database stays readable/deletable; SQLite freezes growth at its current size.
+            c.execute(f"pragma max_page_count = {pages}")
+            c.execute("pragma journal_size_limit = 1048576")
         with c:
             yield c
+    except sqlite3.OperationalError as e:
+        if not root and account_context.user_id() is not None and e.sqlite_errorcode == sqlite3.SQLITE_FULL:
+            raise StorageFull() from e
+        raise
     finally:
         c.close()
 

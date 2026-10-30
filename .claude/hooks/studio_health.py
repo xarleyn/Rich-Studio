@@ -82,7 +82,7 @@ def main() -> None:
     report = fetch()
     if isinstance(report, str):
         out = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": AGENT_ONLY[report]}}
-        json.dump(out, sys.stdout, ensure_ascii=False)
+        json.dump(out, sys.stdout, ensure_ascii=True)
         return
     text = line(report) if report else None
     if text:
@@ -93,7 +93,7 @@ def main() -> None:
             "systemMessage": text,
             "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context},
         }
-        json.dump(out, sys.stdout, ensure_ascii=False)
+        json.dump(out, sys.stdout, ensure_ascii=True)
 
 
 if __name__ == "__main__":

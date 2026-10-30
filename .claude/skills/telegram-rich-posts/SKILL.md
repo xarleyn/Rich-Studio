@@ -7,6 +7,8 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 Public Rich Studio (`STUDIO_PUBLIC=on`) signs users in with Telegram and isolates their drafts, uploads, channels and schedules. Use only channels returned in that account's `list_channels`; connect requires both the user's and the bot's admin rights, and mutations recheck the user's operation-specific rights. Cross-chat reply sources must also belong to the account and pass a fresh rights check; pass `reply_parameters` as a JSON object. A public account's preview goes to its own Telegram id; it must start the bot first. CLI-issued named tokens still access the operator's legacy workspace: never distribute those tokens to visitors or assume they belong to the signed-in Telegram account. Raw API, global logs and spec refresh are operator-only. See README → «Публичный сервис с Telegram» for setup and scope.
 
+Public accounts stop receiving new channel/group events when the user's admin rights are revoked. First comments recheck source-channel rights and the current linked discussion before sending. Drafts are limited to 1000 per account and 1 MiB UTF-8 each, including title and metadata; `ACCOUNT_DATABASE_MB` bounds the account database (default 50 MiB), separately from the media quota. On a quota error, remove unneeded drafts or ask the operator to adjust capacity. A storage failure during publication may follow a successful Telegram send: inspect the channel and retain the same idempotency key instead of retrying with a new one.
+
 Use this skill when the user wants to write, format, preview, publish, schedule or edit a Telegram post (usually in their channel), or asks what formatting the Bot API supports.
 
 Baseline knowledge below is for **Bot API 10.3 (24.08.2026)**. Telegram ships new formatting often, so step 1 is mandatory.
@@ -31,6 +33,14 @@ curl -s https://raw.githubusercontent.com/PaulSonOfLars/telegram-bot-api-spec/ma
 - The HTML/Markdown tag grammar is not in api.json. It lives in https://core.telegram.org/bots/api#rich-message-formatting-options. When a tag below is marked ⚠️ or the version is newer, check that section (WebFetch may truncate the page; per-type pages at https://docs.aiogram.dev mirror the spec).
 
 ## 2. Request shape
+
+When the user asks to copy a Telegram post by URL, call `telegram_import_status`, then
+`import_telegram_post(url)` (HTTP: `POST /api/imports/telegram` with `{url}`). It creates a new draft
+without publishing. Read `warnings`, preview the returned draft, and report any lost/unsupported content.
+An access error or a widget placeholder is not a successful import. Do not forward a message as a hidden
+workaround. Offer the editor's explicit forward-import flow or follow `docs/TELEGRAM_IMPORT.md` for local
+MTProto setup; never ask the user to paste login codes, API hashes or sessions into chat. Keep the existing
+publication confirmation rules. The imported HTML/Markdown buffers are independent after import.
 
 `sendRichMessage(chat_id, rich_message, reply_markup?, disable_notification?, protect_content?, ...)`.
 `rich_message` (InputRichMessage) has **exactly one** of `html`, `markdown`, `blocks`, plus optional `media[]`, `is_rtl`, `skip_entity_detection`.
