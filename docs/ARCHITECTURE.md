@@ -62,6 +62,13 @@
 
 ## Куда добавлять новое
 
+Импорт Telegram: `services/imports.py` создаёт новый черновик в текущем `accounts.scope`;
+`import_links.py` разбирает URL, `import_web.py` читает ограниченный публичный виджет, `import_forward.py`
+принимает явно запрошенную пересылку. `telegram/import_client.py` — отдельный MTProto-транспорт чтения,
+`spec/import_content.py` — адаптер полученного содержимого и сериализация HTML/Markdown. Файлы
+персональных сессий находятся в папке текущей учётки вне media/экспорта; общий режим входит только ботом.
+Настройка — `import_login.py`, решение и пределы — [0018](decisions/0018-telegram-message-import.md).
+
 - Новый метод Bot API для постов: функция в `services/posts.py` + маршрут в `api/posts.py` + тест в `tests/`.
 - Новый тип сообщения (как опрос или Live Photo): запись в `services/kinds.py` с проверкой, маршрут или инструмент MCP через `posts.send_kind`, диалог в редакторе. Отправка, планировщик, правка, кнопки и список постов берут остальное из записи.
 - Новое событие от Telegram: ветка в `services/updates.handle_update` и тип в `ALLOWED_UPDATES`.

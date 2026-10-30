@@ -31,6 +31,7 @@ from api import (
     channels,
     drafts,
     health,
+    imports,
     invite_links,
     landing,
     media,
@@ -234,6 +235,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
     for module in (
         service,
         health,
+        imports,
         specs,
         preview,
         drafts,

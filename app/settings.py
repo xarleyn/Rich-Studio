@@ -76,6 +76,9 @@ class Settings:
     api_key: str = ""
     api_base: str = "https://api.telegram.org"
     telegram_proxy: str = ""  # optional HTTP CONNECT proxy for Bot API only
+    import_api_id: int = 0
+    import_api_hash: str = ""
+    import_proxy: str = ""  # MTProto needs its own HTTP CONNECT / SOCKS5 route
     # where the person opens the studio: agents get links to drafts and previews from it
     public_url: str = "http://localhost:7424"
     landing_url: str = ""
@@ -179,6 +182,25 @@ class Settings:
         s.api_key = _secret(env, "STUDIO_API_KEY", problems)
         s.api_base = env.get("TG_API_BASE", s.api_base).rstrip("/")
         s.telegram_proxy = _secret(env, "TG_PROXY_URL", problems)
+        s.import_api_id = int(_number(env, "TG_IMPORT_API_ID", 0, problems, whole=True))
+        s.import_api_hash = _secret(env, "TG_IMPORT_API_HASH", problems)
+        s.import_proxy = _secret(env, "TG_IMPORT_PROXY_URL", problems)
+        if bool(s.import_api_id) != bool(s.import_api_hash):
+            problems.append("TG_IMPORT_API_ID и TG_IMPORT_API_HASH задаются вместе")
+        if s.import_proxy:
+            try:
+                p = urlsplit(s.import_proxy)
+                if (
+                    p.scheme not in {"http", "socks5"}
+                    or not p.hostname
+                    or p.path not in {"", "/"}
+                    or p.query
+                    or p.fragment
+                ):
+                    raise ValueError
+                _ = p.port
+            except ValueError:
+                problems.append("TG_IMPORT_PROXY_URL: нужен http:// или socks5:// адрес прокси без пути")
         if s.telegram_proxy:
             try:
                 proxy = urlsplit(s.telegram_proxy)

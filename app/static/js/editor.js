@@ -49,12 +49,13 @@ export function callbacksFor(kb) {
 
 // Drafts keep the text of every mode, not only the one that is sent
 export function draftPayload() {
-  return { ...buildPost(), _studio: { format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown } } };
+  return { ...buildPost(), _studio: { ...S.importMeta, format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown } } };
 }
 
 export function loadPost(post) {
   post = clone(post || {});
   const studio = post._studio;
+  S.importMeta = studio?.import_source ? { import_source: studio.import_source, import_warnings: studio.import_warnings || [] } : {};
   delete post._studio;
   S.topicChat = undefined; // the loaded post's topic belongs to the channel it is opened with
   const rm = post.rich_message || {};
@@ -81,6 +82,14 @@ export function loadPost(post) {
 }
 
 export function renderAll() {
+  const info = $('#import-info');
+  info.hidden = !S.importMeta.import_source;
+  info.replaceChildren();
+  if (S.importMeta.import_source) {
+    info.append(h('span', { text: 'Источник: ' + S.importMeta.import_source.url }));
+    for (const warning of S.importMeta.import_warnings || []) info.append(h('p', { text: warning }));
+    info.append(h('p', { class: 'muted', text: 'HTML и Markdown созданы при импорте. Дальнейшие правки во вкладках сохраняются независимо.' }));
+  }
   renderBlocksPane();
   $('#src-html').value = S.buf.html;
   $('#src-markdown').value = S.buf.markdown;

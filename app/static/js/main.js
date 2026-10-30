@@ -22,6 +22,7 @@ import { editPost, leaveEditing, reschedulePost, showHistory, updatePost } from 
 import { loadDrafts, newDraft, openDraft, renderDrafts, saveDraft, watchDrafts } from './drafts.js';
 import { autosave, buildPost, changed, loadPost, parsedToBlocks, parseKey, renderPreview, setMode } from './editor.js';
 import { watchHealth } from './health.js';
+import { showImport } from './imports.js';
 import { canRedo, canUndo, redo, undo } from './history.js';
 import { STATUS_LABELS } from './labels.js';
 import { addMediaEntry, loadUploads, upload } from './media.js';
@@ -79,6 +80,7 @@ function bindActions() {
   bindViewTabs();
   $('#check-pill').onclick = () => $('#validation').scrollIntoView({ block: 'center', behavior: 'smooth' });
   $('#btn-save').onclick = () => act(() => saveDraft());
+  $('#btn-import').onclick = () => act(showImport);
   $('#btn-undo').onclick = undo;
   $('#btn-redo').onclick = redo;
   $('#btn-new').onclick = () => { if (!dirty.value || confirm('Есть несохранённые изменения. Создать новый черновик?')) newDraft(); };

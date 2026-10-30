@@ -241,6 +241,22 @@
     "title": "HTTPValidationError",
     "type": "object"
    },
+   "ImportReq": {
+    "properties": {
+     "url": {
+      "description": "Ссылка t.me на сообщение; поддерживаются темы форума",
+      "maxLength": 2048,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "url"
+    ],
+    "title": "ImportReq",
+    "type": "object"
+   },
    "InviteLinkEditReq": {
     "description": "Непереданное поле остаётся как было; снять: name \"\", expire_date 0, member_limit 0, creates_join_request false.",
     "properties": {
@@ -1494,6 +1510,144 @@
     "summary": "Состояние студии: проверки ok/warn/fail с подсказкой, что делать, счётчики и последние ошибки",
     "tags": [
      "service"
+    ]
+   }
+  },
+  "/api/imports/forward": {
+   "post": {
+    "description": "Откройте bot_url, нажмите Start и перешлите сообщение. Запрос действует 10 минут, принимает\nтолько следующую пересылку от текущего пользователя. Результат: GET /api/imports/forward/{id}.",
+    "operationId": "begin_forward_api_imports_forward_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImportReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Подготовить импорт выбранной пересылки в личном чате бота",
+    "tags": [
+     "imports"
+    ]
+   }
+  },
+  "/api/imports/forward/{token}": {
+   "get": {
+    "operationId": "forward_status_api_imports_forward__token__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Результат импорта пересланного сообщения текущей учётки",
+    "tags": [
+     "imports"
+    ]
+   }
+  },
+  "/api/imports/telegram": {
+   "get": {
+    "description": "Только состояние подключения текущей учётки, без секретов и сессий.",
+    "operationId": "import_status_api_imports_telegram_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Доступные способы импорта из Telegram",
+    "tags": [
+     "imports"
+    ]
+   },
+   "post": {
+    "description": "Проверяет ссылку, читает сообщение и сохраняет визуальные блоки, HTML и Rich Markdown.\n\nНичего не публикует. MTProto использует сессию текущей учётки либо бота; без подключения пробует\nпубличный веб-виджет. Заглушка, приватная ссылка без сессии и неполный rich-пост дают ошибку.\nПотери преобразования перечислены в warnings. Существующие черновики не меняются.",
+    "operationId": "import_telegram_api_imports_telegram_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImportReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Импортировать сообщение Telegram в новый черновик",
+    "tags": [
+     "imports"
     ]
    }
   },

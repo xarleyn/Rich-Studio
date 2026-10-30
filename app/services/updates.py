@@ -90,6 +90,10 @@ def poll_results(poll: dict) -> dict:
 
 async def handle_update(u: dict) -> str | None:
     """Dispatch one bot update to the databases that own its post, channel or invite link."""
+    from services import import_forward
+
+    if import_forward.receive(u):
+        return "import"
     if not settings.get().public:
         return await _handle_update(u)
     ids = accounts.all_ids()

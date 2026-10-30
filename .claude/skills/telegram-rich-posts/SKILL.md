@@ -38,6 +38,14 @@ curl -s https://raw.githubusercontent.com/PaulSonOfLars/telegram-bot-api-spec/ma
 
 ## 2. Request shape
 
+When the user asks to copy a Telegram post by URL, call `telegram_import_status`, then
+`import_telegram_post(url)` (HTTP: `POST /api/imports/telegram` with `{url}`). It creates a new draft
+without publishing. Read `warnings`, preview the returned draft, and report any lost/unsupported content.
+An access error or a widget placeholder is not a successful import. Do not forward a message as a hidden
+workaround. Offer the editor's explicit forward-import flow or follow `docs/TELEGRAM_IMPORT.md` for local
+MTProto setup; never ask the user to paste login codes, API hashes or sessions into chat. Keep the existing
+publication confirmation rules. The imported HTML/Markdown buffers are independent after import.
+
 `sendRichMessage(chat_id, rich_message, reply_markup?, disable_notification?, protect_content?, ...)`.
 `rich_message` (InputRichMessage) has **exactly one** of `html`, `markdown`, `blocks`, plus optional `media[]`, `is_rtl`, `skip_entity_detection`.
 Edit a published post: `editMessageText(chat_id, message_id, rich_message)`.
