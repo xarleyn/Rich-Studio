@@ -33,6 +33,7 @@ async function showLogin() {
       } })));
   document.body.prepend(screen);
   screen.querySelector('.login-card').prepend($('.locale-control'));
+  screen.querySelector('.login-card').append($('#install-app'));
   try {
     const start = await api('POST', '/api/auth/telegram/start', {});
     const script = document.createElement('script');

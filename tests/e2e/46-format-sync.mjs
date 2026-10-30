@@ -1,0 +1,50 @@
+/** @param {import('./harness.mjs').Ctx} ctx */
+export default async function ({ page, check, applyJson, state, showJson }) {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await applyJson({ rich_message: { blocks: [{ type: 'heading', size: 1, text: 'Синхронный пост' }, { type: 'paragraph', text: 'Оригинал' }] }, reply_markup: { inline_keyboard: [[{ text: 'Сайт', url: 'https://example.com' }]] }, options: { disable_notification: true } });
+  await page.click('[data-mode=markdown]');
+  await page.waitForFunction(() => document.querySelector('#src-markdown').value.includes('# Синхронный пост'));
+  await page.locator('#src-markdown .cm-content').fill('# Обновлённый пост\n\n**Из Markdown**');
+  await page.click('[data-mode=blocks]');
+  await showJson();
+  let post = await state();
+  check('Markdown edits become visual blocks and keep keyboard/options', post.rich_message.blocks[0].text === 'Обновлённый пост' && post.rich_message.blocks[1].text.type === 'bold' && post.reply_markup.inline_keyboard[0][0].url === 'https://example.com' && post.options.disable_notification);
+  await page.click('[data-mode=html]');
+  await page.locator('#src-html .cm-content').fill('<h2>Из HTML</h2><p>Текст <i>курсивом</i></p>');
+  await page.click('[data-mode=blocks]');
+  await page.locator('#pane-blocks .rte').first().fill('Правка в визуале');
+  await page.click('[data-mode=markdown]');
+  check('Visual edits update the whole Markdown post', (await page.locator('#src-markdown').evaluate((e) => e.value)).includes('Правка в визуале'));
+  await page.click('#btn-save');
+  await page.waitForFunction(async () => !(await import('/static/js/state.js')).dirty.value);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#src-markdown')?.value.includes('Правка в визуале'));
+  await page.click('[data-mode=blocks]');
+  await page.waitForSelector('#pane-blocks .rte');
+  await page.waitForFunction(() => document.querySelector('#pane-blocks .rte')?.textContent === 'Правка в визуале');
+  check('Converted post survives save and reload', true);
+  await page.screenshot({ path: 'test-results/ui/formats-1400.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('[data-mode=markdown]');
+  await page.waitForSelector('#src-markdown .cm-content');
+  await page.screenshot({ path: 'test-results/ui/formats-390.png', fullPage: true });
+  check('Format tabs fit a phone', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await applyJson({ rich_message: { blocks: [{ type: 'paragraph', text: 'Сохранить', future_field: 'не терять' }] } });
+  await page.click('[data-mode=blocks]');
+  await page.click('[data-mode=markdown]');
+  check('Unsupported fields refuse switching without changing active post', await page.locator('[data-mode=blocks].on').count() === 1 && await page.locator('#format-error').isVisible());
+  await showJson(); post = await state();
+  check('Unknown field retained after refused conversion', post.rich_message.blocks[0].future_field === 'не терять');
+  const legacy = await page.evaluate(async () => {
+    const { loadPost, draftPayload, setMode } = await import('/static/js/editor.js');
+    loadPost({ rich_message: { markdown: 'Активный текст' }, _studio: { buffers: { markdown: 'Активный текст', html: '<p>Прежний вариант</p>', blocks: [] } } });
+    const before = draftPayload();
+    setMode('html');
+    const after = draftPayload();
+    return { duplicated: !!before._studio.previous_buffers, backup: after._studio.previous_buffers };
+  });
+  check('Legacy drafts back up only overwritten inactive variants, on conversion', !legacy.duplicated && legacy.backup.html === '<p>Прежний вариант</p>' && legacy.backup.markdown === undefined);
+  await applyJson({ rich_message: { blocks: [{ type: 'paragraph', text: 'Готово' }] } });
+  await page.click('[data-mode=blocks]');
+}

@@ -5,6 +5,10 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title data-i18n="RichPost — студия публикаций">RichPost — студия публикаций</title>
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#3390ec">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="RichPost">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233390ec'/><path d='M8 16l14-6-3 13-4-4-3 3v-4l7-6-9 5z' fill='white'/></svg>">
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/static/tg.css">
@@ -17,6 +21,7 @@
 <body>
 <header class="top">
   <div class="brand">RichPost</div>
+  <rs-install id="install-app"></rs-install>
   <label class="locale-control"><span class="sr-only" data-i18n="Язык интерфейса">Язык интерфейса</span><select id="locale-select" aria-label="Язык интерфейса" data-i18n-aria-label="Язык интерфейса"><option value="ru">RU</option><option value="en">EN</option></select></label>
   <button id="account-menu" class="ghost account-menu" hidden title="Ваша учётка и выход" data-i18n-title="Ваша учётка и выход"></button>
   <input id="title" class="title-input" placeholder="Название черновика" data-i18n-placeholder="Название черновика">
@@ -56,7 +61,7 @@
       <button data-tab="posts" data-i18n="Посты">Посты</button>
       <button data-tab="uploads" data-i18n="Файлы">Файлы</button>
     </nav>
-    <div class="side-body" data-pane="drafts"><ul id="drafts" class="list"></ul></div>
+    <div class="side-body" data-pane="drafts"><button id="btn-templates" class="ghost" data-i18n="Шаблоны постов">Шаблоны постов</button><ul id="drafts" class="list"></ul></div>
     <div class="side-body" data-pane="posts" hidden><p id="updates-state" class="small"></p>
       <div id="suggested" class="suggested" hidden></div>
       <select id="posts-filter" aria-label="Какие посты показать" data-i18n-aria-label="Какие посты показать"><option value="" data-i18n="Все посты">Все посты</option><option value="failed" data-i18n="Не вышли (ошибка)">Не вышли (ошибка)</option><option value="scheduled" data-i18n="Отложенные">Отложенные</option><option value="sent" data-i18n="Опубликованные">Опубликованные</option></select>
@@ -84,6 +89,7 @@
       <span class="muted small" id="mode-hint"></span>
       <button id="check-pill" class="check-pill" type="button" hidden></button>
     </nav>
+    <p id="format-error" class="panel err small" role="alert" hidden></p>
     <div id="pane-blocks" class="pane"></div>
     <div id="pane-html" class="pane" hidden>
       <div class="snip-bar" id="snip-html"></div>

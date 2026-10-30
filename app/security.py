@@ -29,7 +29,7 @@ CSP = (
     "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
 )
 # reachable without the API key
-PUBLIC_PATHS = public_site.PUBLIC_PATHS | {"/favicon.ico", "/healthz", "/readyz"}
+PUBLIC_PATHS = public_site.PUBLIC_PATHS | {"/favicon.ico", "/healthz", "/readyz", "/sw.js"}
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 SESSION_COOKIE = "rs_session"
 LEVELS = ("read", "draft", "publish", "admin")

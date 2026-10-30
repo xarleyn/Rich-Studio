@@ -25,6 +25,8 @@ import { loadDrafts, newDraft, openDraft, renderDrafts, saveDraft, watchDrafts }
 import { autosave, buildPost, changed, loadPost, parsedToBlocks, parseKey, renderPreview, setMode } from './editor.js';
 import { watchHealth } from './health.js';
 import { showImport } from './imports.js';
+import { initPwa } from './pwa.js';
+import { showTemplates } from './templates.js';
 import { canRedo, canUndo, redo, undo } from './history.js';
 import { STATUS_LABELS } from './labels.js';
 import { addMediaEntry, loadUploads, upload } from './media.js';
@@ -83,6 +85,7 @@ function bindActions() {
   $('#check-pill').onclick = () => $('#validation').scrollIntoView({ block: 'center', behavior: 'smooth' });
   $('#btn-save').onclick = () => act(() => saveDraft());
   $('#btn-import').onclick = () => act(showImport);
+  $('#btn-templates').onclick = () => act(showTemplates);
   $('#btn-undo').onclick = undo;
   $('#btn-redo').onclick = redo;
   $('#btn-new').onclick = () => { if (!dirty.value || confirm(tr('Есть несохранённые изменения. Создать новый черновик?'))) newDraft(); };
@@ -195,6 +198,7 @@ function bindActions() {
 // ---------- boot ----------
 async function boot() {
   translateDocument();
+  initPwa();
   RichRender.setLocale(locale);
   const selector = $('#locale-select');
   selector.value = locale;

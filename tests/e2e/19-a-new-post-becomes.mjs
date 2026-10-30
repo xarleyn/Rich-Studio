@@ -9,8 +9,13 @@ export default async function ({ page, check, applyJson }) {
   const autoDraft = autoId ? await page.evaluate(async (id) => (await fetch('/api/drafts/' + id)).json(), autoId) : null;
   check('A new post is saved as a draft on its own', !!autoDraft && autoDraft.payload.rich_message.markdown === 'Сохранюсь сам', String(autoId));
   // "another tab" saves the same draft, then this tab keeps typing
-  await page.evaluate(async (id) => fetch('/api/drafts/' + id, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'из другой вкладки', post: { rich_message: { markdown: 'Чужая правка' } } }) }), autoId);
-  await applyJson({ rich_message: { markdown: 'Моя правка' } });
+  await page.evaluate(async (id) => {
+    const { loadPost, changed } = await import('/static/js/editor.js');
+    await fetch('/api/drafts/' + id, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'из другой вкладки', post: { rich_message: { markdown: 'Чужая правка' } } }) });
+    // No click gap: the periodic watcher may legitimately open the conflict dialog as soon as
+    // typing starts, before a later «Применить JSON» click. Apply this edit in the same task.
+    loadPost({ rich_message: { markdown: 'Моя правка' } }); changed();
+  }, autoId);
   await page.waitForSelector('dialog[open] >> text=Черновик изменился', { timeout: 8000 }).catch(() => {});
   const conflictShown = await page.locator('dialog[open] >> text=Черновик изменился').count();
   const untouched = await page.evaluate(async (id) => (await fetch('/api/drafts/' + id)).json(), autoId);

@@ -180,3 +180,26 @@ class ApproveSuggestedReq(BaseModel):
 
 class DeclineSuggestedReq(BaseModel):
     comment: str | None = Field(default=None, description="Комментарий автору предложения, до 128 символов")
+
+
+class TemplateField(BaseModel):
+    key: str = Field(..., pattern=r"^[A-Za-z][A-Za-z0-9_]{0,31}$", description="Имя переменной {{key}} в строках поста")
+    label: str = Field(..., min_length=1, max_length=100, description="Подпись поля в форме")
+    type: Literal["text", "multiline", "url"] = "text"
+    required: bool = True
+    default: str = Field("", max_length=10000)
+
+
+class TemplateReq(BaseModel):
+    title: str = Field(..., min_length=1, max_length=128, description="Название шаблона")
+    post: dict = Field(..., description="Пост с {{переменными}} в строковых значениях; _studio не сохраняется")
+    fields: list[TemplateField] = Field(default_factory=list, max_length=50)
+    version: int | None = Field(None, ge=1, description="Обязательна при обновлении: версия из GET /api/templates/{id}")
+
+
+class TemplateDraftReq(BaseModel):
+    values: dict[str, str] = Field(
+        default_factory=dict, description="Значения полей по key; отсутствующее берётся из default"
+    )
+    title: str = Field("", max_length=128, description="Название нового черновика; пусто — название шаблона")
+    version: int = Field(..., ge=1, description="Версия шаблона, для которой заполнена форма")

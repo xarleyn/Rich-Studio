@@ -27,3 +27,4 @@
 
 | [0017](0017-source-editors.md) | CodeMirror 6 для HTML, Markdown и JSON, локальный bundle без миникарты |
 | [0019](0019-account-tokens.md) | Персональные API/MCP-токены из Telegram-учётки, роли и отзыв в интерфейсе |
+| [0020](0020-pwa-formats-templates.md) | Установка PWA, преобразование форматов без скрытой потери и шаблоны с формами |

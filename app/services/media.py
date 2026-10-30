@@ -17,6 +17,7 @@ import account_context
 import settings
 import store
 from errors import Conflict, NotFound, StudioError
+from store import templates
 
 # served inline; everything else is a download so uploaded html/svg never renders on the studio origin
 INLINE = {
@@ -125,7 +126,11 @@ def used_by(name: str) -> list[str]:
     ref = describe(name)["ref"]
     waiting = {"scheduled": "отложенный", "missed": "пропущенный"}
     posts = [f"{waiting[p['status']]} пост в {p['chat_id']}" for p in store.using_upload(ref)]
-    return posts + [f"черновик «{d['title'] or 'Без названия'}»" for d in store.drafts_using(ref)]
+    return (
+        posts
+        + [f"черновик «{d['title'] or 'Без названия'}»" for d in store.drafts_using(ref)]
+        + [f"шаблон «{t['title']}»" for t in templates.templates_using(ref)]
+    )
 
 
 def delete(name: str, force: bool = False) -> None:

@@ -29,5 +29,6 @@ def upload_refs() -> set[str]:
     marks = ",".join("?" * len(_LIVE))
     with conn() as c:
         texts = [r[0] for r in c.execute("select payload from drafts")]
+        texts += [value for r in c.execute("select payload, fields from post_templates") for value in r]
         texts += [r[0] for r in c.execute(f"select payload from posts where status in ({marks})", _LIVE)]  # noqa: S608
     return {m for t in texts for m in _UPLOAD.findall(t)}

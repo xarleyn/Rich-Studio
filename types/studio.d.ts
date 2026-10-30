@@ -258,6 +258,9 @@ interface EditorState {
   format: 'blocks' | 'html' | 'markdown';
   mode: string;
   buf: { blocks: Json[]; html: string; markdown: string };
+    formatSnapshot: Record<string, string> | null;
+    formatBackup: Json | null;
+    legacyFormats: boolean;
   importMeta: Json;
 
   /** Unapplied JSON source is saved with the draft, including syntax errors; it never becomes the sent post implicitly. */

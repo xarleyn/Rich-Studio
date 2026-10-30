@@ -5,6 +5,7 @@ import { $, $$, clone, debounce, h, toast } from './dom.js';
 import { channelTitle } from './channels.js';
 import { saveDraft } from './drafts.js';
 import { renderBlocksPane } from './forms.js';
+import { convertFormats } from './formats.js';
 import { recordHistory } from './history.js';
 import { readIssue, reveal } from './issues.js';
 import { renderKeyboard } from './keyboard.js';
@@ -50,13 +51,16 @@ export function callbacksFor(kb) {
 
 // Drafts keep the text of every mode, not only the one that is sent
 export function draftPayload() {
-  return { ...buildPost(), _studio: { ...S.importMeta, format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown,
+  return { ...buildPost(), _studio: { ...S.importMeta, ...(!S.legacyFormats ? { format_sync: 1 } : {}), ...(S.formatBackup ? { previous_buffers: S.formatBackup } : {}), format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown,
     ...(S.pendingJson !== null ? { json: S.pendingJson } : {}) } } };
 }
 
 export function loadPost(post) {
   post = clone(post || {});
   const studio = post._studio;
+  S.formatBackup = studio?.previous_buffers || null;
+  S.legacyFormats = !!studio?.buffers && !studio.format_sync;
+  S.formatSnapshot = null;
   S.importMeta = studio?.import_source ? { import_source: studio.import_source, import_warnings: studio.import_warnings || [] } : {};
   delete post._studio;
   S.pendingJson = typeof studio?.buffers?.json === 'string' ? studio.buffers.json : null;
@@ -93,7 +97,7 @@ export function renderAll() {
   if (S.importMeta.import_source) {
     info.append(h('span', { text: tr('Источник: ') + S.importMeta.import_source.url }));
     for (const warning of S.importMeta.import_warnings || []) info.append(h('p', { text: warning }));
-    info.append(h('p', { class: 'muted', text: tr('HTML и Markdown созданы при импорте. Дальнейшие правки во вкладках сохраняются независимо.') }));
+    info.append(h('p', { class: 'muted', text: tr('Визуальный режим, HTML и Markdown преобразуются при переключении вкладок.') }));
   }
   renderBlocksPane();
   ['html', 'markdown', 'json'].forEach((kind) => {
@@ -113,6 +117,28 @@ export function renderAll() {
 
 // ---------- modes ----------
 export function setMode(mode, silent) {
+  if (!silent && mode !== 'json' && mode !== S.format) {
+    try {
+      const snapshot = JSON.stringify({ content: S.buf[S.format], media: S.media });
+      if (S.formatSnapshot?.[S.format] !== snapshot || !S.formatSnapshot?.[mode]) {
+        const result = convertFormats(S.format, S.buf, S.media);
+        if (S.legacyFormats) {
+          const previous = Object.fromEntries(Object.entries(S.buf).filter(([key, value]) => key !== S.format && value.length && JSON.stringify(value) !== JSON.stringify(result.buffers[key])));
+          if (Object.keys(previous).length) S.formatBackup = { ...S.formatBackup, ...previous };
+          S.legacyFormats = false;
+        }
+        S.buf = result.buffers; S.media = result.media;
+        S.formatSnapshot = Object.fromEntries(['blocks', 'html', 'markdown'].map((m) => [m, JSON.stringify({ content: S.buf[m], media: S.media })]));
+      }
+      $('#src-html').value = S.buf.html; $('#src-markdown').value = S.buf.markdown;
+      renderBlocksPane(); renderMedia();
+    } catch (e) {
+      $('#format-error').textContent = e.message;
+      $('#format-error').hidden = false;
+      toast(e.message, 'err'); return;
+    }
+  }
+  $('#format-error').hidden = true;
   S.mode = mode;
   if (mode !== 'json') S.format = mode;
   $$('#mode-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
@@ -212,6 +238,9 @@ export function parsedToBlocks() {
   const got = parsed.value;
   if (!got) return;
   S.buf.blocks = clone(got.input_blocks);
+  // These source buffers were explicitly checked against Telegram. Keep the original spelling
+  // until the person edits either representation, including the «В визуальный» round trip.
+  S.formatSnapshot = Object.fromEntries(['blocks', 'html', 'markdown'].filter((m) => m === 'blocks' || m === S.format).map((m) => [m, JSON.stringify({ content: S.buf[m], media: S.media })]));
   showParsed.value = false;
   setMode('blocks', true);
   renderBlocksPane();

@@ -74,8 +74,9 @@ export default async function ({ page, browser, check, BASE }) {
   check('Code edits autosave their active text and inactive Markdown buffer', saved.rich_message.html === '<p>Текст после сохранения</p>' && saved._studio.buffers.markdown.includes('План публикации'));
   check('Even invalid unapplied JSON is saved without changing the published payload', saved._studio.buffers.json === '{"rich_message":' && !('json' in saved.rich_message));
   await page.click('#btn-new'); await page.click('#mode-tabs [data-mode=html]');
+  const freshHtml = await value('html');
   await editor('html').locator('.cm-content').press('Control+z');
-  check('A new draft cannot undo back into the previous draft text', await value('html') === '');
+  check('A new draft cannot undo back into the previous draft text', freshHtml.includes('Заголовок') && await value('html') === freshHtml);
   await page.locator('#drafts li').filter({ hasText: 'Проверка текстового редактора' }).first().click();
   await page.waitForFunction(() => document.querySelector('#title').value === 'Проверка текстового редактора');
   await page.click('#mode-tabs [data-mode=json]');
@@ -112,9 +113,11 @@ export default async function ({ page, browser, check, BASE }) {
     check('A failed editor download leaves a working text input and preview', await fallback.locator('#src-markdown textarea').isVisible());
     await fallback.click('#btn-new'); await fallback.click('#mode-tabs [data-mode=markdown]');
     const fresh = fallback.locator('#src-markdown textarea');
-    check('Fallback editor clears the visible text when a new draft starts', await fresh.inputValue() === '', JSON.stringify({visible: await fresh.inputValue(), model: await fallback.locator('#src-markdown').evaluate(el => el.value)}));
+    const freshMarkdown = await fresh.inputValue();
+    check('Fallback editor shows the new draft converted to Markdown', freshMarkdown === '# Заголовок\n\nТекст поста' && await fallback.locator('#src-markdown').evaluate(el => el.value) === freshMarkdown);
+    await fresh.press('Control+End');
     await fresh.pressSequentially('Новый текст');
-    check('Fallback typing cannot copy text from the previous draft', await fallback.locator('#src-markdown').evaluate((el) => el.value) === 'Новый текст');
+    check('Fallback typing cannot copy text from the previous draft', await fallback.locator('#src-markdown').evaluate((el) => el.value) === freshMarkdown + 'Новый текст');
     await fallback.locator('#src-markdown').evaluate(async (el) => { el.value = 'Новый текст'; el.resetHistory(); await el.updateComplete; });
     await fallback.locator('#src-markdown textarea').press('Control+z');
     check('Fallback undo history resets even for a different document with identical text', await fallback.locator('#src-markdown textarea').inputValue() === 'Новый текст');

@@ -38,12 +38,14 @@ from api import (
     media,
     posts,
     preview,
+    pwa,
     raw,
     service,
     session,
     specs,
     suggested_posts,
     telegram_auth,
+    templates,
 )
 from api import backup as backup_api
 from errors import StorageFull, StudioError
@@ -245,6 +247,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         imports,
         specs,
         preview,
+        pwa,
         drafts,
         channels,
         invite_links,
@@ -256,6 +259,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         session,
         telegram_auth,
         account_tokens,
+        templates,
         landing,
     ):
         app.include_router(module.router)

@@ -902,6 +902,124 @@
     "title": "SessionReq",
     "type": "object"
    },
+   "TemplateDraftReq": {
+    "properties": {
+     "title": {
+      "default": "",
+      "description": "Название нового черновика; пусто — название шаблона",
+      "maxLength": 128,
+      "title": "Title",
+      "type": "string"
+     },
+     "values": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "description": "Значения полей по key; отсутствующее берётся из default",
+      "title": "Values",
+      "type": "object"
+     },
+     "version": {
+      "description": "Версия шаблона, для которой заполнена форма",
+      "minimum": 1.0,
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "version"
+    ],
+    "title": "TemplateDraftReq",
+    "type": "object"
+   },
+   "TemplateField": {
+    "properties": {
+     "default": {
+      "default": "",
+      "maxLength": 10000,
+      "title": "Default",
+      "type": "string"
+     },
+     "key": {
+      "description": "Имя переменной {{key}} в строках поста",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+      "title": "Key",
+      "type": "string"
+     },
+     "label": {
+      "description": "Подпись поля в форме",
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+     },
+     "required": {
+      "default": true,
+      "title": "Required",
+      "type": "boolean"
+     },
+     "type": {
+      "default": "text",
+      "enum": [
+       "text",
+       "multiline",
+       "url"
+      ],
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "key",
+     "label"
+    ],
+    "title": "TemplateField",
+    "type": "object"
+   },
+   "TemplateReq": {
+    "properties": {
+     "fields": {
+      "items": {
+       "$ref": "#/components/schemas/TemplateField"
+      },
+      "maxItems": 50,
+      "title": "Fields",
+      "type": "array"
+     },
+     "post": {
+      "additionalProperties": true,
+      "description": "Пост с {{переменными}} в строковых значениях; _studio не сохраняется",
+      "title": "Post",
+      "type": "object"
+     },
+     "title": {
+      "description": "Название шаблона",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "minimum": 1.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Обязательна при обновлении: версия из GET /api/templates/{id}",
+      "title": "Version"
+     }
+    },
+    "required": [
+     "title",
+     "post"
+    ],
+    "title": "TemplateReq",
+    "type": "object"
+   },
    "TokenReq": {
     "additionalProperties": false,
     "properties": {
@@ -3673,6 +3791,252 @@
     "summary": "Решить снова: решение без ответа Telegram (approving/declining) возвращается в ожидание",
     "tags": [
      "suggested posts"
+    ]
+   }
+  },
+  "/api/templates": {
+   "get": {
+    "operationId": "list_templates_api_templates_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Шаблоны постов текущей учётки и их заполняемые поля",
+    "tags": [
+     "templates"
+    ]
+   },
+   "post": {
+    "description": "Переменные заменяются только в строковых значениях. Все переменные должны иметь описание в fields.",
+    "operationId": "create_template_api_templates_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TemplateReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Сохранить пост как шаблон с переменными {{key}}",
+    "tags": [
+     "templates"
+    ]
+   }
+  },
+  "/api/templates/{tid}": {
+   "delete": {
+    "operationId": "delete_template_api_templates__tid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Версия прочитанного шаблона",
+      "in": "query",
+      "name": "version",
+      "required": true,
+      "schema": {
+       "description": "Версия прочитанного шаблона",
+       "minimum": 1,
+       "title": "Version",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Удалить шаблон; созданные из него черновики остаются",
+    "tags": [
+     "templates"
+    ]
+   },
+   "get": {
+    "operationId": "get_template_api_templates__tid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Шаблон целиком: пост, поля и version",
+    "tags": [
+     "templates"
+    ]
+   },
+   "put": {
+    "operationId": "update_template_api_templates__tid__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TemplateReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Изменить шаблон; version защищает от перезаписи чужой правки",
+    "tags": [
+     "templates"
+    ]
+   }
+  },
+  "/api/templates/{tid}/drafts": {
+   "post": {
+    "description": "Проверяет обязательные поля и URL; экранирует значения для HTML/Markdown. Не публикует пост и не копирует канал.",
+    "operationId": "create_draft_api_templates__tid__drafts_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tid",
+      "required": true,
+      "schema": {
+       "title": "Tid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TemplateDraftReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Заполнить поля шаблона и создать новый черновик",
+    "tags": [
+     "templates"
     ]
    }
   },

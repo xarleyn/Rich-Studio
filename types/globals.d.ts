@@ -13,6 +13,7 @@ declare const RichRender: {
   mediaSrc(media: unknown, ctx: object): string | null;
   safeUrl(url: string): string | null;
   outline(post: object): string;
+  markdownHtml(source: string): string;
 };
 interface Window {
   RichRender: typeof RichRender;

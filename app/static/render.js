@@ -611,7 +611,9 @@
     return lines.join('\n');
   }
 
-  function renderMarkdown(src, ctx) {
+  // Source conversion uses exactly the preview's Markdown dialect, before DOM rendering.
+  // The returned string is untrusted: consumers must parse it inertly, never attach it as HTML.
+  function markdownHtml(src) {
     if (!md && global.markdownit) md = markdownParser();
     let html;
     if (md) {
@@ -619,8 +621,10 @@
       html = html.replace(/<li>\s*\[([ xX])\]\s*/g, (m, c) => `<li><input type="checkbox"${c.trim() ? ' checked' : ''}> `)
         .replace(/<li><p>\s*\[([ xX])\]\s*/g, (m, c) => `<li><p><input type="checkbox"${c.trim() ? ' checked' : ''}> `);
     } else html = '<pre>' + esc(src) + '</pre>';
-    return renderHtml(html, ctx);
+    return html;
   }
+
+  function renderMarkdown(src, ctx) { return renderHtml(markdownHtml(src), ctx); }
 
   // ---------- message ----------
   function render(post, opts) {
@@ -702,5 +706,5 @@
     return out.join('').replace(/ +/g, ' ').replace(/<br> /g, '<br>').replace(/ <\/pre>/g, '</pre>').replace(/ ?(<math-block:[^>]*>|<hr>|<anchor>) ?/g, '$1').trim().replace(/ ?(<\/?(?:p|h\d|li[^>]*|ul|ol|blockquote|tr|t[hd][^>]*|table[^>]*|footer|summary|details[^>]*|pre[^>]*|caption|cite|pullquote|expandable)>) ?/g, '$1');
   }
 
-  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline, setLocale };
+  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline, setLocale, markdownHtml };
 })(window);
