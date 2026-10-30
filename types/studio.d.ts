@@ -79,6 +79,7 @@ interface SpecGap {
 /** GET /api/updates, and `updates` in /api/config */
 interface UpdatesStatus {
   enabled: boolean;
+  mode: 'polling' | 'webhook';
   state: 'starting' | 'ok' | 'off' | 'no_token' | 'conflict' | 'error';
   error: string | null;
   last_at: number | null;
@@ -258,6 +259,9 @@ interface EditorState {
   mode: string;
   buf: { blocks: Json[]; html: string; markdown: string };
   importMeta: Json;
+
+  /** Unapplied JSON source is saved with the draft, including syntax errors; it never becomes the sent post implicitly. */
+  pendingJson: string | null;
   media: Json[];
   flags: Json;
   keyboard: ButtonRow[];

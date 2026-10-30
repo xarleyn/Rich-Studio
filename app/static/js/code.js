@@ -1,4 +1,4 @@
-// HTML and Markdown modes: snippet bars and textarea helpers.
+// HTML and Markdown modes: snippet bars and the source-editor bridge.
 import { $, h } from './dom.js';
 import { changed } from './editor.js';
 import { addMediaEntry } from './media.js';
@@ -6,6 +6,7 @@ import { S } from './state.js';
 
 // ---------- code modes ----------
 export function insertAtCursor(ta, snip) {
+  if (ta.insertSnippet) { ta.insertSnippet(snip); return; }
   const [a, b] = [ta.selectionStart, ta.selectionEnd];
   const sel = ta.value.slice(a, b);
   const text = snip.replace('$SEL$', sel);
@@ -34,6 +35,14 @@ export function snippetBar(kind) {
 
 export function bindCode(kind) {
   const ta = $('#src-' + kind);
-  ta.addEventListener('input', () => { S.buf[kind] = ta.value; changed(); });
-  ta.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); ta.setRangeText('  ', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input')); } });
+  ta.addEventListener('source-change', () => {
+    if (kind === 'json') S.pendingJson = ta.value;
+    else S.buf[kind] = ta.value;
+    changed();
+  });
+  ta.addEventListener('snippet', (e) => {
+    const { item, from, to } = e.detail;
+    const snip = item.media ? item.snip.replace('$ID$', addMediaEntry(item.media, '')) : item.snip;
+    ta.insertSnippet(snip, from, to);
+  });
 }

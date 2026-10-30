@@ -30,6 +30,7 @@ check-js:
 	npx eslint .
 	npx tsc -p .
 	npm run --silent test:render
+	npm run --silent test:source
 	npm run --silent test:parity
 	npm run --silent test:shots
 

@@ -18,6 +18,7 @@ import './components/rs-preview.js';
 import './components/rs-edit-bar.js';
 import './components/rs-health.js';
 import './components/rs-parse-check.js';
+import './components/rs-code-editor.js';
 import { editPost, leaveEditing, reschedulePost, showHistory, updatePost } from './editing.js';
 import { loadDrafts, newDraft, openDraft, renderDrafts, saveDraft, watchDrafts } from './drafts.js';
 import { autosave, buildPost, changed, loadPost, parsedToBlocks, parseKey, renderPreview, setMode } from './editor.js';
@@ -95,7 +96,7 @@ function bindActions() {
     const key = e.key.toLowerCase();
     if (key === 's') { e.preventDefault(); act(() => saveDraft()); return; }
     // text fields keep their own undo; the post-wide one works everywhere else
-    if (isTextField(e.target)) return;
+    if (e.defaultPrevented || isTextField(e.composedPath()[0])) return;
     if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); } else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
   });
   addEventListener('beforeunload', (e) => { if (dirty.value) { if (S.draftId) saveDraft(true).catch(() => {}); e.preventDefault(); e.returnValue = ''; } });
@@ -202,7 +203,7 @@ async function boot() {
   $('#chat').placeholder = S.config.default_chat || '@канал или id';
   if (!S.config.token_set) toast('TG_BOT_TOKEN не задан: редактор и предпросмотр работают, отправка нет. Добавьте токен в .env и перезапустите.', 'err');
   updateBadge();
-  snippetBar('html'); snippetBar('markdown'); bindCode('html'); bindCode('markdown');
+  snippetBar('html'); snippetBar('markdown'); bindCode('html'); bindCode('markdown'); bindCode('json');
   bindEffects();
   bindActions();
   document.addEventListener('rs-uploads-changed', () => loadUploads().catch(() => {}));
