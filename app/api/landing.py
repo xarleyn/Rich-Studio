@@ -27,8 +27,10 @@ def page(lang: str = "ru", slug: str = "") -> str:
         "__RU_URL__": html.escape(base + path, quote=True),
         "__EN_URL__": html.escape(base + "/en" + path, quote=True),
         "__BOT_USERNAME__": html.escape(cfg.bot_username, quote=True),
+        "__AGENT_GUIDE_URL__": html.escape(base + "/agents.md", quote=True),
     }
-    return re.sub(r"__[A-Z_]+__", lambda m: values[m.group(0)], template.read_text("utf-8"))
+    content = re.sub(r"__[A-Z_]+__", lambda m: values[m.group(0)], template.read_text("utf-8"))
+    return content.replace("</head>", '<link rel="describedby" href="/llms.txt" type="text/markdown">\n</head>')
 
 
 @router.get("/landing", include_in_schema=False, response_class=HTMLResponse)

@@ -1,0 +1,22 @@
+# RichPost
+
+> A hosted Telegram post editor with visual, Markdown and HTML modes, reusable post templates, previews and an authenticated MCP server.
+
+If the user says “install/connect RichPost”, follow the setup guide below. Configure the hosted integration in their existing agent client. A human must issue the personal MCP token in their own account; the agent cannot create it. Default to draft access. Setup is complete only after a successful authenticated MCP check, not after saving a configuration file.
+
+## Connect
+
+- [Agent setup guide](__SITE_URL__/agents.md): Start here; required human token step, client configuration, verification and troubleshooting.
+- [RichPost skill](__SITE_URL__/skills/richpost/SKILL.md): Installable Agent Skills instructions for drafts, templates, previews and approved publication.
+- [All instructions in one file](__SITE_URL__/llms-full.txt): Setup guide and the same skill combined.
+- [Machine-readable capabilities](__SITE_URL__/agents.json): MCP endpoint and skill locations. Discovery does not grant access.
+
+## For people
+
+- [Connect an AI agent](__SITE_URL__/features/ai-agents/): Russian walkthrough and a prompt to give your agent.
+- [Connect an AI agent in English](__SITE_URL__/en/features/ai-agents/): English walkthrough.
+- [Open your workspace](__APP_URL__/): Sign in and issue your own token.
+
+## Optional
+
+- [Project source and documentation](https://github.com/xarleyn/Rich-Studio): Source, self-hosting instructions and reference documentation.

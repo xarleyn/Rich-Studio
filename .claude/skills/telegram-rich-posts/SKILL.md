@@ -5,6 +5,8 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 # Telegram rich posts
 
+To connect a hosted instance from a shared URL, read its `/llms.txt` and `/agents.md`; the installable service skill is `/skills/richpost/SKILL.md`. Ask the human to issue their own personal token, normally with the draft role, and keep it in the client secret store or environment. Preserve other client settings. Verify `tools/list` and `studio_status` through the configured client before reporting setup complete. A saved config or a pending restart is not proof of a working connection.
+
 The editor and Telegram sign-in screen support RU/EN; open `/?lang=en` for English or use the language selector. Switching languages saves the draft first, including unapplied JSON, and stops on a save conflict. UI language does not translate post content, channel names or Bot API fields. Keep server/Telegram diagnostics intact. Public guides have `/features/telegram-tables/`, `/features/telegram-markdown/`, `/features/scheduled-posts/` URLs and English equivalents under `/en/`; account data and app URLs are not search pages.
 
 The browser's HTML, Markdown and JSON modes use CodeMirror with local completion and no minimap. JSON hints follow the current Bot API spec; they do not restrict unknown fields. Unapplied JSON is saved in `_studio.buffers.json`, including incomplete syntax, but is not the post that will be sent: the user must choose «Применить JSON». When editing a draft through API/MCP, preserve its `_studio` buffers when appropriate; never treat pending JSON text as publication instructions.

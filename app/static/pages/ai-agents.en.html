@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect an AI agent to your Telegram posts — RichPost</title>
+  <meta name="description" content="Give your agent a RichPost link to configure MCP. Create a personal token and work on Telegram drafts, templates and previews from your chat.">
+  <meta name="theme-color" content="#f8f9fc">
+  <meta property="og:title" content="Your AI agent in RichPost">
+  <meta property="og:description" content="One link to connect. Your drafts, templates and previews from your agent chat.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="__LANDING_URL__">
+  <link rel="canonical" href="__LANDING_URL__">
+  <link rel="alternate" hreflang="ru" href="__RU_URL__">
+  <link rel="alternate" hreflang="en" href="__EN_URL__">
+  <link rel="alternate" hreflang="x-default" href="__RU_URL__">
+  <meta property="og:locale" content="en_US">
+  <link rel="stylesheet" href="/static/landing.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__RU_URL__" lang="ru" hreflang="ru">RU</a><a class="button quiet" href="__APP_URL__">Open editor ↗</a></div></header>
+<main id="main" class="guide-content wrap">
+  <a href="/en/">← All features</a>
+  <h1>Give your agent a link.<br>Work on posts from your chat.</h1>
+  <p class="lead">Your agent can prepare drafts, show previews and fill your post templates. Continue editing the same posts in RichPost whenever you like.</p>
+  <h2>What to ask your agent</h2>
+  <p>Copy this message into Codex, Claude Code or another client that supports remote MCP connections:</p>
+  <blockquote><p>Connect RichPost for me. Read the setup guide at <a href="__AGENT_GUIDE_URL__">__AGENT_GUIDE_URL__</a>, configure MCP and install the skill if my client supports it. Ask me to issue a personal token. Then check that the connection and tools work.</p></blockquote>
+  <p>You can also share a link to this page. Its setup documents are readable without signing in.</p>
+  <h2>One step is yours: issue a token</h2>
+  <ol>
+    <li><a href="__APP_URL__">Sign in to RichPost through Telegram</a>.</li>
+    <li>Open your account menu → <strong>API and MCP tokens</strong> → <strong>Create token</strong>. Choose a client name and an expiry.</li>
+    <li>Choose <strong>Drafts</strong> for writing and templates. Use Read only for viewing, or Publishing when you want to allow your agent to send posts.</li>
+    <li>Save the token, shown once, in your client's secret settings following your agent's instructions. Keep it out of public chats and repositories.</li>
+  </ol>
+  <aside><p>The agent does not issue its own token. You can revoke it in the same menu. Publishing permission is separate from your request to send a particular post: agree on its content and destination first.</p></aside>
+  <h2>Check that the connection works</h2>
+  <p>Your agent should verify the connection and available tools, then report the result. Your client may need a restart or confirmation for the new connection. A client that supports only OAuth login needs a different way to connect with a personal token.</p>
+  <p>After setup, try “Prepare an announcement draft”, “Show me a preview”, or “Create a post from my template”. To publish, connect your channel in the editor and grant the bot the required permissions.</p>
+  <h2>Documents for agents</h2>
+  <ul>
+    <li><a href="/agents.md">Client setup, configuration and verification</a></li>
+    <li><a href="/skills/richpost/SKILL.md">Installable RichPost skill</a></li>
+    <li><a href="/llms.txt">Short llms.txt index</a> · <a href="/llms-full.txt">All instructions in one file</a></li>
+    <li><a href="/agents.txt">Capability discovery</a> · <a href="/agents.json">JSON description</a></li>
+  </ul>
+  <p>These files help agents find the right instructions. Connection support depends on your client.</p>
+  <p><a class="button primary" href="__APP_URL__">Open RichPost ↗</a></p>
+</main>
+<footer class="site-footer wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><a href="/agents.md">For AI agents</a><a href="__APP_URL__">App ↗</a></footer>
+</body>
+</html>
