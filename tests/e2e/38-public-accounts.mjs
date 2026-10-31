@@ -14,7 +14,7 @@ export default async function ({ browser, check, MOCK }) {
   const port = socket.address().port;
   await new Promise((done) => socket.close(done));
   const base = 'http://127.0.0.1:' + port;
-  const server = spawn(existsSync('.venv/bin/python') ? '.venv/bin/python' : 'python3', [
+  const server = spawn(['.venv/bin/python', '.venv/Scripts/python.exe'].find(existsSync) || 'python3', [
     '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port), '--no-access-log',
   ], { env: { ...process.env, PYTHONPATH: resolve('app'), DATA_DIR: data, STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server',
     STUDIO_URL: 'https://public.example', TG_BOT_USERNAME: 'YourBot', TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '',

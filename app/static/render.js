@@ -226,14 +226,62 @@
   }
 
   function slideshow(contentFrag, cap) {
-    const track = el('div', { class: 'tg-slides' }, contentFrag);
+    const track = el('div', {
+      class: 'tg-slides', tabindex: 0, role: 'group',
+      'aria-label': uiText('Слайдшоу: стрелки, перетаскивание мышью или точки под слайдами'),
+    }, contentFrag);
+    track.querySelectorAll('img').forEach((img) => (img.draggable = false));
     const count = track.children.length;
     const dots = el('div', { class: 'tg-dots' });
     for (let i = 0; i < count; i++) dots.append(el('span', { class: i ? '' : 'on' }));
+    const current = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    const slide = (i) => {
+      const j = Math.max(0, Math.min(count - 1, i));
+      if (j !== current()) track.scrollTo({ left: j * track.clientWidth, behavior: 'smooth' });
+    };
+    dots.addEventListener('click', (ev) => {
+      if (!(ev.target instanceof Element)) return;
+      const i = [...dots.children].indexOf(ev.target);
+      if (i < 0) return;
+      slide(i);
+      track.focus({ preventScroll: true });
+    });
     track.addEventListener('scroll', () => {
-      const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+      const i = current();
       [...dots.children].forEach((d, j) => d.className = j === i ? 'on' : '');
     });
+    track.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft') slide(current() - 1);
+      else if (ev.key === 'ArrowRight') slide(current() + 1);
+      else return;
+      ev.preventDefault();
+    });
+    // Mouse drag for desktop; touch already scrolls natively (overflow-x + scroll snap).
+    /** @type {{ x: number; left: number; moved: boolean } | null} */
+    let drag = null;
+    track.addEventListener('pointerdown', (ev) => {
+      if (ev.pointerType !== 'mouse' || ev.button !== 0 || count < 2) return;
+      drag = { x: ev.clientX, left: track.scrollLeft, moved: false };
+    });
+    track.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      const dx = ev.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) < 5) return;
+      drag.moved = true;
+      track.classList.add('dragging');
+      if (ev.isTrusted) track.setPointerCapture(ev.pointerId);
+      track.scrollLeft = drag.left - dx;
+      ev.preventDefault();
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      track.classList.remove('dragging');
+      if (moved) slide(current());
+    };
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
     return el('figure', { class: 'tg-slideshow' }, track, count > 1 ? dots : null, cap);
   }
 
@@ -353,7 +401,10 @@
         const caps = kids().filter((k) => k.nodeType === 1 && k.tagName.toLowerCase() === 'figcaption');
         rep = el('figure', { class: 'tg-collage' }, el('div', { class: 'tg-collage-grid' }, kids().filter((k) => !caps.includes(k))), caps);
       }
-      else if (tag === 'tg-slideshow') rep = slideshow(kids(), null);
+      else if (tag === 'tg-slideshow') {
+        const caps = kids().filter((k) => k.nodeType === 1 && k.tagName.toLowerCase() === 'figcaption');
+        rep = slideshow(kids().filter((k) => !caps.includes(k)), caps[0] || null);
+      }
       else if (tag === 'tg-map') rep = mapEl(attr('lat') ?? attr('latitude'), attr('long') ?? attr('lon') ?? attr('longitude'), attr('zoom'), attr('width'), attr('height'));
       else if (tag === 'tg-thinking') rep = el('div', { class: 'tg-thinking' }, kids());
       else if (tag === 'tg-reference') rep = el('span', { class: 'tg-ref', id: 'ref-' + attr('name') }, kids());

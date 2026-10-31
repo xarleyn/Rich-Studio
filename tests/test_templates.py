@@ -89,6 +89,20 @@ def test_values_are_literal_in_html_markdown_and_attributes(client, format):
     assert fill(client, template, {"name": "a", "link": 'https://example.com/" onerror="x'}).status_code == 422
 
 
+def test_markdown_quotes_stay_literal_in_text_and_fences(client):
+    source = '```py\nprint("hi")  # it\'s code\n```\n{{name}}'
+    template = create(client, post={"rich_message": {"markdown": source}}, fields=[FIELD])
+    result = fill(client, template, {"name": 'он сказал "привет", it\'s ok'}).json()["payload"]["rich_message"][
+        "markdown"
+    ]
+    assert 'print("hi")  # it\'s code' in result
+    assert 'он сказал "привет", it\'s ok' in result
+    assert "&quot;" not in result and "&#39;" not in result and "&#34;" not in result
+    # structural characters stay escaped so a value cannot corrupt the markup
+    bold = fill(client, template, {"name": "**hi** <img"}).json()["payload"]["rich_message"]["markdown"]
+    assert "&#42;&#42;hi&#42;&#42;" in bold and "&#60;img" in bold
+
+
 @pytest.mark.parametrize(
     "html",
     [
