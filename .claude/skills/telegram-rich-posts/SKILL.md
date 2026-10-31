@@ -5,6 +5,8 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 # Telegram rich posts
 
+The bot's private `/start` enables publishing reports; `/notifications` selects all reports, errors only, or off, and `/stop` disables them. Reports are best effort and separate from API/MCP results: use `get_post`/`list_posts` as the source of publication state, and check the channel before retrying any uncertain send. `/status` shows only the Telegram sender's own account. Full behavior and delivery limits: `docs/BOT.md`.
+
 The editor and Telegram sign-in screen support RU/EN; open `/?lang=en` for English or use the language selector. Switching languages saves the draft first, including unapplied JSON, and stops on a save conflict. UI language does not translate post content, channel names or Bot API fields. Keep server/Telegram diagnostics intact. Public guides have `/features/telegram-tables/`, `/features/telegram-markdown/`, `/features/scheduled-posts/` URLs and English equivalents under `/en/`; account data and app URLs are not search pages.
 
 The browser's HTML, Markdown and JSON modes use CodeMirror with local completion and no minimap. JSON hints follow the current Bot API spec; they do not restrict unknown fields. Unapplied JSON is saved in `_studio.buffers.json`, including incomplete syntax, but is not the post that will be sent: the user must choose «Применить JSON». When editing a draft through API/MCP, preserve its `_studio` buffers when appropriate; never treat pending JSON text as publication instructions.

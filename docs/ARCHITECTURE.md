@@ -26,6 +26,7 @@
 | `app/services/scheduler.py` | отложенные посты | |
 | `app/services/loops.py` | фоновые циклы под lease в SQLite: их ведёт один процесс, второй ждёт в резерве; остановка без обрыва отправок | |
 | `app/services/updates.py` | getUpdates или webhook: нажатия, первый комментарий, реакции, опросы, вступления по ссылкам, предложенные посты и их исходы; `STATUS` | |
+| `services/bot_dialog.py`, `services/bot_notifications.py` → `store/bot_dialog.py` | личные команды, корневые настройки общения и очередь отчётов в базе владельца поста; доставка отдельным циклом под lease | команды не публикуют; неопределённая доставка отчёта не повторяется. Границы и компромисс: [0022](decisions/0022-bot-dialog-notifications.md) |
 | `app/services/invite_links.py` | именные пригласительные ссылки и платная подписка (create/edit/revoke в Telegram), счётчики вступлений и заявок из `chat_member` / `chat_join_request` | Telegram эти счётчики боту не даёт: только то, что студия увидела сама |
 | `app/services/suggested_posts.py` | предложенные посты из личных сообщений канала: что пришло (`suggested_post_info`), принять (`approveSuggestedPost`) или отклонить, исходы из служебных сообщений | публикует принятый пост Telegram, а не студия: в `posts` он не попадает. Решение занимает запись (`pending` → `approving`/`declining`) до запроса: второй клик не уходит, при отказе Telegram запись возвращается, при «могло дойти» ждёт служебного сообщения |
 | `app/services/health.py` | отчёт о состоянии: проверки `ok/warn/fail` с подсказкой `action` | только читает |

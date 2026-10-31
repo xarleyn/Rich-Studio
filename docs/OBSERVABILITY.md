@@ -125,6 +125,8 @@ Prometheus, Grafana, Loki, OpenTelemetry SDK: для одного контейн
 
 ## Куда добавлять новое
 
+Личный бот: `services/bot_notifications.loop` обновляет пульс `bot_notifications` раз в 10 секунд и работает под общим lease при включённых событиях. Отдельные события журнала: `bot.enqueue_failed` (отчёт не записан), `bot.delivery_failed` (отказ доставки), `bot.delivery_uncertain` (результат неизвестен, повтор запрещён), `bot.menu_failed` (меню команд не зарегистрировано). Доставка уведомления не меняет результат публикации. Подробности: [BOT.md](BOT.md).
+
 - Новая проверка: функция в `services/health.py`, строка в `CHECKS` и строка в таблице `.claude/skills/studio-health/SKILL.md` (тест сверяет). Проверка только читает.
 - Новое событие в журнале: `log.info("…", extra={"event": "имя", ...})` в своём модуле, строка в таблице выше. Не кладите в `extra` тело поста, токен или ключ API.
 - Новый фоновый цикл: `metrics.beat("имя", INTERVAL, error)` в конце каждого круга и строка в `health._expected_loops`.
