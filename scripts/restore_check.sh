@@ -21,7 +21,9 @@ services:
   litestream:
     volumes: ["$WORK/replica:/replica"]
 YML
-docker tag "$IMAGE" ghcr.io/nikitacodesave/rich-studio:restore-check
+# the compose pulls STUDIO_TAG from its own image repo: tag the built image into exactly that one
+IMAGE_REPO=$(grep -oP 'image: \K[^:\s]+(?=:\$\{STUDIO_TAG)' "$ROOT/deploy/docker-compose.yml")
+docker tag "$IMAGE" "$IMAGE_REPO:restore-check"
 dc() { docker compose -p "$P" --project-directory "$WORK" -f "$WORK/docker-compose.yml" -f "$WORK/docker-compose.check.yml" "$@"; }
 cleanup() {
   dc down -v --remove-orphans >/dev/null 2>&1 || true

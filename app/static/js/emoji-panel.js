@@ -5,8 +5,19 @@ import { api } from './api.js';
 import { act, h } from './dom.js';
 import { openDialog } from './dialogs.js';
 import { tr } from './i18n.js';
+/**
+ * @typedef {Object} EmojiSticker
+ * @property {string} custom_emoji_id
+ * @property {string} emoji
+ * @property {'static' | 'video' | 'tgs'} kind
+ * @typedef {Object} EmojiPack
+ * @property {string} short_name
+ * @property {string} title
+ * @property {EmojiSticker[]} stickers
+ */
 
-let packs = null;  // кэш списка паков: [{short_name, title, stickers: [{custom_emoji_id, emoji, kind}]}]
+/** @type {EmojiPack[] | null} */
+let packs = null;  // кэш списка паков; загружается с сервера при первом открытии
 
 export async function loadPacks(force = false) {
   if (packs && !force) return packs;
@@ -15,7 +26,7 @@ export async function loadPacks(force = false) {
   } catch {
     packs = [];
   }
-  return packs;
+  return packs ?? [];
 }
 
 /** Карта id → 'video' | 'tgs' для анимированного предпросмотра; для статики ключа нет. */
@@ -29,6 +40,7 @@ export function emojiKinds(list = packs || []) {
   return kinds;
 }
 
+/** @type {HTMLElement | null} */
 let openPanel = null;  // текущая панель, чтобы закрыть при открытии новой
 
 /** Плавающая панель выбора эмодзи рядом с кнопкой тулбара; onInsert получает сущность custom_emoji. */

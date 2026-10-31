@@ -20,8 +20,9 @@
   const uiText = (text) => language === 'en' ? EN[text] ?? text : text;
   function setLocale(value) { language = value === 'en' ? 'en' : 'ru'; }
 
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /** @type {Promise<void> | null} */
   let tlottieScript = null;  // promise of the lazy /static/vendor/tlottie/tlottie.js load
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /** @returns {HTMLElement} */
   function el(tag, attrs, ...kids) {
@@ -182,7 +183,10 @@
       .then(() => fetch('/api/emoji/file/' + id))
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((buf) => decompress(new Uint8Array(buf)))
-      .then((bytes) => window.Tlottie.play(canvas, bytes))
+      .then((bytes) => {
+        if (!window.Tlottie) throw new Error('tlottie не загрузился');
+        return window.Tlottie.play(canvas, bytes);
+      })
       .catch(() => canvas.replaceWith(fallback));
   }
 
@@ -190,7 +194,7 @@
     tlottieScript ??= new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = '/static/vendor/tlottie/tlottie.js';
-      s.onload = resolve;
+      s.onload = () => resolve();
       s.onerror = () => { tlottieScript = null; reject(new Error('tlottie не загрузился')); };
       document.head.append(s);
     });
