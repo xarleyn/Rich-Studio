@@ -63,7 +63,8 @@
 .tg-spoiler.tg-spoiler-open { background: rgba(0,0,0,.06); color: inherit; }
 .tg-spoiler.tg-spoiler-open * { visibility: visible; }
 .tg-time { border-bottom: 1px dashed var(--tg-link); cursor: help; }
-.tg-emoji { display: inline-block; }
+.tg-emoji { display: inline-flex; align-items: center; }
+.tg-emoji-img { width: 20px; height: 20px; vertical-align: -5px; border-radius: 4px; }
 .tg-math { font-family: "KaTeX_Main", "Times New Roman", serif; }
 .tg-math-block { margin: 6px 0 10px; overflow-x: auto; text-align: center; }
 .tg-ref { display: inline; }

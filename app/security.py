@@ -23,8 +23,9 @@ import store
 from services import accounts
 from store import account_tokens
 
+# 'wasm-unsafe-eval' — только для компиляции vendor/tlottie (анимации .tgs), не для eval скриптов
 CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
     "media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; "
     "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
 )
@@ -199,7 +200,8 @@ async def guard(request: Request, call_next):
             csp = csp.replace("script-src 'self'", "script-src 'self' https://telegram.org")
             csp += "; frame-src https://oauth.telegram.org"
         response.headers["Content-Security-Policy"] = csp
-    if not public or path.startswith(("/api/auth/", "/auth/")):
+    # a route that set its own policy (immutable emoji pictures) knows better; everything else: no-store
+    if (not public or path.startswith(("/api/auth/", "/auth/"))) and "Cache-Control" not in response.headers:
         response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"

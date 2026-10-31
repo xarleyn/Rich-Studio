@@ -4,6 +4,8 @@
 // Run: node tests/render_unit.mjs (CHROMIUM=/path/to/chromium to use a preinstalled browser)
 /* global RichRender -- defined by render.js inside the page */
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
 
 const stat = (f) => fileURLToPath(new URL('../app/static/' + f, import.meta.url));
@@ -19,14 +21,14 @@ await page.setContent('<!doctype html><meta charset="utf-8"><body><div id="out">
 for (const f of ['vendor/markdown-it.min.js', 'vendor/katex/katex.min.js', 'render.js']) await page.addScriptTag({ path: stat(f) });
 
 // render a post into the live document, wait for image errors to fire, return the body's HTML
-async function render(rich_message, extra = {}) {
-  return page.evaluate(async ([rm, extra]) => {
+async function render(rich_message, extra = {}, opts = {}) {
+  return page.evaluate(async ([rm, extra, opts]) => {
     window.__xss = 0;
     const out = document.getElementById('out');
-    out.replaceChildren(RichRender.render({ rich_message: rm, ...extra }, {}));
+    out.replaceChildren(RichRender.render({ rich_message: rm, ...extra }, opts));
     await new Promise((r) => setTimeout(r, 150));
     return { html: out.querySelector('.tg-body').innerHTML, all: out.innerHTML, xss: window.__xss };
-  }, [rich_message, extra]);
+  }, [rich_message, extra, opts]);
 }
 const has = (html, re) => re.test(html);
 
@@ -144,6 +146,44 @@ for (const [name, rm] of Object.entries({
 })) {
   const r = await render(rm);
   check('renders ' + name, !has(r.all, /Ошибка рендера/), r.all.slice(0, 300));
+}
+
+// Custom emoji: a cached picture by id, webm video for video kinds, text fallback when nothing loads.
+{
+  // the studio would serve these; this block gives the page a real origin so relative /api/... resolve
+  const webp = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');
+  const files = {
+    '/api/emoji/img/5368324170671202286': ['image/webp', webp],
+    '/api/emoji/file/1': ['video/webm', webp],
+    '/api/emoji/file/2': ['application/gzip', gzipSync(Buffer.from(JSON.stringify({
+      v: '5.7.4', fr: 30, ip: 0, op: 60, w: 100, h: 100, nm: 't', ddd: 0, assets: [],
+      layers: [{ ddd: 0, ind: 1, ty: 1, nm: 's', sr: 1, ip: 0, op: 60, st: 0, ao: 0, sw: 100, sh: 100, sc: '#ff0000',
+        ks: { o: { a: 0, k: 100 }, r: { a: 0, k: 0 }, p: { a: 0, k: [50, 50, 0] }, a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [100, 100, 100] } } }],
+    })))],
+    // настоящий glue и wasm: tgs-эмодзи реально проигрывается в тестовой странице
+    '/static/vendor/tlottie/tlottie.js': ['text/javascript', readFileSync(new URL('../app/static/vendor/tlottie/tlottie.js', import.meta.url))],
+    '/static/vendor/tlottie/tlottie.wasm': ['application/wasm', readFileSync(new URL('../app/static/vendor/tlottie/tlottie.wasm', import.meta.url))],
+  };
+  await page.route('http://unit.test/**', (route) => {
+    const hit = files[new URL(route.request().url()).pathname];
+    return route.fulfill(hit ? { contentType: hit[0], body: hit[1] } : { contentType: 'text/html', body: '<!doctype html><body><div id="out"></div></body>' });
+  });
+  await page.goto('http://unit.test/');
+  await page.addStyleTag({ path: stat('tg.css') });
+  for (const f of ['vendor/markdown-it.min.js', 'vendor/katex/katex.min.js', 'render.js']) await page.addScriptTag({ path: stat(f) });
+  const r = await render({ blocks: [{ type: 'paragraph', text: [{ type: 'custom_emoji', custom_emoji_id: '5368324170671202286', alternative_text: '👍' }] }] });
+  check('custom emoji: img by id with the char fallback', has(r.html, /<span class="tg-emoji"[^>]*><img[^>]*src="\/api\/emoji\/img\/5368324170671202286"[^>]*alt="👍"/), r.html);
+  const r2 = await render({ blocks: [{ type: 'paragraph', text: [{ type: 'custom_emoji', custom_emoji_id: '1', alternative_text: '👍' }] }] }, {}, { emojiKinds: { 1: 'video' } });
+  check('custom emoji: known video kind renders a muted looping video', has(r2.html, /<video[^>]*src="\/api\/emoji\/file\/1"[^>]*muted=/), r2.html);
+  const r3 = await render({ blocks: [{ type: 'paragraph', text: [{ type: 'custom_emoji', custom_emoji_id: '2', alternative_text: '🎉' }] }] }, {}, { emojiKinds: { 2: 'tgs' } });
+  check('custom emoji: tgs kind renders a canvas placeholder', has(r3.html, /<canvas class="tg-emoji-img"/), r3.html);
+  const imgCase = await render({ blocks: [{ type: 'paragraph', text: [{ type: 'custom_emoji', custom_emoji_id: '5368324170671202286', alternative_text: '👍' }] }] });
+  const html = await page.evaluate(() => {
+    const img = document.querySelector('.tg-emoji-img');
+    img.dispatchEvent(new Event('error'));
+    return document.querySelector('.tg-emoji').textContent;
+  });
+  check('custom emoji: a broken picture falls back to the char', html === '👍' && !has(imgCase.html, /Ошибка рендера/), html);
 }
 
 check('no script ran and no page errors', (await page.evaluate(() => window.__xss)) === 0 && pageErrors.length === 0, pageErrors.join(' | '));

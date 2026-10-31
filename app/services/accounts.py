@@ -14,7 +14,16 @@ from errors import StudioError
 
 LOGIN_TTL = 300
 LOGIN_FIELDS = {"id", "first_name", "last_name", "username", "photo_url", "auth_date"}
-READ_METHODS = {"getMe", "getChat", "getChatMember", "answerCallbackQuery"}
+READ_METHODS = {
+    "getMe",
+    "getChat",
+    "getChatMember",
+    "answerCallbackQuery",
+    # custom emoji packs: a set by short name and sticker files, no chat involved
+    "getStickerSet",
+    "getCustomEmojiStickers",
+    "getFile",
+}
 
 
 def verify_login(data: dict[str, str]) -> dict:

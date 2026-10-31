@@ -7,15 +7,73 @@ POST /fail makes a method answer 400 (for checks of refused sends).
 """
 
 import asyncio
+import base64
 import json
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import Response
 
 # real answers of Telegram to known HTML/Markdown sources (scripts/capture_telegram_parse.py)
 CAPTURED = Path(__file__).resolve().parent / "telegram_parse" / "captured.json"
 _parsed_cache: dict = {}
+
+# a valid 1x1 webp so <img> in the editor really decodes the cached emoji picture
+WEBP_1PX = base64.b64decode("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==")
+EMOJI_SET = {
+    "name": "richpost_test_emoji",
+    "title": "RichPost Test",
+    "sticker_type": "custom_emoji",
+    "stickers": [
+        {
+            "file_id": "emoji-file-1",
+            "file_unique_id": "f1",
+            "type": "custom_emoji",
+            "width": 100,
+            "height": 100,
+            "is_animated": False,
+            "is_video": False,
+            "emoji": "🚀",
+            "set_name": "richpost_test_emoji",
+            "custom_emoji_id": "1111111111111111111",
+        },
+        {
+            "file_id": "emoji-file-2",
+            "file_unique_id": "f2",
+            "type": "custom_emoji",
+            "width": 100,
+            "height": 100,
+            "is_animated": False,
+            "is_video": True,
+            "emoji": "🔥",
+            "set_name": "richpost_test_emoji",
+            "thumbnail": {"file_id": "emoji-thumb-2", "file_unique_id": "t2", "width": 100, "height": 100},
+            "custom_emoji_id": "2222222222222222222",
+        },
+        {
+            "file_id": "emoji-file-3",
+            "file_unique_id": "f3",
+            "type": "custom_emoji",
+            "width": 100,
+            "height": 100,
+            "is_animated": True,
+            "is_video": False,
+            "emoji": "🎉",
+            "set_name": "richpost_test_emoji",
+            "thumbnail": {"file_id": "emoji-thumb-3", "file_unique_id": "t3", "width": 100, "height": 100},
+            "custom_emoji_id": "3333333333333333333",
+        },
+    ],
+}
+# file_id -> (file_path as getFile reports it, bytes as /file/bot<token>/ serves them)
+EMOJI_FILES = {
+    "emoji-file-1": (f"emojis/{EMOJI_SET['stickers'][0]['custom_emoji_id']}.webp", WEBP_1PX),
+    "emoji-file-2": (f"emojis/{EMOJI_SET['stickers'][1]['custom_emoji_id']}.webm", b"fake webm"),
+    "emoji-file-3": (f"emojis/{EMOJI_SET['stickers'][2]['custom_emoji_id']}.tgs", b"fake tgs"),
+    "emoji-thumb-2": ("emojis/thumb-2.webp", WEBP_1PX),
+    "emoji-thumb-3": ("emojis/thumb-3.webp", WEBP_1PX),
+}
 
 TRUE_METHODS = {
     "deleteMessage",
@@ -129,6 +187,36 @@ class FakeTelegram:
                 "ok": True,
                 "result": {"id": 42, "is_bot": True, "first_name": "Bot", "username": "studio_test_bot"},
             }
+        if method == "getStickerSet":
+            s = EMOJI_SET if body.get("name") == EMOJI_SET["name"] else None
+            return (
+                {"ok": True, "result": s}
+                if s
+                else {
+                    "ok": False,
+                    "error_code": 400,
+                    "description": "Bad Request: STICKER_SET_INVALID",
+                }
+            )
+        if method == "getCustomEmojiStickers":
+            ids = set(body.get("custom_emoji_ids") or [])
+            found = [st for st in EMOJI_SET["stickers"] if st["custom_emoji_id"] in ids]
+            return {"ok": True, "result": found}
+        if method == "getFile":
+            f = EMOJI_FILES.get(body.get("file_id") or "")
+            return (
+                {
+                    "ok": True,
+                    "result": {
+                        "file_id": body["file_id"],
+                        "file_unique_id": body["file_id"],
+                        "file_size": len(f[1]),
+                        "file_path": f[0],
+                    },
+                }
+                if f
+                else {"ok": False, "error_code": 400, "description": "Bad Request: invalid file_id"}
+            )
         if method == "setMyCommands":
             return {"ok": True, "result": True}
         if method == "sendMessage":
@@ -252,6 +340,14 @@ class FakeTelegram:
                 return await self._get_updates(body)
             self.calls.append({"method": method, "token": token, "body": body, "files": files})
             return self.answer(method, body)  # a queued starlette Response (e.g. an HTML 502) goes out as is
+
+        @app.get("/file/bot{token}/{path:path}")
+        def file_download(token: str, path: str):
+            for f in EMOJI_FILES.values():
+                if f[0] == path:
+                    media = "image/webp" if path.endswith(".webp") else "application/octet-stream"
+                    return Response(content=f[1], media_type=media)
+            return Response(content="not found", status_code=404)
 
         @app.post("/push")
         async def push(update: dict):

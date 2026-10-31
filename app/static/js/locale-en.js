@@ -912,5 +912,17 @@ export default {
   "Сохранить шаблон": "Save template",
   "Назад к шаблонам": "Back to templates",
   "После заполнения откроется новый черновик. Вы сможете проверить и изменить его перед публикацией.": "A new draft opens after you fill in the form. Review and edit it before publishing.",
-  "Создать черновик": "Create draft"
+  "Создать черновик": "Create draft",
+  "Кастомные эмодзи": "Custom emoji",
+  "Паки эмодзи": "Emoji packs",
+  "Поиск по эмодзи": "Search emoji",
+  "Паки эмодзи ещё не настроены": "No emoji packs configured yet",
+  "Настроить паки": "Configure packs",
+  "Ничего не нашлось": "Nothing found",
+  "Набор эмодзи": "Sticker set",
+  "t.me/addemoji/<код> или короткий код": "t.me/addemoji/<code> or a short code",
+  "Наборы кастомных эмодзи из Telegram. Короткий код — то, что в ссылке t.me/addemoji/<код>.": "Custom emoji sets from Telegram. The short code is the part in the t.me/addemoji/<code> link.",
+  "эмодзи: ": "emoji: ",
+  "Паков пока нет. Добавьте набор кастомных эмодзи — он появится в панели редактора.": "No packs yet. Add a custom emoji set and it will appear in the editor panel.",
+  "Добавить": "Add"
 };

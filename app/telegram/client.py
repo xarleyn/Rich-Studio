@@ -154,6 +154,23 @@ async def _post(url: str, params: dict, files: dict[str, Path], timeout: float) 
     return body["result"]
 
 
+async def download_file(file_id: str, timeout: float = 60) -> bytes:  # noqa: ASYNC109
+    """getFile + GET /file/bot<token>/<path>; the token is hidden by the httpx log filter above."""
+    file = await call("getFile", {"file_id": file_id}, timeout)
+    path = (file or {}).get("file_path")
+    if not path:
+        raise TelegramError("getFile не вернул file_path")
+    url = f"{settings.get().api_base}/file/bot{_token()}/{path}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.get(url)
+    except _NOT_SENT as e:
+        raise Unreachable(f"нет связи с Telegram ({type(e).__name__}): файл не скачан") from e
+    if r.status_code != 200:
+        raise NoAnswer(f"скачивание файла: HTTP {r.status_code}")
+    return r.content
+
+
 async def _request(url: str, params: dict, files: dict[str, Path], timeout: float) -> httpx.Response:  # noqa: ASYNC109
     async with httpx.AsyncClient(timeout=timeout) as client:
         if files:
