@@ -495,6 +495,19 @@
     "title": "MediaPostReq",
     "type": "object"
    },
+   "PackReq": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "PackReq",
+    "type": "object"
+   },
    "PinReq": {
     "properties": {
      "disable_notification": {
@@ -1737,6 +1750,182 @@
     "summary": "Заменить опубликованный пост (editMessageText + rich_message)",
     "tags": [
      "telegram"
+    ]
+   }
+  },
+  "/api/emoji/file/{custom_emoji_id}": {
+   "get": {
+    "operationId": "emoji_file_api_emoji_file__custom_emoji_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "custom_emoji_id",
+      "required": true,
+      "schema": {
+       "title": "Custom Emoji Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Полный файл эмодзи: webm-видео, tgs-анимация или webp",
+    "tags": [
+     "emoji"
+    ]
+   }
+  },
+  "/api/emoji/img/{custom_emoji_id}": {
+   "get": {
+    "operationId": "emoji_img_api_emoji_img__custom_emoji_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "custom_emoji_id",
+      "required": true,
+      "schema": {
+       "title": "Custom Emoji Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Статичная картинка эмодзи (webp-миниатюра); скачивается при первом запросе",
+    "tags": [
+     "emoji"
+    ]
+   }
+  },
+  "/api/emoji/packs": {
+   "get": {
+    "operationId": "packs_list_api_emoji_packs_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Паки кастомных эмодзи учётки для панели редактора",
+    "tags": [
+     "emoji"
+    ]
+   },
+   "post": {
+    "operationId": "packs_add_api_emoji_packs_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PackReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Добавить пак: короткое имя набора или ссылка t.me/addemoji/<код>",
+    "tags": [
+     "emoji"
+    ]
+   }
+  },
+  "/api/emoji/packs/{name}": {
+   "delete": {
+    "operationId": "packs_remove_api_emoji_packs__name__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Убрать пак из панели; скачанные картинки остаются в кэше на случай возврата",
+    "tags": [
+     "emoji"
     ]
    }
   },

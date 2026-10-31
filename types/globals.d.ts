@@ -3,6 +3,8 @@ interface RenderOptions {
   mediaBase?: string;
   channelTitle?: string;
   views?: string | number;
+  // id кастомного эмодзи -> 'video' | 'tgs': редактор знает это из настроенных паков
+  emojiKinds?: Record<string, string>;
 }
 declare const RichRender: {
   setLocale(locale: string): void;
@@ -22,4 +24,10 @@ interface Window {
   markdownit?: (opts?: object) => any;
   // snippets.js: snippet groups for the html and markdown modes
   SNIPPETS: Record<string, Record<string, any>[]>;
+  // vendor/tlottie/tlottie.js: играние .tgs-анимаций в предпросмотре
+  Tlottie?: {
+    play(canvas: HTMLCanvasElement, bytes: Uint8Array): Promise<void>;
+    stop(canvas: HTMLCanvasElement): void;
+    loaded(): boolean;
+  };
 }

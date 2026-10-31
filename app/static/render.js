@@ -20,6 +20,8 @@
   const uiText = (text) => language === 'en' ? EN[text] ?? text : text;
   function setLocale(value) { language = value === 'en' ? 'en' : 'ru'; }
 
+  /** @type {Promise<void> | null} */
+  let tlottieScript = null;  // promise of the lazy /static/vendor/tlottie/tlottie.js load
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /** @returns {HTMLElement} */
@@ -139,7 +141,7 @@
     else if (t === 'phone_number') frag.append(el('a', { href: 'tel:' + rt.phone_number }, inner()));
     else if (['mention', 'hashtag', 'cashtag', 'bot_command', 'bank_card_number'].includes(t)) frag.append(el('span', { class: 'tg-link' }, inner()));
     else if (t === 'date_time') frag.append(el('span', { class: 'tg-time', title: formatTime(rt.unix_time, 'wDT') + uiText(' (у читателя: его часовой пояс)') }, rt.text ? inner() : formatTime(rt.unix_time, rt.date_time_format)));
-    else if (t === 'custom_emoji') frag.append(el('span', { class: 'tg-emoji', title: 'custom emoji ' + rt.custom_emoji_id }, rt.alternative_text || '⭐'));
+    else if (t === 'custom_emoji') frag.append(emojiEl(rt, ctx));
     else if (t === 'mathematical_expression') frag.append(math(rt.expression || '', false));
     else if (t === 'anchor') frag.append(el('a', { name: rt.name, id: 'anchor-' + rt.name, class: 'tg-anchor' }));
     else if (t === 'anchor_link') frag.append(el('a', { href: '#anchor-' + (rt.anchor_name || ''), class: 'tg-link' }, inner()));
@@ -154,6 +156,57 @@
     const s = el('span', { class: 'tg-spoiler' }, content);
     s.addEventListener('click', () => s.classList.toggle('tg-spoiler-open'));
     return s;
+  }
+
+  // Кастомный эмодзи: картинка из кэша учётки, webm-видео или tgs-анимация через tlottie
+  // (vendor/tlottie, грузится лениво). Без настроенных паков (ctx.emojiKinds пуст) и при
+  // ошибке загрузки остаётся замена текстом — как показывает Telegram.
+  function emojiEl(rt, ctx) {
+    const id = rt.custom_emoji_id || '';
+    const char = rt.alternative_text || '⭐';
+    const kind = (ctx && ctx.emojiKinds) ? ctx.emojiKinds[id] : '';
+    if (kind === 'video')
+      return el('video', { class: 'tg-emoji-img', src: '/api/emoji/file/' + id, autoplay: '', loop: '', muted: '', playsinline: '', title: char });
+    const img = el('img', {
+      class: 'tg-emoji-img', src: '/api/emoji/img/' + id, alt: char, title: char, loading: 'lazy',
+      onerror: (ev) => ev.target.replaceWith(document.createTextNode(char)),
+    });
+    if (kind !== 'tgs') return el('span', { class: 'tg-emoji', title: char }, img);
+    const canvas = el('canvas', { class: 'tg-emoji-img', title: char, width: 100, height: 100 });
+    const span = el('span', { class: 'tg-emoji', title: char }, canvas);
+    loadTgs(span, canvas, id, img);
+    return span;
+  }
+
+  function loadTgs(span, canvas, id, fallback) {
+    ensureTlottie()
+      .then(() => fetch('/api/emoji/file/' + id))
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => decompress(new Uint8Array(buf)))
+      .then((bytes) => {
+        if (!window.Tlottie) throw new Error('tlottie не загрузился');
+        return window.Tlottie.play(canvas, bytes);
+      })
+      .catch(() => canvas.replaceWith(fallback));
+  }
+
+  function ensureTlottie() {
+    tlottieScript ??= new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/static/vendor/tlottie/tlottie.js';
+      s.onload = () => resolve();
+      s.onerror = () => { tlottieScript = null; reject(new Error('tlottie не загрузился')); };
+      document.head.append(s);
+    });
+    return tlottieScript;
+  }
+
+  // .tgs — это gzip-сжатый Lottie JSON; DecompressionStream есть во всех современных браузерах
+  function decompress(bytes) {
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b)
+      return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')))
+        .arrayBuffer().then((b) => new Uint8Array(b));
+    return Promise.resolve(bytes);
   }
 
   function unknown(label, content) {
@@ -388,7 +441,7 @@
       const attr = (n) => node.getAttribute(n);
       const kids = () => [...node.childNodes];
       if (tag === 'tg-spoiler') rep = spoilerEl(kids());
-      else if (tag === 'tg-emoji') rep = el('span', { class: 'tg-emoji', title: 'custom emoji ' + attr('emoji-id') }, kids());
+      else if (tag === 'tg-emoji') rep = emojiEl({ custom_emoji_id: attr('emoji-id'), alternative_text: node.textContent }, ctx);
       else if (tag === 'tg-math') rep = math(node.textContent, false);
       else if (tag === 'tg-math-block') rep = math(node.textContent, true);
       else if (tag === 'tg-time') {
@@ -681,7 +734,7 @@
   function render(post, opts) {
     opts = opts || {};
     const rm = (post && post.rich_message) || {};
-    const ctx = { mediaBase: opts.mediaBase || '', mediaList: rm.media || [] };
+    const ctx = { mediaBase: opts.mediaBase || '', mediaList: rm.media || [], emojiKinds: opts.emojiKinds || {} };
     const body = el('div', { class: 'tg-body', dir: rm.is_rtl ? 'rtl' : null });
     try {
       if (rm.blocks) body.append(renderBlocks(rm.blocks, ctx));

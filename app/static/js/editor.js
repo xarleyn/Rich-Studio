@@ -3,6 +3,7 @@ import { tr } from './i18n.js';
 import { api } from './api.js';
 import { $, $$, clone, debounce, h, toast } from './dom.js';
 import { channelTitle } from './channels.js';
+import { emojiKinds } from './emoji-panel.js';
 import { saveDraft } from './drafts.js';
 import { renderBlocksPane } from './forms.js';
 import { convertFormats } from './formats.js';
@@ -201,6 +202,7 @@ export function renderPreview() {
   const fresh = checkParse(post);
   p.dark = dark.value;
   p.channelTitle = channelTitle(chats()[0] || S.config.default_chat) || tr('Канал');
+  p.emojiKinds = emojiKinds();
   p.post = fresh && showParsed.value ? { ...post, rich_message: { blocks: fresh.blocks } } : post;
 }
 
