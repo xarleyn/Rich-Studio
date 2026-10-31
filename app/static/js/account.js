@@ -5,7 +5,7 @@ import { closeDialog, dialogs, openDialog } from './dialogs.js';
 import { $, act, h, setStoreScope } from './dom.js';
 import { showAccountTokens } from './account-tokens.js';
 
-/** @type {{telegram: boolean, bot_username: string | null}} */
+/** @type {{telegram: boolean, bot_username: string | null, owner_login: boolean}} */
 let config;
 
 async function showLogin() {
@@ -24,13 +24,13 @@ async function showLogin() {
         h('li', {}, h('b', { text: tr('Создайте первый пост') }), h('span', { text: tr('Предпросмотр покажет результат ещё до отправки.') }))),
       widget,
       h('p', { class: 'muted small', text: tr('Подтверждение входа откроется в Telegram. Пароль и номер телефона в студии не нужны.') }),
-      h('button', { class: 'ghost small-btn', text: tr('Вход владельца сервиса'), onclick: () => {
+      ...(config.owner_login ? [] : [h('button', { class: 'ghost small-btn', text: tr('Вход владельца сервиса'), onclick: () => {
         const key = h('input', { type: 'password', placeholder: tr('Ключ или токен'), autocomplete: 'off' });
         openDialog([h('h3', { text: tr('Вход владельца') }), key], [h('button', { text: tr('Войти'), type: 'button', onclick: () => act(async () => {
           if (!await login(key.value)) throw new Error(tr('Ключ или токен не подошёл'));
           closeDialog(); location.reload();
         }) })]);
-      } })));
+      } })])));
   document.body.prepend(screen);
   screen.querySelector('.login-card').prepend($('.locale-control'));
   try {

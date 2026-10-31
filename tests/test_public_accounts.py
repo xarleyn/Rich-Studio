@@ -63,7 +63,7 @@ def test_public_is_closed_without_operator_keys(public):
     assert public.get("/api/session").status_code == 401
     assert public.post("/api/send", json={"post": BLOCKS_POST}).status_code == 401
     assert public.get("/").status_code == 200
-    assert public.get("/api/auth/config").json() == {"telegram": True, "bot_username": "YourBot"}
+    assert public.get("/api/auth/config").json() == {"telegram": True, "bot_username": "YourBot", "owner_login": False}
 
 
 def test_signed_login_cookie_identity_and_logout(public):

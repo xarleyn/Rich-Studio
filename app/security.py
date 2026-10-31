@@ -86,6 +86,9 @@ def _credentials(request: Request) -> Principal | None:
         if user:
             return Principal("tg:" + str(user["telegram_id"]), "publish", user["telegram_id"], account_session=True)
         s = store.session_by_secret(session)
+        if s and s["telegram_id"] is not None:
+            # the owner's Telegram session lives only while TG_OWNER_ID still names this user
+            return OPEN if s["telegram_id"] == settings.get().owner_telegram_id else None
         if s and s["token_name"]:
             return Principal(s["token_name"], s["level"])
         # a STUDIO_API_KEY session lives only while that same key does

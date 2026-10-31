@@ -74,6 +74,8 @@ class Settings:
     bot_token: str = ""
     default_chat: str = ""
     preview_chat: str = ""
+    # Telegram Login Widget: a user with this ID opens the owner's root workspace instead of a public account
+    owner_telegram_id: int = 0
     api_key: str = ""
     api_base: str = "https://api.telegram.org"
     import_api_id: int = 0
@@ -181,6 +183,10 @@ class Settings:
         s.bot_token = _secret(env, "TG_BOT_TOKEN", problems)
         s.default_chat = env.get("TG_DEFAULT_CHAT", "").strip()
         s.preview_chat = env.get("TG_PREVIEW_CHAT", "").strip()
+        s.owner_telegram_id = int(_number(env, "TG_OWNER_ID", 0, problems, whole=True))
+        if not 0 <= s.owner_telegram_id < 2**52:
+            problems.append("TG_OWNER_ID: нужен Telegram ID пользователя (положительное число меньше 2^52)")
+            s.owner_telegram_id = 0
         s.api_key = _secret(env, "STUDIO_API_KEY", problems)
         s.api_base = env.get("TG_API_BASE", s.api_base).rstrip("/")
         s.import_api_id = int(_number(env, "TG_IMPORT_API_ID", 0, problems, whole=True))

@@ -18,6 +18,7 @@ export default async function ({ browser, check, MOCK }) {
     '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port), '--no-access-log',
   ], { env: { ...process.env, PYTHONPATH: resolve('app'), DATA_DIR: data, STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server',
     STUDIO_URL: 'https://public.example', TG_BOT_USERNAME: 'YourBot', TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '',
+    TG_OWNER_ID: '555000111',
     STUDIO_API_KEY: '', STUDIO_API_KEY_FILE: '', ALLOWED_HOSTS: '127.0.0.1', TG_API_BASE: MOCK, SPEC_PIN: 'on',
     STUDIO_BACKGROUND: 'off', TG_UPDATES: 'off', NO_PROXY: 'localhost,127.0.0.1' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let log = '';
@@ -51,6 +52,8 @@ export default async function ({ browser, check, MOCK }) {
     await page.selectOption('#locale-select', 'ru');
     await page.waitForFunction(() => document.querySelector('[data-telegram-login]')?.getAttribute('data-lang') === 'ru');
     check('Public visitor sees Telegram entry with the editor hidden', await page.locator('#login-screen').isVisible() && !await page.locator('.layout').isVisible());
+    check('With TG_OWNER_ID set the login form has no owner key button', await page.locator('#login-screen').getByRole('button', { name: 'Вход владельца сервиса' }).count() === 0
+      && await page.evaluate(async () => (await (await fetch('/api/auth/config')).json()).owner_login === true));
     const widget = page.locator('[data-telegram-login]');
     check('Official widget receives the right bot, callback and write access',
       await widget.getAttribute('data-telegram-login') === 'YourBot'

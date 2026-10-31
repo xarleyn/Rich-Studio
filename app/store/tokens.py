@@ -52,23 +52,28 @@ def token_by_secret(secret: str) -> dict | None:
         return dict(r) if r else None
 
 
-def add_session(secret: str, token_name: str | None, ttl: float, key_hash: str | None = None) -> None:
-    """A session of a named token, or of STUDIO_API_KEY (token_name None) with that key's hash."""
+def add_session(
+    secret: str, token_name: str | None, ttl: float, key_hash: str | None = None, telegram_id: int | None = None
+) -> None:
+    """A session of a named token, of STUDIO_API_KEY (token_name None, the key's hash), or of the service
+    owner's Telegram login (telegram_id, checked against the current TG_OWNER_ID on every request)."""
     now = int(time.time())
     with conn(root=True) as c:
         c.execute("delete from sessions where expires_at<?", (now,))
         c.execute(
-            "insert into sessions(hash, token_name, key_hash, created_at, expires_at) values(?, ?, ?, ?, ?)",
-            (hash_secret(secret), token_name, key_hash, now, int(now + ttl)),
+            "insert into sessions(hash, token_name, key_hash, telegram_id, created_at, expires_at) values(?, ?, ?, ?, ?, ?)",
+            (hash_secret(secret), token_name, key_hash, telegram_id, now, int(now + ttl)),
         )
 
 
 def session_by_secret(secret: str) -> dict | None:
     """A live session: its token's name and level, or for one opened with STUDIO_API_KEY token_name None and the
-    key's hash (the caller compares it with the current key). A session of a token that is gone is not live."""
+    key's hash (the caller compares it with the current key), or the owner's telegram_id (the caller compares it
+    with the current TG_OWNER_ID). A session of a token that is gone is not live."""
     with conn(root=True) as c:
         r = c.execute(
-            """select s.token_name, s.key_hash, t.level from sessions s left join tokens t on t.name = s.token_name
+            """select s.token_name, s.key_hash, s.telegram_id, t.level from sessions s
+               left join tokens t on t.name = s.token_name
                where s.hash=? and s.expires_at>=?
                  and (s.token_name is null or (t.name is not null and t.revoked_at is null))""",
             (hash_secret(secret), int(time.time())),

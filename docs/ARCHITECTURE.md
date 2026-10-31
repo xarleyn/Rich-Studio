@@ -12,7 +12,7 @@
 | `api/account_tokens.py`, `services/account_tokens.py`, `store/account_tokens.py` | персональные API/MCP-токены: Telegram-сессия управляет только своими, bearer входит в `accounts.scope` с ролью read/draft/publish | токены не создают другие токены и не обмениваются на браузерные сессии; admin остаётся у оператора. Решение: [0019](decisions/0019-account-tokens.md) |
 | `app/main.py` | `create_app()`: middleware, обработчики ошибок, роутеры, фоновые циклы | логики нет |
 | `app/settings.py` | все переменные окружения в одном `Settings`; модули вызывают `settings.get()` в момент использования; проверка при старте (`SettingsError` со всеми ошибками сразу), секреты из `*_FILE`, правила `STUDIO_MODE=server` | не читает env при импорте других модулей |
-| `app/security.py` | Host, CSRF, Content-Type, CSP; кто спрашивает (`Principal`: именной токен, `STUDIO_API_KEY` или cookie сессии редактора) и уровень по методу запроса (GET — `read`, остальное — `draft`) | уровни выше `draft` проверяют сами маршруты (`api.deps.need`) и инструменты MCP (`mcp_tools.common.level_of`) |
+| `app/security.py` | Host, CSRF, Content-Type, CSP; кто спрашивает (`Principal`: именной токен, `STUDIO_API_KEY` или cookie сессии редактора или сессия владельца по `TG_OWNER_ID` — admin в корне) и уровень по методу запроса (GET — `read`, остальное — `draft`) | уровни выше `draft` проверяют сами маршруты (`api.deps.need`) и инструменты MCP (`mcp_tools.common.level_of`) |
 | `app/logs.py` | журнал: stderr для человека, JSON с ротацией в `DATA_DIR/logs` для агента, `request_id` на каждой строке (`bind`), вычистка токена, чтение с фильтрами | |
 | `app/metrics.py` | счётчики, задержки p50/p95 и пульс фоновых циклов в памяти процесса; его можно звать из любого слоя | не пишет на диск |
 | `app/errors.py` | `StudioError` (400), `NotFound`, `Invalid` (422), `Upstream` (502); `telegram.TelegramError` с кодом 400 → 422, прочие → 502 | |
@@ -49,7 +49,7 @@
 
 ## Сервер
 
-`deploy/`: студия в образе из GHCR (uid 10001, read-only), Caddy с HTTPS, Litestream с копией базы в S3. Образ собирает `.github/workflows/image.yml` по ручному запуску или тегу `v*`, пакеты из `requirements.lock` с хэшами. Восстановление из реплики проверяет `scripts/restore_check.sh` (CI `restore.yml`, ежедневно). Решение: [0010](decisions/0010-server-image-and-pinned-spec.md).
+`deploy/`: студия в образе из GHCR (uid 10001, read-only), Caddy с HTTPS, Litestream с копией базы в S3. Образ собирает `.github/workflows/image.yml`: каждый push в `main` — `:latest` (amd64), тег `v*` и ручной запуск — amd64 + arm64; пакеты из `requirements.lock` с хэшами. Восстановление из реплики проверяет `scripts/restore_check.sh` (CI `restore.yml`, ежедневно). Решение: [0010](decisions/0010-server-image-and-pinned-spec.md).
 
 ## Политика ошибок при отправке
 

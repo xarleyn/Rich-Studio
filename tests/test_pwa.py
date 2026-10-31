@@ -43,6 +43,6 @@ def test_pwa_linked_from_editor(client):
     page = client.get("/").text
     assert 'rel="manifest" href="/static/manifest.webmanifest"' in page
     assert 'rel="apple-touch-icon"' in page
-    assert '<rs-install id="install-app"' in page
-    assert "<rs-install" not in page.split("</header>", 1)[0]
+    # install offers come from a transient notice in pwa.js; there is no standing install element
+    assert "<rs-install" not in page
     assert 'rel="describedby" href="/llms.txt" type="text/markdown"' in page

@@ -20,7 +20,11 @@ STATE_COOKIE = "rs_telegram_login"
 @router.get("/api/auth/config", summary="Публичные настройки входа через Telegram")
 def config():
     cfg = settings.get()
-    return {"telegram": cfg.public, "bot_username": cfg.bot_username if cfg.public else None}
+    return {
+        "telegram": cfg.public,
+        "bot_username": cfg.bot_username if cfg.public else None,
+        "owner_login": bool(cfg.owner_telegram_id),
+    }
 
 
 @router.post("/api/auth/telegram/start", summary="Начать вход через Telegram с одноразовой проверкой браузера")
@@ -74,11 +78,17 @@ def _callback(request: Request):
     user = accounts.verify_login(data)
     if not store.accounts.consume(state):
         raise StudioError("Этот вход уже завершён или устарел. Войдите ещё раз.", status=401)
-    accounts.initialize(user["id"])
-    store.accounts.save(user)
+    owner = settings.get().owner_telegram_id
     secret = secrets.token_urlsafe(32)
     ttl = settings.get().session_days * 86400
-    store.accounts.add_session(secret, user["id"], ttl)
+    if owner and user["id"] == owner:
+        # The owner's Telegram login opens the root workspace, not a public account: no account folder,
+        # no registry row, background loops skip it. The session resolves only while TG_OWNER_ID matches.
+        store.add_session(secret, None, ttl, telegram_id=user["id"])
+    else:
+        accounts.initialize(user["id"])
+        store.accounts.save(user)
+        store.accounts.add_session(secret, user["id"], ttl)
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(
         security.SESSION_COOKIE,
