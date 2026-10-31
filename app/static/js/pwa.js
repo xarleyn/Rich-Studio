@@ -1,28 +1,32 @@
-import { effect, signal } from '../vendor/signals-core.js';
+import { signal } from '../vendor/signals-core.js';
 import { openDialog } from './dialogs.js';
-import { h, toast } from './dom.js';
+import { $, h, toast } from './dom.js';
 import { tr } from './i18n.js';
-import './components/rs-install.js';
 
 /** @typedef {Event & {prompt(): Promise<void>, userChoice: Promise<{outcome: string}>}} InstallPrompt */
 const display = matchMedia('(display-mode: standalone)');
 const installed = signal(display.matches || !!/** @type {Navigator & {standalone?: boolean}} */ (navigator).standalone);
 const busy = signal(false);
-const offered = signal(false);
 const DELAY = 45000;
-const SNOOZE = 30 * 24 * 60 * 60 * 1000;
-const SNOOZE_KEY = 'rs.pwa.snoozeUntil';
+const NOTICE_MS = 20000;
 const SESSION_KEY = 'rs.pwa.offered';
+const SNOOZE_KEY = 'rs.pwa.snoozeUntil'; // 30-day pause written by the earlier card offer; still honoured
+const DECLINE_KEY = 'rs.pwa.declined';
 /** @type {InstallPrompt | null} */
 let prompt = null;
 let initialized = false;
 let remember = false;
 let shownInSession = false;
 let interacted = false;
+let declined = false;
 let snoozedUntil = 0;
 let eligibleAt = 0;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let timer;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let noticeTimer;
+/** @type {HTMLElement | null} */
+let notice = null;
 
 const iosSafari = () => (/iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
@@ -34,34 +38,44 @@ function typing() {
   return active instanceof HTMLElement && (active.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName));
 }
 
-function snooze() {
-  offered.value = false;
-  shownInSession = true;
-  snoozedUntil = Date.now() + SNOOZE;
-  clearTimeout(timer);
-  try {
-    localStorage.setItem(SNOOZE_KEY, String(snoozedUntil));
-    sessionStorage.setItem(SESSION_KEY, '1');
-  } catch { remember = false; }
+function hideNotice() {
+  clearTimeout(noticeTimer);
+  noticeTimer = undefined;
+  notice?.remove();
+  notice = null;
+}
+
+/** An explicit refusal is remembered for good; an ignored notice only stays quiet for this session. */
+function decline() {
+  hideNotice();
+  try { localStorage.setItem(DECLINE_KEY, '1'); } catch { /* storage off: the session quiet already applies */ }
 }
 
 function tryOffer() {
   timer = undefined;
   if (!remember || shownInSession || installed.value || busy.value || !interacted
-    || snoozedUntil > Date.now() || (!prompt && !iosSafari()) || !isSecureContext) return;
+    || declined || snoozedUntil > Date.now() || (!prompt && !iosSafari()) || !isSecureContext) return;
   if (Date.now() < eligibleAt) { schedule(); return; }
   if (document.visibilityState !== 'visible' || document.body.classList.contains('signed-out')
     || document.querySelector('dialog[open]') || typing()) return;
-  // Mark before showing: a reload must not repeat an ignored offer in the same tab/session.
+  // Mark before showing: a reload must not repeat an ignored notice in the same tab/session.
   try { sessionStorage.setItem(SESSION_KEY, '1'); }
   catch { remember = false; return; }
   shownInSession = true;
-  offered.value = true;
+  const ios = iosSafari();
+  notice = h('div', { class: 'toast offer', role: 'region', 'aria-label': tr('Установка приложения') },
+    h('p', { text: tr('Открывайте студию отдельным окном на телефоне или компьютере.') }),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'primary', text: ios ? tr('Как установить') : tr('Установить'),
+        onclick: () => { hideNotice(); requestInstall(); } }),
+      h('button', { type: 'button', text: tr('Не предлагать'), onclick: decline })));
+  $('#toasts').append(notice);
+  noticeTimer = setTimeout(hideNotice, NOTICE_MS);
 }
 
 function schedule() {
   clearTimeout(timer);
-  if (shownInSession || installed.value || !remember) return;
+  if (shownInSession || installed.value || !remember || declined) return;
   timer = setTimeout(tryOffer, Math.max(1000, eligibleAt - Date.now()));
 }
 
@@ -77,10 +91,11 @@ function instructions() {
 
 export const isPwaInstalled = () => installed.value;
 
-/** Only an explicit click calls the browser prompt; automatic offers never consume a user gesture. */
+/** Only an explicit click calls the browser prompt; automatic notices never consume a user gesture. */
 export async function requestInstall() {
   if (busy.value || installed.value) return;
-  snooze(); // reading the instructions or dismissing the browser prompt also quiets further offers
+  shownInSession = true; // reading the instructions or dismissing the browser prompt also quiets this session
+  hideNotice();
   if (!prompt) { instructions(); return; }
   const offer = prompt;
   prompt = null; // browsers permit each saved prompt only once
@@ -92,40 +107,34 @@ export async function requestInstall() {
   finally { busy.value = false; }
 }
 
-/** Capture browser readiness early, before the account gate. Offers wait for an idle editor. */
+/** Capture browser readiness early, before the account gate. Notices wait for an idle editor. */
 export function initPwa() {
   if (initialized) return;
   initialized = true;
-  const control = /** @type {import('./components/rs-install.js').RsInstall | null} */ (document.querySelector('#install-app'));
   eligibleAt = Date.now() + DELAY;
   try {
     const saved = localStorage.getItem(SNOOZE_KEY) || '0';
     snoozedUntil = Number(saved) || 0;
     // If dismissals cannot be remembered, keep automatic offers off instead of nagging after reload.
     localStorage.setItem(SNOOZE_KEY, saved);
+    declined = localStorage.getItem(DECLINE_KEY) === '1';
     shownInSession = sessionStorage.getItem(SESSION_KEY) === '1';
     remember = true;
   } catch { remember = false; }
-  if (control) {
-    effect(() => {
-      control.shown = offered.value && !installed.value;
-      control.busy = busy.value;
-      control.ios = iosSafari();
-    });
-    control.addEventListener('install', requestInstall);
-    control.addEventListener('dismiss', snooze);
-  }
-  display.addEventListener('change', () => { if (display.matches) { installed.value = true; snooze(); } });
+  display.addEventListener('change', () => { if (display.matches) { installed.value = true; hideNotice(); } });
   addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
     prompt = /** @type {InstallPrompt} */ (event);
     schedule();
   });
-  addEventListener('appinstalled', () => { installed.value = true; prompt = null; snooze(); });
+  addEventListener('appinstalled', () => { installed.value = true; prompt = null; hideNotice(); });
   addEventListener('storage', (event) => {
-    if (event.key !== SNOOZE_KEY) return;
-    snoozedUntil = Number(event.newValue) || 0;
-    if (snoozedUntil > Date.now()) { offered.value = false; clearTimeout(timer); }
+    if (event.key === SNOOZE_KEY) snoozedUntil = Number(event.newValue) || 0;
+    if (event.key === DECLINE_KEY) declined = event.newValue === '1';
+    if ((event.key === SNOOZE_KEY || event.key === DECLINE_KEY) && (declined || snoozedUntil > Date.now())) {
+      hideNotice();
+      clearTimeout(timer);
+    }
   });
   const interaction = () => { interacted = true; schedule(); };
   document.addEventListener('pointerdown', interaction, { passive: true });

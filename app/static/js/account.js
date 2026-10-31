@@ -4,7 +4,6 @@ import { api, login, probe, setPublicAuth } from './api.js';
 import { closeDialog, dialogs, openDialog } from './dialogs.js';
 import { $, act, h, setStoreScope } from './dom.js';
 import { showAccountTokens } from './account-tokens.js';
-import { isPwaInstalled, requestInstall } from './pwa.js';
 
 /** @type {{telegram: boolean, bot_username: string | null}} */
 let config;
@@ -75,7 +74,6 @@ export async function prepareAccount() {
       closeDialog(); showAccountTokens();
     } })] : []),
     h('p', {}, h('a', { href: (locale === 'en' ? '/en' : '') + '/features/ai-agents/', target: '_blank', rel: 'noopener', text: tr('Подключить ИИ-агента') })),
-    ...(!isPwaInstalled() ? [h('button', { type: 'button', text: tr('Установить RichPost'), onclick: () => { closeDialog(); requestInstall(); } })] : []),
   ], [h('button', { class: 'ghost', value: 'cancel', text: tr('Закрыть') }), h('button', { type: 'button', text: tr('Выйти'), onclick: () => act(async () => {
     await api('DELETE', '/api/session'); location.reload();
   }) })]);

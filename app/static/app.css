@@ -235,6 +235,14 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 #toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .toast { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); max-width: 380px; white-space: pre-wrap; }
 .toast.err { border-left-color: var(--err); } .toast.ok { border-left-color: var(--ok); }
+.toast.offer { max-width: 330px; }
+.toast.offer p { margin: 0; font-size: 13px; line-height: 1.45; }
+.toast.offer .row { display: flex; gap: 8px; margin-top: 10px; }
+.toast.offer button { font: inherit; font-size: 13px; color: inherit; background: transparent;
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+.toast.offer button.primary { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.toast.offer button:not(.primary):hover { background: var(--soft); }
+.toast.offer button.primary:hover { filter: brightness(.95); }
 
 .cb-answer { margin-top: 4px; }
 .cb-answer input[type=text] { flex: 1; }

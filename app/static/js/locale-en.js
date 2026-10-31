@@ -1,11 +1,10 @@
 // English UI copy. Keys are the Russian source text; never translate user content.
 export default {
   "Установка приложения": "App installation",
-  "RichPost как приложение": "RichPost as an app",
-  "Не предлагать установку 30 дней": "Don't offer installation for 30 days",
-  "Открывайте студию с экрана телефона или рабочего стола.": "Open the studio from your home screen or desktop.",
+  "Открывайте студию отдельным окном на телефоне или компьютере.": "Open the studio in its own window on your phone or desktop.",
   "Как установить": "How to install",
-  "Позже": "Later",
+  "Установить": "Install",
+  "Не предлагать": "Don’t offer",
   "Подключить ИИ-агента": "Connect an AI agent",
   "пост": "post",
   "опрос": "poll",
@@ -890,8 +889,6 @@ export default {
   "Сначала сохраните текущий черновик.": "Save the current draft first.",
   "Черновик создан. Откройте его из списка черновиков.": "Draft created. Open it from the draft list.",
   "Черновик создан по шаблону": "Draft created from template",
-  "Установить RichPost на телефон или компьютер": "Install RichPost on your phone or computer",
-  "Установить": "Install",
   "Шаблон хранит оформление и постоянный текст. При создании поста заполните только заданные поля.": "A template stores formatting and reusable text. Fill in its fields when creating a post.",
   "Сохранить текущий пост как шаблон": "Save current post as template",
   "Шаблонов пока нет. Начните с поста в редакторе.": "No templates yet. Start with a post in the editor.",
