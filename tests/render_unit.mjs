@@ -17,7 +17,8 @@ const page = await browser.newPage();
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(e.message));
 page.on('dialog', (d) => { pageErrors.push('dialog: ' + d.message()); d.dismiss(); });
-await page.setContent('<!doctype html><meta charset="utf-8"><body><div id="out"></div></body>');
+await page.setContent('<!doctype html><meta charset="utf-8"><body class="tg-preview"><div id="out"></div></body>');
+await page.addStyleTag({ path: stat('tg.css') });
 for (const f of ['vendor/markdown-it.min.js', 'vendor/katex/katex.min.js', 'render.js']) await page.addScriptTag({ path: stat(f) });
 
 // render a post into the live document, wait for image errors to fire, return the body's HTML
@@ -184,6 +185,44 @@ for (const [name, rm] of Object.entries({
     return document.querySelector('.tg-emoji').textContent;
   });
   check('custom emoji: a broken picture falls back to the char', html === '👍' && !has(imgCase.html, /Ошибка рендера/), html);
+}
+
+// Slideshow: clickable dots, mouse drag and arrows flip slides; a figcaption never becomes a slide.
+{
+  const photos = [1, 2, 3].map((n) => ({ type: 'photo', photo: { type: 'photo', media: 'https://example.com/' + n + '.jpg' } }));
+  const r = await render({ blocks: [{ type: 'slideshow', blocks: photos, caption: { type: 'plain', text: 'подпись' } }] });
+  check('slideshow: three dots and a caption outside the track', has(r.html, /tg-dots/) && !/tg-slides[^>]*><figcaption/.test(r.html), r.html);
+  const state = await page.evaluate(() => new Promise((done) => {
+    const track = document.querySelector('.tg-slides');
+    const dots = [...document.querySelectorAll('.tg-dots span')];
+    dots[2].click();
+    setTimeout(() => done({ left: Math.round(track.scrollLeft), on: dots.findIndex((d) => d.className.includes('on')), focus: document.activeElement === track }), 700);
+  }));
+  check('slideshow: a dot click scrolls to that slide', state.left > 0 && state.on === 2 && state.focus, state);
+  const drag = await page.evaluate(() => new Promise((done) => {
+    const track = document.querySelector('.tg-slides');
+    const r0 = track.getBoundingClientRect();
+    const step = (x, type) => track.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: 'mouse', button: 0, clientX: x, clientY: r0.top + 10 }));
+    track.scrollLeft = 0;
+    step(r0.right - 10, 'pointerdown');
+    step(r0.right - 10 - Math.ceil(r0.width * 0.7), 'pointermove');
+    setTimeout(() => {
+      step(r0.right - 10 - Math.ceil(r0.width * 0.7), 'pointerup');
+      setTimeout(() => done({ left: Math.round(track.scrollLeft), width: Math.round(r0.width), dragging: track.className }), 700);
+    }, 30);
+  }));
+  check('slideshow: a mouse drag flips to the nearest slide', Math.abs(drag.left - drag.width) <= 2 && !drag.dragging.includes('dragging'), drag);
+  const keys = await page.evaluate(() => new Promise((done) => {
+    const track = document.querySelector('.tg-slides');
+    track.focus({ preventScroll: true });
+    track.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    setTimeout(() => done({ left: Math.round(track.scrollLeft), width: Math.round(track.clientWidth) }), 700);
+  }));
+  check('slideshow: ArrowRight flips forward', Math.abs(keys.left - 2 * keys.width) <= 2, keys);
+}
+{
+  const r = await render({ html: '<tg-slideshow><img src="https://example.com/1.jpg"><img src="https://example.com/2.jpg"><figcaption>подпись</figcaption></tg-slideshow>' });
+  check('slideshow html: figcaption moves out of the track', !/tg-slides[^>]*>\s*<figcaption/.test(r.html) && has(r.html, /<figcaption>подпись<\/figcaption>/), r.html);
 }
 
 check('no script ran and no page errors', (await page.evaluate(() => window.__xss)) === 0 && pageErrors.length === 0, pageErrors.join(' | '));
