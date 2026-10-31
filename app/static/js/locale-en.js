@@ -1,5 +1,12 @@
 // English UI copy. Keys are the Russian source text; never translate user content.
 export default {
+  "Установка приложения": "App installation",
+  "RichPost как приложение": "RichPost as an app",
+  "Не предлагать установку 30 дней": "Don't offer installation for 30 days",
+  "Открывайте студию с экрана телефона или рабочего стола.": "Open the studio from your home screen or desktop.",
+  "Как установить": "How to install",
+  "Позже": "Later",
+  "Подключить ИИ-агента": "Connect an AI agent",
   "пост": "post",
   "опрос": "poll",
   "платный контент": "paid content",

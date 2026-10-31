@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Подключить ИИ-агента к Telegram-постам — RichPost</title>
+  <meta name="description" content="Дайте агенту ссылку на RichPost: он прочитает инструкцию и настроит MCP. Создайте персональный токен, чтобы работать с черновиками и шаблонами из чата.">
+  <meta name="theme-color" content="#f8f9fc">
+  <meta property="og:title" content="Ваш ИИ-агент в RichPost">
+  <meta property="og:description" content="Одна ссылка для подключения. Ваши черновики, шаблоны и предпросмотр прямо из чата с агентом.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="__LANDING_URL__">
+  <link rel="canonical" href="__LANDING_URL__">
+  <link rel="alternate" hreflang="ru" href="__RU_URL__">
+  <link rel="alternate" hreflang="en" href="__EN_URL__">
+  <link rel="alternate" hreflang="x-default" href="__RU_URL__">
+  <meta property="og:locale" content="ru_RU">
+  <link rel="stylesheet" href="/static/landing.css">
+</head>
+<body>
+<a class="skip" href="#main">К содержимому</a>
+<header class="site-header wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__EN_URL__" lang="en" hreflang="en">EN</a><a class="button quiet" href="__APP_URL__">Открыть редактор ↗</a></div></header>
+<main id="main" class="guide-content wrap">
+  <a href="/">← Все возможности</a>
+  <h1>Дайте агенту ссылку.<br>Работайте с постами из чата.</h1>
+  <p class="lead">Агент может готовить черновики, показывать предпросмотр и заполнять ваши шаблоны. Вы сможете продолжить редактирование в RichPost.</p>
+  <h2>Что написать агенту</h2>
+  <p>Скопируйте сообщение в Codex, Claude Code или другой клиент с поддержкой удалённых MCP-подключений:</p>
+  <blockquote><p>Подключи мне RichPost. Прочитай <a href="/agents.md">инструкцию для агента</a> по адресу <a href="__AGENT_GUIDE_URL__">__AGENT_GUIDE_URL__</a>, настрой MCP и установи skill, если мой клиент его поддерживает. Попроси меня выписать персональный токен. После подключения проверь, что инструменты работают.</p></blockquote>
+  <p>Можно отправить и просто ссылку на эту страницу. Здесь есть ссылки на инструкции, которые агент сможет прочитать без входа.</p>
+  <h2>Один шаг остаётся за вами: токен</h2>
+  <ol>
+    <li><a href="__APP_URL__">Войдите в RichPost через Telegram</a>.</li>
+    <li>Откройте меню своей учётки → <strong>«Токены API и MCP»</strong> → <strong>«Создать токен»</strong>. Укажите название клиента и срок действия.</li>
+    <li>Для работы с текстами и шаблонами выберите <strong>«Черновики»</strong>. «Чтение» подходит для просмотра, «Публикация» — когда хотите разрешить агенту отправлять посты.</li>
+    <li>Сохраните показанный один раз токен в настройках секретов своего клиента по инструкции агента. Не размещайте его в публичном чате или репозитории.</li>
+  </ol>
+  <aside><p>Агент сам токен не выписывает. Вы можете отозвать его в том же меню. Разрешение на публикацию не означает просьбу отправить конкретный пост — сначала согласуйте текст и канал.</p></aside>
+  <h2>Как понять, что всё подключилось</h2>
+  <p>Агент должен проверить соединение и доступность инструментов, а затем сообщить результат. Иногда клиенту нужен перезапуск или подтверждение нового подключения. Если клиент поддерживает только OAuth-вход, потребуется другой способ подключения с персональным токеном.</p>
+  <p>После настройки попробуйте: «Подготовь черновик анонса», «Покажи предпросмотр» или «Создай пост по моему шаблону». Для публикации подключите свой канал в редакторе и выдайте боту необходимые права.</p>
+  <h2>Инструкции для агентов</h2>
+  <ul>
+    <li><a href="/agents.md">Подключение, настройка клиента и проверка</a></li>
+    <li><a href="/skills/richpost/SKILL.md">Устанавливаемый skill RichPost</a></li>
+    <li><a href="/llms.txt">Краткий указатель llms.txt</a> · <a href="/llms-full.txt">Вся инструкция одним файлом</a></li>
+    <li><a href="/agents.txt">Обнаружение возможностей</a> · <a href="/agents.json">Описание в JSON</a></li>
+  </ul>
+  <p>Наличие этих файлов помогает агенту найти нужный путь. Подключение зависит от возможностей вашего клиента.</p>
+  <p><a class="button primary" href="__APP_URL__">Открыть RichPost ↗</a></p>
+</main>
+<footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><a href="/agents.md">Для ИИ-агентов</a><a href="__APP_URL__">Приложение ↗</a></footer>
+</body>
+</html>

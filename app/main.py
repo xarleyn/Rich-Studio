@@ -29,6 +29,7 @@ import store
 import telegram as tg
 from api import (
     account_tokens,
+    agent_docs,
     channels,
     drafts,
     health,
@@ -262,6 +263,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
         account_tokens,
         templates,
         landing,
+        agent_docs,
     ):
         app.include_router(module.router)
 

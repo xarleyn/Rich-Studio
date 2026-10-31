@@ -5,6 +5,8 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 # Telegram rich posts
 
+To connect a hosted instance from a shared URL, read its `/llms.txt` and `/agents.md`; the installable service skill is `/skills/richpost/SKILL.md`. Ask the human to issue their own personal token, normally with the draft role, and keep it in the client secret store or environment. Preserve other client settings. Verify `tools/list` and `studio_status` through the configured client before reporting setup complete. A saved config or a pending restart is not proof of a working connection.
+
 The bot's private `/start` enables publishing reports; `/notifications` selects all reports, errors only, or off, and `/stop` disables them. Reports are best effort and separate from API/MCP results: use `get_post`/`list_posts` as the source of publication state, and check the channel before retrying any uncertain send. `/status` shows only the Telegram sender's own account. Full behavior and delivery limits: `docs/BOT.md`.
 
 The editor and Telegram sign-in screen support RU/EN; open `/?lang=en` for English or use the language selector. Switching languages saves the draft first, including unapplied JSON, and stops on a save conflict. UI language does not translate post content, channel names or Bot API fields. Keep server/Telegram diagnostics intact. Public guides have `/features/telegram-tables/`, `/features/telegram-markdown/`, `/features/scheduled-posts/` URLs and English equivalents under `/en/`; account data and app URLs are not search pages.
