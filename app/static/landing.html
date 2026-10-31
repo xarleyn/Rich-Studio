@@ -3,89 +3,138 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Редактор постов для Telegram — RichPost</title>
-  <meta name="description" content="Создавайте посты для Telegram с текстом, фото, таблицами и кнопками. Проверяйте предпросмотр, сохраняйте черновики и публикуйте в несколько каналов по расписанию.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="Редактор постов для Telegram — RichPost">
-  <meta property="og:description" content="Ваш текст, медиа и кнопки. Ваши каналы. Одна удобная студия для публикаций в Telegram.">
+  <title>Rich посты для Telegram с предпросмотром — RichPost</title>
+  <meta name="description" content="Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте точный предпросмотр и публикуйте в свои каналы по расписанию.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="Rich посты для Telegram с предпросмотром — RichPost">
+  <meta property="og:description" content="Текст, таблицы, медиа и кнопки в одном редакторе. Проверьте результат до публикации и отправьте пост в свои каналы в нужное время.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
   <meta property="og:locale" content="ru_RU">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
 </head>
 <body>
-  <a class="skip" href="#main">Перейти к содержимому</a>
+  <a class="skip body-4" href="#main">Перейти к содержимому</a>
   <header class="site-header wrap">
-    <a class="logo" href="/" aria-label="RichPost — главная"><span class="logo-mark" aria-hidden="true">R</span>RichPost<span class="logo-dot">.</span></a>
-    <nav aria-label="Основная навигация"><a href="#features">Возможности</a><a href="#how">Как это работает</a><a href="#faq">Вопросы</a></nav>
-    <div class="header-actions"><a href="__EN_URL__" lang="en" hreflang="en" aria-label="English version">EN</a><a class="button quiet" href="__APP_URL__">Открыть приложение <span aria-hidden="true">↗</span></a></div>
+    <a class="logo" href="/" aria-label="RichPost, главная" aria-current="page"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+    <nav id="site-nav" aria-label="Основная навигация">
+      <div class="nav-links">
+        <a class="title-4" href="#features">Возможности</a>
+        <a class="title-4" href="#how">Как это работает</a>
+        <a class="title-4" href="#faq">Вопросы</a>
+      </div>
+      <a class="button primary button-md nav-cta" href="__APP_URL__">Создать первый пост <span aria-hidden="true">↗</span></a>
+    </nav>
+    <div class="header-actions">
+      <a class="language title-4" href="__EN_URL__" lang="en" hreflang="en" aria-label="English version">EN</a>
+      <a class="button quiet button-sm" href="__APP_URL__">Открыть редактор <span aria-hidden="true">↗</span></a>
+    </div>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Открыть меню"><span></span><span></span></button>
   </header>
 
   <main id="main">
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow"><span></span> Ваша студия для Telegram</p>
-        <h1 id="hero-title">Редактор постов<br>для <em>Telegram.</em></h1>
-        <p class="hero-tagline">Хороший пост. С первого взгляда.</p>
-        <p class="lead">Соберите текст, медиа и кнопки в пост, который хочется читать. Проверьте, как он выглядит, и отправьте в свои каналы в нужный момент.</p>
-        <div class="hero-actions"><a class="button primary" href="__APP_URL__">Начать через Telegram <span aria-hidden="true">↗</span></a><a class="text-link" href="#example">Посмотреть пример <span aria-hidden="true">↓</span></a></div>
-        <p class="hero-note">Без отдельного пароля. С вашими каналами.</p>
+        <p class="eyebrow caption-3"><span></span>Rich редактор для Telegram</p>
+        <h1 class="heading-1" id="hero-title">Посты для Telegram,<br>которые читают</h1>
+        <p class="lead body-1">Добавляйте таблицы, медиа, кнопки и форматирование. Проверяйте результат в предпросмотре и публикуйте в один или несколько каналов по расписанию.</p>
+        <div class="hero-actions"><a class="button primary button-md" href="__APP_URL__">Создать первый пост <span aria-hidden="true">↗</span></a></div>
+        <p class="hero-note caption-2">Вход через Telegram. Отдельный пароль не нужен.</p>
+        <ul class="hero-proof caption-4" aria-label="Основные преимущества"><li>Точный предпросмотр</li><li>Свои каналы</li><li>Отложенная публикация</li></ul>
       </div>
 
-      <div class="demo" id="example" data-nosnippet aria-label="Пример оформления поста, не настоящая публикация">
-        <div class="demo-toolbar"><span class="demo-dots"><i></i><i></i><i></i></span><span>Предпросмотр поста</span><span class="demo-label">Пример</span></div>
-        <div class="telegram-canvas">
-          <div class="channel-heading"><span class="avatar">р</span><span><b>Редакция выходного дня</b><small>Ваш Telegram-канал</small></span><span class="channel-more" aria-hidden="true">···</span></div>
-          <article class="message">
-            <div class="post-art" aria-hidden="true"><span class="art-kicker">МАЛЕНЬКИЕ ПЛАНЫ</span><span class="art-title">Чуть меньше<br>суеты.</span><span class="art-bottom">ВЫХОДНЫЕ · ВЫПУСК 01</span><span class="art-sun"></span></div>
-            <div class="message-body"><p class="post-heading">Оставьте место для хорошего</p><p>Короткий план на субботу: длинный завтрак, новая книга и прогулка без маршрута.</p><blockquote>Иногда лучший пункт в планах — ничего не планировать.</blockquote><p class="post-small">Сохраните на случай слишком занятой недели.</p><span class="message-time">09:00 <span aria-hidden="true">✓✓</span></span></div>
-            <div class="post-button">Поделиться планами <span aria-hidden="true">↗</span></div>
-          </article>
+      <div class="product-stage" id="example" data-nosnippet>
+        <div class="product-shot">
+          <div class="browser-bar caption-5"><span class="browser-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>RichPost · Визуальный редактор</span><span class="browser-status">Готово к публикации</span></div>
+          <img src="/static/images/landing-editor.jpg" width="1280" height="800" alt="Реальный интерфейс RichPost с визуальным редактором и предпросмотром поста">
         </div>
-        <div class="demo-status"><span class="status-dot"></span><b>Всё готово к публикации</b><span>Текст · медиа · кнопки</span></div>
-        <div class="schedule-note"><span class="schedule-icon" aria-hidden="true">↗</span><span><b>Вы выбираете момент</b><small>Сразу или по расписанию</small></span></div>
+        <div class="stage-preview">
+          <img src="/static/images/landing-preview.jpg" width="480" height="1161" alt="Пример rich поста с заголовками, таблицей, списками и цитатами">
+          <span class="preview-badge caption-3">Так пост увидят читатели</span>
+        </div>
       </div>
     </section>
 
-    <section class="capabilities wrap" aria-label="Что можно собрать в посте"><span>Больше, чем просто текст</span><p>Форматирование <i>✦</i> Медиа <i>✦</i> Таблицы <i>✦</i> Кнопки <i>✦</i> Опросы</p></section>
+    <section class="capabilities wrap" aria-label="Что можно добавить в пост">
+      <span class="caption-2">Всё для выразительного поста</span>
+      <ul class="title-3"><li>Форматирование</li><li>Медиа</li><li>Таблицы</li><li>Кнопки</li><li>Опросы</li></ul>
+    </section>
+
+    <section class="problem wrap section" aria-labelledby="problem-title">
+      <div class="section-intro" data-reveal><p class="eyebrow caption-3">Меньше рутины перед публикацией</p><h2 class="heading-2" id="problem-title">От идеи до готового поста в одном окне</h2><p class="body-2">Не нужно собирать оформление по частям и гадать, что получится после отправки.</p></div>
+      <div class="comparison" data-reveal>
+        <article class="comparison-card"><span class="comparison-label caption-3">Обычная подготовка</span><h3 class="heading-6">Много действий вне канала</h3><ul class="body-3"><li>Текст и материалы в разных окнах</li><li>Результат виден только после отправки</li><li>Время публикации легко упустить</li></ul></article>
+        <article class="comparison-card emphasized"><span class="comparison-label caption-3">С RichPost</span><h3 class="heading-6">Один понятный рабочий процесс</h3><ul class="body-3"><li>Пост собирается из готовых блоков</li><li>Предпросмотр находится рядом с редактором</li><li>Публикация сразу или в назначенное время</li></ul></article>
+      </div>
+    </section>
 
     <section class="features wrap section" id="features" aria-labelledby="features-title">
-      <div class="section-intro"><p class="eyebrow">От первой мысли до публикации</p><h2 id="features-title">Для текста — свобода.<br>Для публикаций — порядок.</h2><p>Меньше переключений между окнами. Больше внимания тому, что вы хотите сказать.</p></div>
+      <div class="section-intro wide" data-reveal><p class="eyebrow caption-3">Возможности, которые видны в результате</p><h2 class="heading-2" id="features-title">Сложное оформление становится понятным</h2><p class="body-2">Каждая функция решает конкретную задачу автора или редакции.</p></div>
       <div class="feature-grid">
-        <article><span class="feature-number">01 / ОФОРМЛЕНИЕ</span><h3>Пост, а не полотно текста</h3><p>Заголовки, цитаты, списки, медиа и таблицы. Собирайте визуально или работайте с HTML и Markdown.</p><div class="format-sample" aria-hidden="true"><b>Заголовок</b><span>Обычный текст и <strong>важная мысль.</strong></span><i>Цитата, которую заметят.</i></div></article>
-        <article><span class="feature-number">02 / ПРЕДПРОСМОТР</span><h3>Посмотрите до отправки</h3><p>Проверяйте оформление рядом с редактором. А когда нужна финальная проверка — отправьте пост себе в Telegram.</p><div class="preview-sample" aria-hidden="true"><span>Редактор</span><b>→</b><span>Предпросмотр</span><b>→</b><span class="sample-telegram">Telegram</span></div></article>
-        <article><span class="feature-number">03 / ПЛАНИРОВАНИЕ</span><h3>Ваш момент для публикации</h3><p>Сохраняйте черновики, отправляйте сразу или назначайте время. Отложенные посты остаются в вашей очереди.</p><div class="queue-sample" aria-hidden="true"><span><i></i> Черновик <b>Сохранён</b></span><span><i></i> Утренний пост <b>09:00</b></span></div></article>
-        <article><span class="feature-number">04 / КАНАЛЫ</span><h3>Свои каналы в одной студии</h3><p>Подключите каналы, которыми управляете. Выбирайте получателей для каждого поста, в том числе несколько сразу.</p><div class="channels-sample" aria-hidden="true"><span>● Основной канал <b>✓</b></span><span>● Анонсы <b>✓</b></span></div></article>
+        <article class="feature-card" data-reveal><span class="feature-number caption-3">01 · Оформление</span><h3 class="heading-5">Собирайте пост из блоков</h3><p class="body-3">Добавляйте заголовки, цитаты, списки, таблицы и медиа. Для тех, кто привык к разметке, есть HTML и Markdown.</p><div class="feature-visual block-sample" aria-hidden="true"><div class="sample-block"><span class="caption-3">Заголовок</span><b class="title-3">Главная мысль поста</b></div><div class="sample-block"><span class="caption-3">Абзац</span><span class="body-6">Текст с важным выделением</span></div><div class="sample-add caption-3">+ Добавить блок</div></div></article>
+        <article class="feature-card" data-reveal><span class="feature-number caption-3">02 · Предпросмотр</span><h3 class="heading-5">Проверяйте до отправки</h3><p class="body-3">Смотрите на оформление глазами читателя. Для финальной проверки отправьте пост себе в Telegram.</p><div class="feature-visual preview-sample" aria-hidden="true"><div class="sample-pane"><span class="caption-3">Редактор</span><b class="title-3">Текст и блоки</b><i></i><i></i><i></i></div><span class="sample-arrow">→</span><div class="sample-pane telegram"><span class="caption-3">Предпросмотр</span><b class="title-3">Готовый пост</b><i></i><i></i><i></i></div></div></article>
+        <article class="feature-card" data-reveal><span class="feature-number caption-3">03 · Планирование</span><h3 class="heading-5">Публикуйте в нужное время</h3><p class="body-3">Сохраняйте черновики и назначайте время отправки. Сервер опубликует пост, даже если приложение уже закрыто.</p><div class="feature-visual schedule-sample" aria-hidden="true"><div><span class="schedule-day caption-3">Завтра</span><b class="title-3">Утренний пост</b><span class="schedule-time body-4">09:00</span></div><div><span class="schedule-day caption-3">Пятница</span><b class="title-3">Анонс эфира</b><span class="schedule-time body-4">18:30</span></div></div></article>
+        <article class="feature-card" data-reveal><span class="feature-number caption-3">04 · Каналы</span><h3 class="heading-5">Управляйте своими каналами</h3><p class="body-3">Подключайте каналы, которыми управляете, и выбирайте получателей для каждой публикации.</p><div class="feature-visual channels-sample" aria-hidden="true"><div><span class="channel-avatar">Р</span><b class="title-3">Редакция</b><span class="channel-check">✓</span></div><div><span class="channel-avatar">А</span><b class="title-3">Анонсы</b><span class="channel-check">✓</span></div></div></article>
       </div>
     </section>
 
-    <section class="how section" id="how" aria-labelledby="how-title"><div class="wrap">
-      <div class="section-intro"><p class="eyebrow">Начать проще, чем написать первый абзац</p><h2 id="how-title">Три шага. И вы в эфире.</h2></div>
-      <ol class="steps"><li><span>1</span><h3>Войдите через Telegram</h3><p>Подтвердите вход и откройте свою учётку с черновиками и файлами.</p></li><li><span>2</span><h3>Подключите канал</h3><p>Добавьте <a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">@__BOT_USERNAME__</a> администратором с правом публикации. Студия проверит ваши права и права бота.</p></li><li><span>3</span><h3>Соберите и отправьте пост</h3><p>Выберите канал, проверьте предпросмотр и публикуйте. Или оставьте пост до нужного времени.</p></li></ol>
-    </div></section>
+    <section class="tagline wrap section" aria-label="Главный результат">
+      <p class="eyebrow caption-3">Уверенность перед отправкой</p>
+      <p class="heading-2" data-word-reveal>Хороший пост. Сначала увидите его сами, затем ваши читатели.</p>
+    </section>
 
-    <section class="faq wrap section" id="faq" aria-labelledby="faq-title"><div class="section-intro"><p class="eyebrow">Перед первым постом</p><h2 id="faq-title">Пара хороших вопросов.</h2></div><div class="questions">
-      <details><summary>Нужно ли создавать пароль?</summary><p>Нет. Вход подтверждается через Telegram. У каждой учётки свой набор черновиков, файлов, подключённых каналов и отложенных постов.</p></details>
-      <details><summary>Какие права нужны для подключения канала?</summary><p>Вы должны быть владельцем или администратором с правом публикации. Боту тоже нужно выдать права администратора и публикации сообщений. Перед операциями с каналом студия заново проверяет ваши права.</p></details>
-      <details><summary>Можно публиковать в несколько каналов?</summary><p>Да. Подключите нужные каналы и выберите их для поста. Публиковать можно только в каналы, привязанные к вашей учётке.</p></details>
-      <details><summary>Для отложенной публикации нужно оставить компьютер включённым?</summary><p>Нет, отложенные посты отправляет сервер. После назначения времени можно закрыть приложение. Очередь и результат отправки доступны во вкладке «Посты».</p></details>
-      <details><summary>Какие данные сохраняет сервис?</summary><p>На сервере хранятся данные Telegram-входа, черновики, загруженные файлы, подключённые каналы, история и очередь публикаций. У каждой учётки отдельное хранилище. Содержимое отправляется в Telegram при предпросмотре в личку или публикации. Подключайте только каналы, которыми управляете; доступ бота можно отозвать в настройках канала Telegram.</p></details>
-    </div></section>
+    <section class="workspace section" aria-labelledby="workspace-title">
+      <div class="wrap workspace-grid">
+        <div class="workspace-shot" data-reveal data-nosnippet><img src="/static/images/landing-schedule.jpg" width="1280" height="800" loading="lazy" alt="Окно RichPost с выбором каналов и времени отложенной публикации"></div>
+        <div class="workspace-copy" data-reveal><p class="eyebrow caption-3">Рабочий процесс под контролем</p><h2 class="heading-3" id="workspace-title">Публикации не теряются между окнами</h2><p class="body-2">Черновики, очередь, история и подключённые каналы собраны в одной студии.</p><ul class="check-list body-3"><li>Выбор одного или нескольких каналов</li><li>Проверка прав перед публикацией</li><li>Статус отправки и история изменений</li></ul></div>
+      </div>
+    </section>
 
-    <section class="wrap section" aria-labelledby="guides-title"><div class="section-intro"><p class="eyebrow">Попробуйте на примере</p><h2 id="guides-title">От задачи — к готовому посту.</h2></div><div class="guide-grid">
-      <a class="guide-card" href="/features/telegram-tables/"><h3>Таблицы в Telegram</h3><p>Соберите прайс или расписание. Пример таблицы и её исходный Markdown.</p><span>Как сделать таблицу →</span></a>
-      <a class="guide-card" href="/features/telegram-markdown/"><h3>Markdown и предпросмотр</h3><p>Заголовки, цитаты, ссылки и переносы строк — на одном примере.</p><span>Открыть руководство →</span></a>
-      <a class="guide-card" href="/features/scheduled-posts/"><h3>Публикация по расписанию</h3><p>Выберите каналы, назначьте время и проверьте результат в очереди.</p><span>Запланировать пост →</span></a>
-    </div></section>
+    <section class="how section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <div class="section-intro" data-reveal><p class="eyebrow caption-3">Первый пост без лишней настройки</p><h2 class="heading-2" id="how-title">Три шага до публикации</h2><p class="body-2">Войдите, подключите канал и соберите пост. Остальное уже находится в редакторе.</p></div>
+        <ol class="steps">
+          <li data-reveal><span class="step-number title-2">01</span><h3 class="heading-5">Войдите через Telegram</h3><p class="body-3">Подтвердите вход и откройте свою учётку с черновиками и файлами.</p></li>
+          <li data-reveal><span class="step-number title-2">02</span><h3 class="heading-5">Подключите канал</h3><p class="body-3">Добавьте <a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">@__BOT_USERNAME__</a> администратором с правом публикации. Студия проверит ваши права и права бота.</p></li>
+          <li data-reveal><span class="step-number title-2">03</span><h3 class="heading-5">Соберите и отправьте</h3><p class="body-3">Выберите канал, проверьте предпросмотр и опубликуйте пост сразу или в назначенное время.</p></li>
+        </ol>
+      </div>
+    </section>
 
-    <section class="closing wrap"><p class="eyebrow">Следующий хороший пост — ваш</p><h2>Откройте студию.<br>Начните с одной мысли.</h2><a class="button primary" href="__APP_URL__">Перейти в RichPost <span aria-hidden="true">↗</span></a></section>
+    <section class="faq wrap section" id="faq" aria-labelledby="faq-title">
+      <div class="section-intro" data-reveal><p class="eyebrow caption-3">Перед первым постом</p><h2 class="heading-2" id="faq-title">Ответы без мелкого шрифта</h2><p class="body-2">Что понадобится для начала и как сервис работает с вашими данными.</p></div>
+      <div class="questions" data-reveal>
+        <details><summary class="title-3">Чем RichPost отличается от обычного сообщения?</summary><p class="body-3">В редакторе можно собрать rich пост с заголовками, таблицами, списками, цитатами, медиа и кнопками, а затем проверить его в предпросмотре.</p></details>
+        <details><summary class="title-3">Нужно ли создавать пароль?</summary><p class="body-3">Нет. Вход подтверждается через Telegram. У каждой учётки свой набор черновиков, файлов, подключённых каналов и отложенных постов.</p></details>
+        <details><summary class="title-3">Какие права нужны для подключения канала?</summary><p class="body-3">Вы должны быть владельцем или администратором с правом публикации. Боту тоже нужны права администратора и публикации сообщений. Студия заново проверяет права перед операциями с каналом.</p></details>
+        <details><summary class="title-3">Можно публиковать в несколько каналов?</summary><p class="body-3">Да. Подключите нужные каналы и выберите их для поста. Публиковать можно только в каналы, привязанные к вашей учётке.</p></details>
+        <details><summary class="title-3">Нужно ли держать компьютер включённым?</summary><p class="body-3">Нет, отложенные посты отправляет сервер. После назначения времени приложение можно закрыть. Очередь и результат отправки доступны во вкладке «Посты».</p></details>
+        <details><summary class="title-3">Какие данные сохраняет сервис?</summary><p class="body-3">На сервере хранятся данные входа через Telegram, черновики, загруженные файлы, подключённые каналы, история и очередь публикаций. У каждой учётки отдельное хранилище. Доступ бота можно отозвать в настройках канала.</p></details>
+      </div>
+    </section>
+
+    <section class="wrap section guides" aria-labelledby="guides-title">
+      <div class="section-intro wide" data-reveal><p class="eyebrow caption-3">Разберитесь на практическом примере</p><h2 class="heading-2" id="guides-title">От задачи к готовому посту</h2></div>
+      <div class="guide-grid">
+        <a class="guide-card" href="/features/telegram-tables/" data-reveal><span class="guide-number caption-3">01</span><h3 class="heading-6">Таблицы в Telegram</h3><p class="body-3">Соберите прайс или расписание. Пример таблицы и её исходный Markdown.</p><span class="guide-link body-4">Как сделать таблицу <span aria-hidden="true">→</span></span></a>
+        <a class="guide-card" href="/features/telegram-markdown/" data-reveal><span class="guide-number caption-3">02</span><h3 class="heading-6">Markdown и предпросмотр</h3><p class="body-3">Заголовки, цитаты, ссылки и переносы строк на одном примере.</p><span class="guide-link body-4">Открыть руководство <span aria-hidden="true">→</span></span></a>
+        <a class="guide-card" href="/features/scheduled-posts/" data-reveal><span class="guide-number caption-3">03</span><h3 class="heading-6">Публикация по расписанию</h3><p class="body-3">Выберите каналы, назначьте время и проверьте результат в очереди.</p><span class="guide-link body-4">Запланировать пост <span aria-hidden="true">→</span></span></a>
+      </div>
+    </section>
+
+    <section class="closing wrap" aria-labelledby="closing-title" data-reveal>
+      <div class="closing-inner"><p class="eyebrow caption-3">Начните с одной мысли</p><h2 class="heading-2" id="closing-title">Ваш следующий пост уже можно собрать</h2><p class="body-2">Войдите через Telegram, подключите канал и проверьте первый пост перед публикацией.</p><a class="button primary closing-button button-md" href="__APP_URL__">Создать первый пост <span aria-hidden="true">↗</span></a></div>
+    </section>
   </main>
 
-  <footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span>Сделано для ваших Telegram-каналов.</span><a href="/features/ai-agents/">Для ИИ-агентов</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Код проекта ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></footer>
+  <footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Сделано для ваших каналов в Telegram.</span></div><nav class="footer-links caption-2" aria-label="Дополнительные ссылки"><a href="/features/ai-agents/">Для ИИ агентов</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Открытый код ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></nav></footer>
 </body>
 </html>

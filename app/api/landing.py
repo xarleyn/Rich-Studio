@@ -24,6 +24,7 @@ def page(lang: str = "ru", slug: str = "") -> str:
     values = {
         "__APP_URL__": html.escape(cfg.public_url + ("?lang=en" if lang == "en" else "?lang=ru"), quote=True),
         "__LANDING_URL__": html.escape(canonical, quote=True),
+        "__OG_IMAGE_URL__": html.escape(base + "/static/images/landing-editor.jpg", quote=True),
         "__RU_URL__": html.escape(base + path, quote=True),
         "__EN_URL__": html.escape(base + "/en" + path, quote=True),
         "__BOT_USERNAME__": html.escape(cfg.bot_username, quote=True),
