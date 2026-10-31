@@ -50,7 +50,7 @@ from api import (
 from api import backup as backup_api
 from errors import StorageFull, StudioError
 from security import guard
-from services import accounts, backup, housekeeping, loops, scheduler, updates
+from services import accounts, backup, bot_notifications, housekeeping, loops, scheduler, updates
 
 STATIC = Path(__file__).parent / "static"
 SPEC_CHECK_INTERVAL = 1800  # seconds; Spec.refresh itself skips while the copy is fresh
@@ -182,6 +182,7 @@ async def lifespan(app):
             factories.append(backup.loop)
         if cfg.updates_on:
             factories.append(updates.webhook_loop if cfg.updates_mode == "webhook" else updates.loop)
+            factories.append(bot_notifications.loop)
         runner = loops.Loops(factories)  # under a lease: one process runs them (services/loops.py)
         runner.start()
     else:  # no loops, no lease: tests and one-off runs

@@ -22,8 +22,9 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 import store
+from store import bot_dialog as bot_store
 
-from . import accounts, publisher
+from . import accounts, bot_notifications, publisher
 
 log = logging.getLogger("rich-studio.loops")
 LEASE_KEY = "loops"
@@ -89,7 +90,10 @@ class Loops:
         stale = 0
         for uid in accounts.all_ids():
             with accounts.scope(uid):
+                interrupted = set(bot_store.sending()) - publisher.in_flight
                 stale += store.recover_stale_sending(keep=publisher.in_flight)
+                for pid in interrupted:
+                    bot_notifications.record(pid, "uncertain")
         if stale:
             log.warning("%d posts were being sent when the service stopped; marked failed", stale)
         STATE.role, STATE.holder = "leader", STATE.owner

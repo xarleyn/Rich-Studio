@@ -91,13 +91,14 @@ def telegram() -> dict:
 
 def _expected_loops() -> dict[str, float]:
     cfg = settings.get()
-    from . import backup, housekeeping, scheduler
+    from . import backup, bot_notifications, housekeeping, scheduler
 
     loops: dict[str, float] = {"scheduler": scheduler.INTERVAL, "housekeeping": housekeeping.INTERVAL, "spec": 1800}
     if cfg.backup_keep > 0:
         loops["backup"] = backup.CHECK_INTERVAL
     if cfg.updates_on:
         loops["updates"] = 60
+        loops["bot_notifications"] = bot_notifications.INTERVAL
     return loops
 
 

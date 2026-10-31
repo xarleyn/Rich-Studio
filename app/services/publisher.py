@@ -20,7 +20,7 @@ import store
 import telegram as tg
 from errors import Invalid, MayHaveGone, StudioError
 
-from . import accounts, kinds
+from . import accounts, bot_notifications, kinds
 
 log = logging.getLogger("rich-studio.publisher")
 RESERVED_PARAMS = {"chat_id", "rich_message", "reply_markup", "message_id"}
@@ -254,11 +254,13 @@ async def publish(chats: list, post: dict, draft_id: str | None = None, kind: st
         except tg.TelegramError as e:
             # kept in the list of posts, so a refusal is not lost with the toast that showed it
             _mark_failed(rec["id"], e.description)
+            bot_notifications.record(rec["id"])
             if len(chats) == 1:
                 raise
             out.append({"chat_id": chat, "ok": False, "error": e.description})
             continue
         except StudioError as e:
+            bot_notifications.record({**rec, "status": "failed", "error": str(e)})
             if len(chats) > 1:
                 # A public user's rights may disappear in any channel. Try the others and preserve the partial
                 # outcome so idempotency cannot duplicate their successful sends.
@@ -270,19 +272,26 @@ async def publish(chats: list, post: dict, draft_id: str | None = None, kind: st
         except Exception as e:
             err = f"{type(e).__name__}: {e}. {MAY_HAVE_GONE}"
             _mark_failed(rec["id"], err)
+            bot_notifications.record(rec["id"], "uncertain")
             if len(chats) == 1:
                 raise MayHaveGone(err) from e
             out.append({"chat_id": chat, "ok": False, "error": err})
             continue
         except asyncio.CancelledError:  # shutdown mid-send: the request may have reached Telegram
             _mark_failed(rec["id"], f"студия остановилась во время отправки. {MAY_HAVE_GONE}")
+            bot_notifications.record(rec["id"], "uncertain")
             raise
         finally:
             in_flight.discard(rec["id"])
         store.update_post(rec["id"], status="sent", message_id=res["message_id"], sent_at=int(time.time()))
         if draft_id:
             store.drop_refused(chat, draft_id, MAY_HAVE_GONE, POLL_MAY_HAVE_GONE)
-        w = await after_send(rec["id"], post, res, actor, kind)
+        try:
+            w = await after_send(rec["id"], post, res, actor, kind)
+        except Exception as e:
+            log.exception("after-send steps failed for %s", rec["id"])
+            w = [f"{type(e).__name__}: {e}"]
+        bot_notifications.record(rec["id"], detail="; ".join(w))
         warnings += [f"{chat}: {x}" for x in w] if len(chats) > 1 else w
         out.append({"chat_id": chat, "ok": True, "post": store.get_post(rec["id"]), "message": res})
     return out, warnings

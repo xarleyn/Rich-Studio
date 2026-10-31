@@ -16,7 +16,7 @@ import telegram as tg
 from errors import StudioError
 from store.meta import claim_webhook_update
 
-from . import accounts, channels, invite_links, suggested_posts
+from . import accounts, bot_dialog, bot_notifications, channels, invite_links, suggested_posts
 
 log = logging.getLogger("rich-studio.updates")
 # tests replace this one name; patching asyncio.sleep itself would also stop the fake Telegram server
@@ -95,7 +95,13 @@ async def handle_update(u: dict) -> str | None:
     from services import import_forward
 
     if import_forward.receive(u):
+        try:
+            await bot_dialog.import_reply(u)
+        except Exception:
+            log.exception("could not acknowledge import update")
         return "import"
+    if not _content_callback(u) and await bot_dialog.handle(u):
+        return "bot_command"
     if not settings.get().public:
         return await _handle_update(u)
     ids = accounts.all_ids()
@@ -133,6 +139,26 @@ async def handle_update(u: dict) -> str | None:
     # Unknown callbacks still need an empty answer; legacy channels keep their existing event behavior.
     with accounts.scope(None):
         return await _handle_update(u)
+
+
+def _content_callback(u: dict) -> bool:
+    """User-defined preview buttons retain their meaning, even if their data resembles a bot command."""
+    callback = u.get("callback_query") or {}
+    message = callback.get("message") or {}
+    chat = message.get("chat") or {}
+    sender = (callback.get("from") or {}).get("id")
+    if type(sender) is not int or chat.get("type") != "private" or chat.get("id") != sender:
+        return False
+    if settings.get().public and store.accounts.session_by_id(sender):
+        uid = sender
+    elif str(sender) == settings.get().preview_chat:
+        uid = None
+    else:
+        return False
+    with accounts.scope(uid):
+        return bool(
+            store.find_post(sender, message.get("message_id")) or _preview_callbacks(sender, message.get("message_id"))
+        )
 
 
 def _owns_update(u: dict) -> bool:
@@ -215,6 +241,8 @@ async def _handle_update(u: dict) -> str | None:
                 comment_status="failed",
                 error=f"первый комментарий: {type(e).__name__}: {e}. Он мог уйти, проверьте обсуждение",
             )
+        if (store.get_post(p["id"]) or {}).get("comment_status") == "failed":
+            bot_notifications.record(p["id"], "comment")
         return "comment"
     if rc := u.get("message_reaction_count"):
         p = store.find_post(rc["chat"]["id"], rc["message_id"])
@@ -254,7 +282,7 @@ async def loop() -> None:
             STATUS.state, STATUS.error = "ok", None
             for uid in accounts.all_ids():
                 with accounts.scope(uid):
-                    store.expire_comments(
+                    bot_notifications.expire_comments(
                         int(time.time()) - COMMENT_WAIT, "первый комментарий: пересылка в обсуждение не пришла за сутки"
                     )
             for u in ups:
@@ -317,7 +345,7 @@ async def webhook_loop() -> None:
             STATUS.state, STATUS.error = "ok", None
             for uid in accounts.all_ids():
                 with accounts.scope(uid):
-                    store.expire_comments(
+                    bot_notifications.expire_comments(
                         int(time.time()) - COMMENT_WAIT, "первый комментарий: пересылка в обсуждение не пришла за сутки"
                     )
             await _sleep(60)

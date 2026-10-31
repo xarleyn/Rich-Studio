@@ -217,7 +217,7 @@ def test_mtproto_fetches_full_message_before_import(client, monkeypatch):
     assert not warnings
 
 
-def test_forward_update_does_not_send_to_telegram(client, monkeypatch, tg):
+def test_forward_update_only_acknowledges_in_own_private_chat(client, monkeypatch, tg):
     monkeypatch.setattr(settings.get(), "updates_on", True)
     ticket = import_forward.begin(CASES[0]["url"])
     base = {"message_id": 1, "from": {"id": 777}, "chat": {"id": 777, "type": "private"}}
@@ -230,7 +230,10 @@ def test_forward_update_does_not_send_to_telegram(client, monkeypatch, tg):
         )
         == "import"
     )
-    assert not tg.calls
+    assert len(tg.calls) == 2
+    assert all(c["method"] == "sendMessage" and c["body"]["chat_id"] == 777 for c in tg.calls)
+    assert "перешлите" in tg.calls[0]["body"]["text"]
+    assert "обработана" in tg.calls[1]["body"]["text"]
 
 
 def test_import_requires_draft_permission(client):

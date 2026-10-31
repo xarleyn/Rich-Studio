@@ -11,7 +11,7 @@ import store
 import telegram as tg
 from errors import StudioError
 
-from . import accounts, loops, publisher
+from . import accounts, bot_notifications, loops, publisher
 
 log = logging.getLogger("rich-studio.scheduler")
 INTERVAL = 10  # seconds between checks
@@ -29,22 +29,27 @@ async def _send_claimed(queued: dict, now: float) -> None:
         res = await publisher.send(publisher.resolve_chat(p["chat_id"]), p["payload"], p.get("kind"))
     except StudioError as e:  # bad settings: nothing was sent
         store.update_post(p["id"], status="failed", error=str(e))
+        bot_notifications.record(p["id"])
         return
     except tg.TelegramError as e:
         # not sent: no connection, or Telegram asked to wait longer than the client waits itself
         if isinstance(e, tg.Unreachable) or (e.code == 429 and e.retry_after):
             wait = UNREACHABLE_RETRY if isinstance(e, tg.Unreachable) else int(e.retry_after or 0)
             store.retry_later(p["id"], int(now) + wait, f"{e.description}; повтор через {wait} с")
+            bot_notifications.record(p["id"], "retry")
         else:
             store.update_post(p["id"], status="failed", error=e.description)
+            bot_notifications.record(p["id"])
         return
     except Exception as e:  # noqa: BLE001 - network errors mid-send, a 5xx: never kill the scheduler
         store.update_post(p["id"], status="failed", error=f"{type(e).__name__}: {e}. {publisher.MAY_HAVE_GONE}")
+        bot_notifications.record(p["id"], "uncertain")
         return
     except asyncio.CancelledError:  # stopped mid-send after the grace period: the post may be out
         store.update_post(
             p["id"], status="failed", error=f"студия остановилась во время отправки. {publisher.MAY_HAVE_GONE}"
         )
+        bot_notifications.record(p["id"], "uncertain")
         raise
     # the post is in the channel now: whatever happens next must not mark it failed
     store.update_post(
@@ -57,6 +62,7 @@ async def _send_claimed(queued: dict, now: float) -> None:
         warnings = [f"{type(e).__name__}: {e}"]
     if warnings:
         store.update_post(p["id"], error="; ".join(warnings))
+    bot_notifications.record(p["id"])
 
 
 async def run_due_posts() -> int:
@@ -85,11 +91,12 @@ async def _run_due_posts() -> int:
         if _missed(queued, now):  # the service was off: a late "good morning" is worse than none
             late = int((now - queued["scheduled_at"]) // 60)
             late_text = f"{late // 60} ч {late % 60} мин" if late >= 60 else f"{late} мин"
-            store.mark_missed(
+            if store.mark_missed(
                 queued["id"],
                 f"студия не работала в назначенное время (опоздание {late_text}): пост не отправлен, "
                 "опубликуйте или отложите заново",
-            )
+            ):
+                bot_notifications.record(queued["id"])
             continue
         publisher.in_flight.add(queued["id"])  # before the claim: health must never see "sending" without the id here
         try:

@@ -129,6 +129,18 @@ class FakeTelegram:
                 "ok": True,
                 "result": {"id": 42, "is_bot": True, "first_name": "Bot", "username": "studio_test_bot"},
             }
+        if method == "setMyCommands":
+            return {"ok": True, "result": True}
+        if method == "sendMessage":
+            self.next_id += 1
+            return {
+                "ok": True,
+                "result": {
+                    "message_id": self.next_id,
+                    "chat": {"id": body["chat_id"], "type": "private"},
+                    "text": body["text"],
+                },
+            }
         if method == "getChat":
             return {"ok": True, "result": {"id": -1001, "type": "channel", "title": "Тест"}}
         if method == "getChatMember":
