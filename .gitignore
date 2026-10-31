@@ -12,3 +12,4 @@ work/
 .venv/
 deploy/secrets/
 /.anet
+/.zcode
