@@ -1,11 +1,13 @@
 name: image
-# The studio's image in GHCR for the server (deploy/docker-compose.yml), for amd64 and arm64 (QEMU), with build
-# provenance and an SBOM from buildx. Not on every push to main: QEMU arm64 builds burn Actions minutes and there is
-# no server yet. Run it by hand (Actions → image → Run workflow, or `gh workflow run image.yml`) for :main and :<sha>,
-# or push a v* tag for :<version> and :<sha>.
-# No actions/attest-build-provenance: artifact attestations in a private repo need GitHub Enterprise Cloud.
+# The studio's image in GHCR for the server (deploy/docker-compose.yml), with build provenance and an SBOM
+# from buildx. Every push to main rebuilds it as :latest (plus :main and :<sha>), amd64 only: a QEMU arm64
+# build on every commit would be slow; full amd64+arm64 stays for a v* tag (:<version> and :<sha>) and a
+# manual run (Actions → image → Run workflow, or `gh workflow run image.yml --ref main`) — run one if the
+# server is arm64. The repo is public, so the package is public too: no PAT needed to pull.
+# No actions/attest-build-provenance: artifact attestations need GitHub Enterprise Cloud.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -33,15 +35,17 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}     # lowercased: ghcr.io/nikitacodesave/rich-studio
+          images: ghcr.io/${{ github.repository }}     # lowercased: ghcr.io/xarleyn/rich-studio
           tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=main,enable={{is_default_branch}}
             type=sha,format=long,prefix=
             type=semver,pattern={{version}}
       - uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # a push to a branch: amd64 only (fast); a tag push or a manual run: also arm64 via QEMU
+          platforms: ${{ github.ref_type == 'branch' && github.event_name == 'push' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

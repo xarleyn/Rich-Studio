@@ -1,5 +1,8 @@
 services:
   rich-studio:
+    # образ собирает CI на каждый push в main; без сети, когда образа ещё нет, compose соберёт локально
+    # под этим же именем: docker compose build (или up --build)
+    image: ghcr.io/xarleyn/rich-studio:latest
     build: .
     container_name: rich-studio
     env_file: .env

@@ -3,7 +3,8 @@
 name: rich-studio
 services:
   rich-studio:
-    image: ghcr.io/nikitacodesave/rich-studio:${STUDIO_TAG:-main}
+    # CI rebuilds this on every push to main (image.yml); pin STUDIO_TAG for a fixed version
+    image: ghcr.io/xarleyn/rich-studio:${STUDIO_TAG:-latest}
     env_file: .env
     environment:
       STUDIO_MODE: server                         # no start without a token, https STUDIO_URL, pinned spec

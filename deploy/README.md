@@ -2,7 +2,7 @@
 
 Три контейнера: студия (только внутри), Caddy (HTTPS снаружи) и Litestream (копия базы в S3 каждую секунду). Почему так: [docs/decisions/0010](../docs/decisions/0010-server-image-and-pinned-spec.md).
 
-Нужно: сервер с Docker и Compose, домен с A/AAAA-записью на него, открытые 80 и 443, бакет S3 (AWS, Cloudflare R2, Backblaze B2 и другие). Если `main` ушёл вперёд от последней сборки, сначала соберите образ вручную (см. «Обновление»).
+Нужно: сервер с Docker и Compose, домен с A/AAAA-записью на него, открытые 80 и 443, бакет S3 (AWS, Cloudflare R2, Backblaze B2 и другие). Образ собирает CI на каждый push в `main` (amd64); серверу на arm64 нужна ручная многоархивная сборка (см. «Обновление»).
 
 ## Первый запуск
 
@@ -13,7 +13,7 @@ cp litestream.env.example litestream.env  # бакет S3 и ключи: их в
 chmod 600 .env litestream.env
 mkdir -p secrets && printf '%s\n' '123:ABC…' > secrets/tg_bot_token
 sudo chown 10001:10001 secrets/tg_bot_token && sudo chmod 400 secrets/tg_bot_token   # студия работает от uid 10001
-echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-login> --password-stdin  # образ приватный: PAT с read:packages
+echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-login> --password-stdin  # приватный образ: PAT с read:packages; образ публичного репозитория открыт, вход не нужен
 # без токена серверная студия не стартует: первый токен (печатается один раз)
 docker compose run --rm --no-deps rich-studio python cli.py token add nikita --level admin
 docker compose up -d
@@ -35,9 +35,9 @@ docker compose up -d
 docker compose pull && docker compose up -d
 ```
 
-Образ не собирается сам на каждый push в `main` (сборка arm64 через QEMU съедает минуты Actions). Перед обновлением соберите его: Actions → image → Run workflow на `main` (или `gh workflow run image.yml --ref main`) даёт `:main` и `:<sha>`, push тега `v*` даёт `:<версия>`.
+Образ собирается сам: каждый push в `main` публикует `:latest` (и `:main`, `:<sha>`), сборка amd64. Push тега `v*` и ручной запуск (Actions → image → Run workflow на `main`, или `gh workflow run image.yml --ref main`) дают amd64 + arm64: сервер на arm64 обновляется после такого запуска.
 
-`STUDIO_TAG` в `.env` закрепляет версию (`main`, sha коммита или версия из GHCR). Новая версия Bot API приходит так же: `make spec-update` → PR → ручная сборка образа.
+`STUDIO_TAG` в `.env` закрепляет версию (`latest`, sha коммита или версия из GHCR). Новая версия Bot API приходит так же: `make spec-update` → PR → после merge CI соберёт образ сам.
 
 ## Восстановление базы
 
