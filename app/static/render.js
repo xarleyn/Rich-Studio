@@ -240,6 +240,7 @@
       if (j !== current()) track.scrollTo({ left: j * track.clientWidth, behavior: 'smooth' });
     };
     dots.addEventListener('click', (ev) => {
+      if (!(ev.target instanceof Element)) return;
       const i = [...dots.children].indexOf(ev.target);
       if (i < 0) return;
       slide(i);
@@ -256,6 +257,7 @@
       ev.preventDefault();
     });
     // Mouse drag for desktop; touch already scrolls natively (overflow-x + scroll snap).
+    /** @type {{ x: number; left: number; moved: boolean } | null} */
     let drag = null;
     track.addEventListener('pointerdown', (ev) => {
       if (ev.pointerType !== 'mouse' || ev.button !== 0 || count < 2) return;
