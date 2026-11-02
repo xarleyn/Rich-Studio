@@ -3,30 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Schedule posts for Telegram channels — RichPost</title>
-  <meta name="description" content="Schedule posts for one or several Telegram channels. Choose a time, check the publication queue and review delivery outcomes in RichPost.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="Schedule posts for Telegram channels — RichPost">
-  <meta property="og:description" content="Schedule posts for one or several Telegram channels. Choose a time, check the publication queue and review delivery outcomes in RichPost.">
+  <title>Schedule Telegram posts: a practical guide — RichPost</title>
+  <meta name="description" content="Schedule Telegram posts with RichPost. Choose channels and a time zone, inspect the queue, reschedule or cancel a post, and check each publication result.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="Schedule Telegram posts: a practical guide — RichPost">
+  <meta property="og:description" content="Schedule Telegram posts with RichPost. Choose channels and a time zone, inspect the queue, reschedule or cancel a post, and check each publication result.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The RichPost editor with a Telegram post preview">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Schedule Telegram posts: a practical guide — RichPost">
+  <meta name="twitter:description" content="Schedule Telegram posts with RichPost. Choose channels and a time zone, inspect the queue, reschedule or cancel a post, and check each publication result.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="The RichPost editor with a Telegram post preview">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
-  <meta property="og:locale" content="en_US">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
-<body><a class="skip" href="#main">Skip to content</a>
-<header class="site-header wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__RU_URL__" lang="ru" hreflang="ru">RU</a><a class="button quiet" href="__APP_URL__">Open the editor ↗</a></div></header>
-<main id="main" class="guide-content wrap"><a href="/en/">← All features</a><h1>Schedule posts for Telegram channels</h1>
-<p class="lead">Prepare a post ahead of time and choose when to publish. The RichPost server sends it, so you can close the app after saving the schedule.</p>
-<h2>Add a post to the queue</h2><ol><li>Sign in with Telegram. Connect a channel you manage: the bot needs administrator status and permission to post.</li><li>Create the post and check its text, media and buttons. Send a preview to your direct messages if needed.</li><li>Open Channels in the header. Select one or several destinations and check the list.</li><li>Open the menu beside Publish and choose Schedule. Pick a future time and confirm.</li><li>Open Posts → Scheduled. Check the time and channel for every entry.</li></ol>
-<h2>Time zones and changes</h2><p>The scheduling dialog uses your browser's time zone and displays its name beside the time picker. Check it before confirming if you travel or use a remote computer.</p>
-<p>Open a scheduled entry from Posts to edit it. Update post saves new content to that entry; Reschedule changes its time. Publishing from the editor creates a new post, so check which action you choose.</p>
-<h2>Review the outcome</h2><p>After the scheduled time, check the status in Posts and open the channel in Telegram. The server must be running and channel permissions must remain valid. If the service was offline too long, the post may be marked missed: schedule it again.</p>
-<aside><p>After an ambiguous network error, a post may already have reached Telegram. The studio does not automatically retry that send. Check the channel before publishing again to avoid a duplicate.</p></aside>
-<p>For multiple channels, check each outcome: a successful send to one channel does not imply delivery to the others.</p>
-<p><a class="button primary" href="__APP_URL__">Open the editor ↗</a></p><h2>Related guides</h2><ul><li><a href="/en/features/telegram-tables/">How to create a table in Telegram</a></li><li><a href="/en/features/telegram-markdown/">Telegram Markdown editor with preview</a></li></ul></main>
-<footer class="site-footer wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><a href="https://t.me/__BOT_USERNAME__" rel="noopener" target="_blank">Our bot ↗</a><a href="__APP_URL__">App ↗</a></footer></body></html>
+<body>
+<a class="skip body-4" href="#main">Skip to content</a>
+<header class="site-header wrap">
+  <a class="logo" href="/en/" aria-label="RichPost home"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+  <nav id="site-nav" aria-label="Main navigation">
+    <div class="nav-links guide-nav"><a class="title-4" href="/en/features/">Guides</a><a href="/en/features/telegram-tables/">Tables</a><a href="/en/features/telegram-markdown/">Markdown</a><a href="/en/features/scheduled-posts/" aria-current="page">Scheduling</a><a href="/en/features/ai-agents/">MCP</a></div>
+    <a class="button primary button-md nav-cta" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="header-actions"><a class="language title-4" href="__RU_URL__" lang="ru" hreflang="ru" aria-label="Russian version">RU</a><a class="button quiet button-sm" href="__APP_URL__">Editor <span aria-hidden="true">↗</span></a></div>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+</header>
+<main id="main" class="guide-content wrap">
+<nav class="breadcrumbs caption-2" aria-label="Breadcrumb"><ol><li><a href="/en/">RichPost</a></li><li><a href="__HUB_URL__">Guides</a></li><li aria-current="page">Schedule posts for Telegram channels</li></ol></nav>
+<article>
+<h1 class="heading-2">Schedule posts for Telegram channels</h1>
+<p class="lead body-2">Prepare a post in advance and choose a time. The RichPost server sends it, so you can close the app after saving the schedule. The queue and delivery outcome remain available in Posts.</p>
+<h2>Check the setup before scheduling</h2>
+<p>Connect a channel you manage and make the bot an administrator with permission to post. The studio checks both your permissions and the bot's permissions. Signing in with Telegram is not enough: the channel must be connected to your account and selected for this post.</p>
+<p>Prepare the text, media, tables and buttons before choosing a time. A private Telegram preview helps catch mistakes before publication. If you manage several channels, confirm the recipient list carefully so an announcement does not end up in the wrong place.</p>
+<h2>Put a post in the queue</h2>
+<ol><li>Create or open a draft. Check its active format and preview. Start the bot, then send a private preview if you want to inspect the result in Telegram.</li><li>Open Channels in the header and select one or several recipients. Check the names again.</li><li>Open the menu beside Publish and select the scheduling action. Choose a future date and time.</li><li>Check the time zone shown beside the time field, then confirm the schedule.</li><li>Open Posts and its scheduled filter. Check the time and channel for every entry. You can now close the app.</li></ol>
+<figure class="guide-figure"><picture><source srcset="/static/images/landing-schedule.webp" type="image/webp"><img src="/static/images/landing-schedule.jpg" width="1280" height="800" loading="lazy" decoding="async" alt="RichPost window for selecting channels and a publication time"></picture><figcaption class="caption-2">Check recipients, date, time and time zone before confirming.</figcaption></figure>
+<h2>Time zones and delivery time</h2>
+<p>The scheduling form uses the browser's time zone and displays it beside the field. It may differ from your usual zone when you travel or use a remote computer. If the event is in another region, first convert its time to the zone displayed in the form.</p>
+<p>Check the queue after saving. The selected time schedules a sending attempt; it does not guarantee that every reader will see the post at the exact same second. The availability of the server, Telegram and valid channel permissions all affect delivery.</p>
+<h2>Change a scheduled post</h2>
+<h3>Text, media and buttons</h3>
+<p>Find the entry in Posts and choose Edit. Confirm that the editor is working with that entry, then use the action to update the post. The regular Publish action creates a separate publication. If another window has changed the entry, read the latest version before replacing it.</p>
+<h3>Time or cancellation</h3>
+<p>Reschedule changes the time of a waiting entry. Cancel removes it from the queue. Refresh the list after the action and check the result. Once sending has started, changing the queue cannot recall a message already accepted by Telegram.</p>
+<h2>Check the outcome in every channel</h2>
+<p>After the scheduled time, open Posts and the channel itself. When several channels are selected, each recipient has its own outcome. A successful send to one channel does not prove delivery to all the others.</p>
+<p>If the server was unavailable for too long, an entry can become missed. Check the service state and choose a new suitable time. If Telegram refused the send because of permissions, fix those permissions and confirm the message was not delivered before sending it again.</p>
+<aside><p>An ambiguous network error can occur after Telegram accepted the post. The studio does not retry that send automatically. Check the channel first: publishing again without checking may create a duplicate.</p></aside>
+<p>For formatting, use <a href="/en/features/telegram-markdown/">Markdown with preview</a> or <a href="/en/features/telegram-tables/">tables</a>. An <a href="/en/features/ai-agents/">AI agent</a> can prepare the draft while you agree on the final text, channel and time before publishing.</p>
+<h2>Frequently asked questions</h2>
+<div class="questions guide-faq"><details><summary class="title-3">Does the app need to stay open?</summary><p class="body-3">No. The RichPost server sends saved scheduled posts. The server must be running and channel permissions must remain valid.</p></details><details><summary class="title-3">Which time zone does the form use?</summary><p class="body-3">The form uses the browser time zone and displays it beside the time field. Check it before confirming, especially when travelling or using a remote computer.</p></details><details><summary class="title-3">Can I reschedule or cancel a post?</summary><p class="body-3">Yes, while the entry is waiting to be sent. Use Reschedule or Cancel in Posts, then inspect the updated queue.</p></details><details><summary class="title-3">What should I do if a post may have been sent?</summary><p class="body-3">Check the Telegram channel first. An ambiguous error does not prove the message is absent, so the studio does not retry it automatically.</p></details></div>
+<p class="guide-action"><a class="button primary button-md" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a></p>
+</article>
+<section class="related-guides" aria-label="Related guides"><h2>More RichPost guides</h2><div class="related-links"><a href="/en/features/telegram-tables/">Tables in Telegram</a><a href="/en/features/telegram-markdown/">Markdown and preview</a><a href="/en/features/scheduled-posts/" aria-current="page">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a></div><p><a href="__HUB_URL__">All features and guides</a></p></section>
+</main>
+<footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Made for your Telegram channels.</span></div><nav class="footer-links caption-2" aria-label="Additional links"><a href="/en/features/">All guides</a><a href="/en/features/telegram-tables/">Tables in Telegram</a><a href="/en/features/telegram-markdown/">Markdown and preview</a><a href="/en/features/scheduled-posts/" aria-current="page">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Open source ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Our bot ↗</a><a href="__APP_URL__">App ↗</a></nav></footer>
+</body>
+</html>

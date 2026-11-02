@@ -14,9 +14,10 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import FileResponse, JSONResponse, Response
 from mcp.server.transport_security import TransportSecuritySettings
+from starlette.exceptions import HTTPException
 
 import logs
 import mcp_tools
@@ -25,6 +26,7 @@ import public_site
 import security
 import settings
 import spec
+import static_assets
 import store
 import telegram as tg
 from api import (
@@ -224,6 +226,18 @@ async def _no_answer(request: Request, e: Exception):
     return JSONResponse({"detail": f"{e}. Действие могло выполниться, проверьте в Telegram"}, status_code=502)
 
 
+async def _http_error(request: Request, e: Exception):
+    assert isinstance(e, HTTPException)  # noqa: S101 - registered for HTTPException only
+    if (
+        e.status_code == 404
+        and request.method in ("GET", "HEAD")
+        and settings.get().is_landing_host(request.headers.get("host", ""))
+        and not request.url.path.startswith(("/api/", "/static/", "/auth/", "/media/", "/render/"))
+    ):
+        return landing.response("en" if request.url.path.startswith("/en/") else "ru", "not-found", 404)
+    return await http_exception_handler(request, e)
+
+
 def create_app(cfg: settings.Settings | None = None) -> FastAPI:
     if cfg is not None:
         settings.use(cfg)
@@ -244,6 +258,7 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
     app.add_exception_handler(StorageFull, _storage_full)
     app.add_exception_handler(tg.TelegramError, _telegram_error)
     app.add_exception_handler(tg.NoAnswer, _no_answer)
+    app.add_exception_handler(HTTPException, _http_error)
     for module in (
         service,
         health,
@@ -269,17 +284,17 @@ def create_app(cfg: settings.Settings | None = None) -> FastAPI:
     ):
         app.include_router(module.router)
 
-    @app.get("/", include_in_schema=False)
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     def index(request: Request):
         if settings.get().is_landing_host(request.headers.get("host", "")):
-            return HTMLResponse(landing.page())
+            return landing.response()
         return FileResponse(STATIC / "index.html")
 
-    @app.get("/favicon.ico", include_in_schema=False)
-    def favicon():  # browsers ask on every page; a 404 shows up as a console error in the preview
-        return Response(status_code=204)
+    @app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
+    def favicon():
+        return FileResponse(STATIC / "icons" / "favicon.ico", headers={"Cache-Control": "public, max-age=3600"})
 
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    app.mount("/static", static_assets.PublicStaticFiles(directory=STATIC), name="static")
 
     # MCP for agents at /mcp, behind the same guard (Host, CSRF, X-API-Key) as the REST API
     @app.get("/mcp", include_in_schema=False)

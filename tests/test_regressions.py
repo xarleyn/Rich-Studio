@@ -89,7 +89,9 @@ def test_healthcheck_works_behind_api_key(client, monkeypatch):
 
 
 def test_favicon_is_not_a_404(client):
-    assert client.get("/favicon.ico").status_code == 204
+    response = client.get("/favicon.ico")
+    assert response.status_code == 200
+    assert response.content.startswith(b"\x00\x00\x01\x00")
 
 
 def test_poll_is_checked_like_a_poll_after_a_post(client, tg):
