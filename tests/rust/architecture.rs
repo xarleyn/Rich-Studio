@@ -248,7 +248,7 @@ fn allowed(file: &str, layer: &str, dependency: &Resolved) -> bool {
         return adapter
             || !["axum", "axum_extra", "rmcp", "tower", "tower_http", "utoipa"].contains(root)
             // Only schema derives on shared input structs, never HTTP handlers.
-            || (file == "services/templates.rs" && path == ["utoipa", "ToSchema"]);
+            || (file == "services/templates/fields.rs" && path == ["utoipa", "ToSchema"]);
     }
     if SHARED.contains(root) || *root == layer {
         return true;
@@ -266,7 +266,9 @@ fn allowed(file: &str, layer: &str, dependency: &Resolved) -> bool {
         }
         "AppState" => adapter || layer == "services",
         "security" | "public_site" => adapter,
-        "runtime" => adapter || (file == "services/health.rs" && path == ["runtime", "static_dir"]),
+        "runtime" => {
+            adapter || (file == "services/health/report.rs" && path == ["runtime", "static_dir"])
+        }
         _ => false,
     }
 }
@@ -406,8 +408,8 @@ fn gate_ignores_literals_comments_and_keeps_exceptions_narrow() {
     for (file, path) in [
         ("api/mod.rs", "crate::mcp_tools::router"),
         ("telegram/client.rs", "crate::store::channels"),
-        ("services/health.rs", "crate::runtime::static_dir"),
-        ("services/templates.rs", "utoipa::ToSchema"),
+        ("services/health/report.rs", "crate::runtime::static_dir"),
+        ("services/templates/fields.rs", "utoipa::ToSchema"),
     ] {
         let source = format!("use {path};");
         assert!(

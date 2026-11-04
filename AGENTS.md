@@ -74,13 +74,13 @@ make fmt                                        # автоисправление
 | Нужно | Смотри |
 |---|---|
 | новый метод Bot API для постов | `src/services/posts.rs` + `src/api/posts.rs` + тест |
-| новое событие из getUpdates | `src/services/updates.rs` (`handle_update`, `ALLOWED_UPDATES`) |
+| новое событие из getUpdates | `src/services/updates/` (`handle_update`, `ALLOWED_UPDATES`) |
 | новая настройка | `src/settings.rs` + `.env.example` |
 | сервер: образ, Caddy, Litestream, восстановление | `deploy/` (там README), `Dockerfile`, `scripts/restore_check.sh` |
 | инструмент MCP для агентов | `src/mcp_tools/tools/<область>.rs` + тест в `tests/rust/` + `make docs` |
 | редактор | `app/static/js/` (см. AGENTS.md там) |
 | предпросмотр | `app/static/render.js`, стили `tg.css`; в чате Claude: `app/static/preview-app.js` + `src/mcp_tools/preview_app.rs` |
-| журнал, `/api/health`, уборка | `src/logs.rs`, `src/metrics.rs`, `src/services/health.rs`, `src/services/housekeeping.rs`; устройство в `docs/OBSERVABILITY.md` |
+| журнал, `/api/health`, уборка | `src/logs.rs`, `src/metrics.rs`, `src/services/health/`, `src/services/housekeeping.rs`; устройство в `docs/OBSERVABILITY.md` |
 | тесты | `tests/` (см. AGENTS.md там) |
 | skill для пользователя | `.claude/skills/telegram-rich-posts/SKILL.md` |
 | здоровье работающей студии (skill и субагент) | `.claude/skills/studio-health/SKILL.md`, `.claude/agents/studio-monitor.md` |
