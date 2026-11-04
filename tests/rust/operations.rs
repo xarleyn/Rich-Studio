@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::{
     body::{Body, to_bytes},
-    http::Request,
+    http::{Request, StatusCode},
 };
 use rich_studio::{
     AppState,
@@ -16,7 +16,7 @@ use rich_studio::{
     settings::Settings,
     store::db::{self, Store},
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use tempfile::TempDir;
 use tower::ServiceExt as _;
 
@@ -231,5 +231,368 @@ async fn observer_never_logs_body_or_query_and_tenant_health_hides_global_state(
             .all(|check| ["scheduler", "posts", "sends", "spec"]
                 .contains(&check["name"].as_str().unwrap_or_default()))
     );
+    Ok(())
+}
+
+type TestError = Box<dyn std::error::Error + Send + Sync>;
+
+fn photo(name: &str) -> Value {
+    json!({"rich_message":{"blocks":[{"type":"photo","photo":{"type":"photo","media":format!("upload:{name}")}}]}})
+}
+
+fn blocks_post() -> Value {
+    json!({"rich_message":{"blocks":[
+        {"type":"heading","size":1,"text":"Тест"},
+        {"type":"paragraph","text":["Привет, ",{"type":"bold","text":"мир"}]}
+    ]}})
+}
+
+fn telegram_settings(directory: &TempDir, base: &str) -> Result<Settings, TestError> {
+    let mut settings = settings(directory)?;
+    settings.api_base = base.to_owned();
+    settings.bot_token = "1:x".to_owned();
+    settings.default_chat = "@test_channel".to_owned();
+    settings.preview_chat = "777".to_owned();
+    Ok(settings)
+}
+
+/// A Bot API stand-in: any method succeeds, rich messages get a message id.
+async fn telegram() -> Result<String, TestError> {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let app = axum::Router::new().fallback(|request: axum::extract::Request| async move {
+        let method = request
+            .uri()
+            .path()
+            .rsplit('/')
+            .next()
+            .unwrap_or_default()
+            .to_owned();
+        let _ = to_bytes(request.into_body(), 1 << 20).await;
+        let result = if method == "sendRichMessage" {
+            json!({"message_id":101,"chat":{"id":1},"rich_message":{"blocks":[]}})
+        } else {
+            json!(true)
+        };
+        axum::Json(json!({"ok":true,"result":result}))
+    });
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    Ok(format!("http://{address}"))
+}
+
+async fn json_request(
+    app: axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> Result<(StatusCode, Value), TestError> {
+    let builder = Request::builder()
+        .header("host", "localhost")
+        .method(method)
+        .uri(uri);
+    let request = match body {
+        Some(body) => builder
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))?,
+        None => builder.body(Body::empty())?,
+    };
+    let response = app.oneshot(request).await?;
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await?;
+    Ok((
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    ))
+}
+
+async fn upload(app: axum::Router, name: &str, data: &[u8]) -> Result<Value, TestError> {
+    let boundary = "rich-studio-operations-boundary";
+    let mut body = Vec::new();
+    body.extend_from_slice(
+        format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: image/png\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(data);
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .header("host", "localhost")
+                .method("POST")
+                .uri("/api/media")
+                .header(
+                    "content-type",
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(body))?,
+        )
+        .await?;
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await?;
+    let value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    assert_eq!(status, StatusCode::OK, "{value}");
+    Ok(value)
+}
+
+#[tokio::test]
+async fn export_zip_contains_database_and_every_uploaded_file() -> TestResult {
+    let directory = TempDir::new()?;
+    let base = telegram().await?;
+    let settings = telegram_settings(&directory, &base)?;
+    let state = AppState::new(settings);
+    let _database = initialize(&state.account)?;
+    let app = build_router(state);
+    let uploaded = upload(app.clone(), "cat.png", b"\x89PNG-cat").await?;
+    assert_eq!(uploaded["name"], "cat.png");
+    let (status, draft) = json_request(
+        app.clone(),
+        "POST",
+        "/api/drafts",
+        Some(json!({"title":"Кот","post":photo("cat.png")})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{draft}");
+    let (status, sent) = json_request(
+        app.clone(),
+        "POST",
+        "/api/send",
+        Some(json!({"post":blocks_post()})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{sent}");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .header("host", "localhost")
+                .uri("/api/export")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()["content-type"].to_str()?,
+        "application/zip"
+    );
+    let disposition = response.headers()["content-disposition"].to_str()?;
+    assert!(disposition.contains("rich-studio-"), "{disposition}");
+    let bytes = to_bytes(response.into_body(), usize::MAX).await?;
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))?;
+    let mut names = archive
+        .file_names()
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|name| name.into_owned())
+        .collect::<Vec<String>>();
+    names.sort();
+    assert_eq!(names, ["media/cat.png", "studio.db"]);
+    let mut media = Vec::new();
+    archive.by_name("media/cat.png")?.read_to_end(&mut media)?;
+    assert_eq!(media, b"\x89PNG-cat");
+    let mut database = Vec::new();
+    archive.by_name("studio.db")?.read_to_end(&mut database)?;
+    let restored = directory.path().join("restored.db");
+    std::fs::write(&restored, database)?;
+    let restored = rusqlite::Connection::open(restored)?;
+    assert_eq!(
+        restored.query_row("select title from drafts", [], |row| row
+            .get::<_, String>(0))?,
+        "Кот"
+    );
+    assert_eq!(
+        restored.query_row(
+            "select count(*) from posts where status='sent'",
+            [],
+            |row| row.get::<_, i64>(0)
+        )?,
+        1
+    );
+    Ok(())
+}
+
+#[test]
+fn daily_snapshot_is_made_once_and_old_copies_are_pruned() -> TestResult {
+    let directory = TempDir::new()?;
+    let mut settings = settings(&directory)?;
+    settings.backup_keep = 2;
+    let context = AccountContext::root(&settings);
+    let _database = initialize(&context)?;
+    let backups = directory.path().join("backups");
+    std::fs::create_dir_all(&backups)?;
+    for day in ["20200101", "20200102", "20200103"] {
+        std::fs::write(backups.join(format!("studio-{day}.db")), b"old")?;
+    }
+    let made = backup::daily_snapshot(&settings, &context)?.ok_or("snapshot")?;
+    let now = time::OffsetDateTime::now_utc();
+    let today = format!(
+        "studio-{}{:02}{:02}.db",
+        now.year(),
+        u8::from(now.month()),
+        now.day()
+    );
+    assert_eq!(
+        made.file_name().and_then(|name| name.to_str()),
+        Some(today.as_str())
+    );
+    assert!(backup::daily_snapshot(&settings, &context)?.is_none());
+    let mut left = std::fs::read_dir(&backups)?
+        .map(|entry| entry.map(|entry| entry.file_name().to_string_lossy().into_owned()))
+        .collect::<Result<Vec<_>, _>>()?;
+    left.retain(|name| name.ends_with(".db"));
+    left.sort();
+    let mut expected = vec!["studio-20200103.db".to_owned(), today];
+    expected.sort();
+    assert_eq!(left, expected);
+    let partials = std::fs::read_dir(&backups)?
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "part")
+        })
+        .count();
+    assert_eq!(partials, 0);
+    Ok(())
+}
+
+#[test]
+fn daily_snapshot_can_be_disabled() -> TestResult {
+    let directory = TempDir::new()?;
+    let mut settings = settings(&directory)?;
+    settings.backup_keep = 0;
+    let context = AccountContext::root(&settings);
+    let _database = initialize(&context)?;
+    assert!(backup::daily_snapshot(&settings, &context)?.is_none());
+    assert!(!directory.path().join("backups").exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn unused_media_is_reported_and_cleaned_up() -> TestResult {
+    let directory = TempDir::new()?;
+    let base = telegram().await?;
+    let settings = telegram_settings(&directory, &base)?;
+    let state = AppState::new(settings);
+    let _database = initialize(&state.account)?;
+    let app = build_router(state);
+    for name in ["draft.png", "sent.png", "old.png", "lonely.png"] {
+        upload(app.clone(), name, b"\x89PNG").await?;
+    }
+    let (status, draft) = json_request(
+        app.clone(),
+        "POST",
+        "/api/drafts",
+        Some(json!({"title":"d","post":photo("draft.png")})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{draft}");
+    let (status, sent) = json_request(
+        app.clone(),
+        "POST",
+        "/api/send",
+        Some(json!({"post":photo("sent.png")})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{sent}");
+    let (status, old) = json_request(
+        app.clone(),
+        "POST",
+        "/api/send",
+        Some(json!({"post":photo("old.png")})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{old}");
+    let id = old["post"]["id"].as_str().ok_or("post id")?;
+    let (status, deleted) =
+        json_request(app.clone(), "DELETE", &format!("/api/posts/{id}"), None).await?;
+    assert_eq!(status, StatusCode::OK, "{deleted}");
+    let (status, listed) = json_request(app.clone(), "GET", "/api/media", None).await?;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    let used = listed
+        .as_array()
+        .ok_or("media list")?
+        .iter()
+        .map(|file| {
+            (
+                file["name"].as_str().unwrap_or_default().to_owned(),
+                file["used"].as_bool().unwrap_or(true),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    assert_eq!(
+        used,
+        BTreeMap::from([
+            ("draft.png".to_owned(), true),
+            ("sent.png".to_owned(), true),
+            ("old.png".to_owned(), false),
+            ("lonely.png".to_owned(), false),
+        ])
+    );
+    let (status, cleaned) = json_request(app.clone(), "POST", "/api/media/cleanup", None).await?;
+    assert_eq!(status, StatusCode::OK, "{cleaned}");
+    let mut deleted = cleaned["deleted"]
+        .as_array()
+        .ok_or("deleted")?
+        .iter()
+        .map(|name| name.as_str().unwrap_or_default().to_owned())
+        .collect::<Vec<_>>();
+    deleted.sort();
+    assert_eq!(deleted, ["lonely.png", "old.png"]);
+    let (_, listed) = json_request(app, "GET", "/api/media", None).await?;
+    let mut names = listed
+        .as_array()
+        .ok_or("media list")?
+        .iter()
+        .map(|file| file["name"].as_str().unwrap_or_default().to_owned())
+        .collect::<Vec<_>>();
+    names.sort();
+    assert_eq!(names, ["draft.png", "sent.png"]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn media_of_a_missed_post_is_protected_without_force() -> TestResult {
+    let directory = TempDir::new()?;
+    let base = telegram().await?;
+    let settings = telegram_settings(&directory, &base)?;
+    let state = AppState::new(settings);
+    let _database = initialize(&state.account)?;
+    let app = build_router(state.clone());
+    upload(app.clone(), "later.png", b"\x89PNG").await?;
+    let at = housekeeping::now() + 3600;
+    let (status, scheduled) = json_request(
+        app.clone(),
+        "POST",
+        "/api/schedule",
+        Some(json!({"post":photo("later.png"),"chat_id":"@c","at":at})),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{scheduled}");
+    let id = scheduled["id"].as_str().ok_or("scheduled id")?;
+    assert!(rich_studio::store::scheduler::claim(
+        &state.account,
+        id,
+        i64::MAX
+    )?);
+    assert!(rich_studio::store::scheduler::missed(
+        &state.account,
+        id,
+        "студия не работала"
+    )?);
+    let (status, conflict) =
+        json_request(app.clone(), "DELETE", "/api/media/later.png", None).await?;
+    assert_eq!(status, StatusCode::CONFLICT, "{conflict}");
+    assert_eq!(
+        conflict["detail"]["used_by"],
+        json!(["пропущенный пост в @c"])
+    );
+    let (status, forced) =
+        json_request(app, "DELETE", "/api/media/later.png?force=true", None).await?;
+    assert_eq!(status, StatusCode::OK, "{forced}");
     Ok(())
 }

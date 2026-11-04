@@ -24,7 +24,7 @@ fn service(state: &AppState) -> MediaService {
 }
 
 pub fn error_response(error: MediaError) -> Response {
-    let status = match error {
+    let status = match &error {
         MediaError::NotFound => StatusCode::NOT_FOUND,
         MediaError::BadRequest(_) | MediaError::Fetch(_) => StatusCode::BAD_REQUEST,
         MediaError::TooLarge | MediaError::Capacity => StatusCode::PAYLOAD_TOO_LARGE,
@@ -36,7 +36,12 @@ pub fn error_response(error: MediaError) -> Response {
             StatusCode::INTERNAL_SERVER_ERROR
         }
     };
-    (status, Json(json!({"detail":error.to_string()}))).into_response()
+    // The reference API returns the list of users so the editor can show them.
+    let detail = match &error {
+        MediaError::Conflict(users) => json!({"message":error.to_string(),"used_by":users}),
+        _ => json!(error.to_string()),
+    };
+    (status, Json(json!({"detail":detail}))).into_response()
 }
 
 #[utoipa::path(get, path = "/api/media", operation_id = "media_list_api_media_get", summary = "Загруженные файлы; used — нужен ли файл черновику или посту", tag = "media", responses((status = 200, description = "Successful Response")))]
