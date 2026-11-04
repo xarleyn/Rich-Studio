@@ -1,4 +1,7 @@
-"""The one fake Bot API: used by pytest (in a thread) and by tests/e2e_ui.mjs (as a server).
+"""Dev-only fake Bot API for Playwright browser scenarios (tests/e2e_ui.mjs).
+
+Rust tests do not use this module: they use in-process mocks, and the optional
+external tgfake suite is described in docs/TGFAKE.md.
 
 Run standalone: uvicorn mock_telegram:app --port 8081 (from tests/), then start the studio with
 TG_BOT_TOKEN=1:x TG_API_BASE=http://127.0.0.1:8081. GET /log shows every call;
