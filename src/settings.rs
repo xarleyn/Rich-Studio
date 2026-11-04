@@ -439,6 +439,15 @@ impl Settings {
         }
     }
 
+    /// Emoji pack pictures live outside `media/`: storage limits and housekeeping
+    /// must never touch them, because a pack is configuration, not an upload.
+    pub fn emoji_cache_dir(&self, account_id: Option<i64>) -> PathBuf {
+        match account_id {
+            Some(account_id) => self.account_dir(account_id).join("emoji-cache"),
+            None => self.data_dir.join("emoji-cache"),
+        }
+    }
+
     pub fn database_path(&self, account_id: Option<i64>) -> PathBuf {
         match account_id {
             Some(account_id) => self.account_dir(account_id).join("studio.db"),

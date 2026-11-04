@@ -6,6 +6,7 @@ pub mod community;
 pub mod config;
 pub mod drafts;
 pub mod editing;
+pub mod emoji;
 pub mod health;
 pub mod imports;
 pub mod landing;
@@ -109,6 +110,16 @@ pub fn router(state: AppState) -> Router {
                 .delete(templates::delete),
         )
         .route("/api/templates/{tid}/drafts", post(templates::create_draft))
+        .route(
+            "/api/emoji/packs",
+            get(emoji::packs_list).post(emoji::packs_add),
+        )
+        .route(
+            "/api/emoji/packs/{name}",
+            axum::routing::delete(emoji::packs_remove),
+        )
+        .route("/api/emoji/img/{custom_emoji_id}", get(emoji::img))
+        .route("/api/emoji/file/{custom_emoji_id}", get(emoji::file))
         .route("/healthz", get(|| async { Json(json!({"ok": true})) }))
         .route("/api/drafts", get(drafts::list).post(drafts::create))
         .route(

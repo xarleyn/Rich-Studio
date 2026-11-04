@@ -13,7 +13,16 @@ use crate::telegram::uploads::Uploads;
 
 const MAX_RETRY_AFTER: u64 = 30;
 const MAX_RETRIES: usize = 3;
-const READ_METHODS: &[&str] = &["getMe", "getChat", "getChatMember", "answerCallbackQuery"];
+const READ_METHODS: &[&str] = &[
+    "getMe",
+    "getChat",
+    "getChatMember",
+    "answerCallbackQuery",
+    // Custom emoji packs: a set by short name and sticker files, no chat involved.
+    "getStickerSet",
+    "getCustomEmojiStickers",
+    "getFile",
+];
 
 #[derive(Clone)]
 pub struct TelegramTransport {
@@ -142,6 +151,54 @@ impl TelegramTransport {
     ) -> Result<Value, TelegramError> {
         let payload = self.authorize(context, method, payload).await?;
         self.call_authorized(method, payload, uploads).await
+    }
+
+    /// `getFile` plus the byte download from `{api_base}/file/bot{token}/{file_path}`.
+    /// The URL carries the bot token, so it is never logged or copied into an error.
+    /// Returns the bytes and the `file_path` `getFile` reported.
+    pub async fn download_file(
+        &self,
+        context: &AccountContext,
+        file_id: &str,
+    ) -> Result<(Vec<u8>, String), TelegramError> {
+        let file = self
+            .call(
+                context,
+                "getFile",
+                json!({"file_id": file_id}),
+                Uploads::default(),
+            )
+            .await?;
+        let path = file
+            .get("file_path")
+            .and_then(Value::as_str)
+            .filter(|path| !path.is_empty())
+            .ok_or_else(|| TelegramError::NoAnswer("getFile не вернул file_path".to_owned()))?;
+        let url = format!("{}/file/bot{}/{}", self.api_base, self.token, path);
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|_| {
+                TelegramError::Unreachable("нет связи с Telegram: файл не скачан".to_owned())
+            })?;
+        let response = client.get(url).send().await.map_err(|error| {
+            if error.is_connect() {
+                TelegramError::Unreachable("нет связи с Telegram: файл не скачан".to_owned())
+            } else {
+                TelegramError::NoAnswer("Telegram не ответил: файл не скачан".to_owned())
+            }
+        })?;
+        if !response.status().is_success() {
+            return Err(TelegramError::NoAnswer(format!(
+                "скачивание файла: HTTP {}",
+                response.status().as_u16()
+            )));
+        }
+        let data = response.bytes().await.map_err(|_| {
+            TelegramError::NoAnswer("Telegram оборвал ответ: файл не скачан".to_owned())
+        })?;
+        Ok((data.to_vec(), path.to_owned()))
     }
 
     async fn call_authorized(

@@ -105,6 +105,10 @@ name = "templates"
 path = "tests/rust/templates.rs"
 
 [[test]]
+name = "emoji"
+path = "tests/rust/emoji.rs"
+
+[[test]]
 name = "runtime"
 path = "tests/rust/runtime.rs"
 

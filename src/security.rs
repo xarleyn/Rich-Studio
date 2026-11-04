@@ -417,7 +417,11 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
                 .insert(header::CONTENT_SECURITY_POLICY, value);
         }
     }
-    if !public || path.starts_with("/api/auth/") || path.starts_with("/auth/") {
+    if (!public || path.starts_with("/api/auth/") || path.starts_with("/auth/"))
+        && !(path.starts_with("/api/emoji/img/") || path.starts_with("/api/emoji/file/"))
+    {
+        // Emoji pictures are immutable and account-private: their handler sets
+        // `private, immutable, max-age=31536000`, which must survive this layer.
         response.headers_mut().insert(
             header::CACHE_CONTROL,
             header::HeaderValue::from_static("no-store"),

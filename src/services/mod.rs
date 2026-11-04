@@ -9,6 +9,7 @@ pub mod channels;
 pub mod contracts;
 pub mod drafts;
 pub mod editing;
+pub mod emoji;
 pub mod health;
 pub mod housekeeping;
 pub mod idempotency;

@@ -15,7 +15,7 @@ const schemaText = load('openapi');
 const schema = JSON.parse(schemaText);
 const tools = JSON.parse(load('mcp-contract'));
 const header = '<!-- generated: run `make docs`, do not edit by hand -->';
-const tags = { posts: 'Проверка поста', preview: 'Предпросмотр', drafts: 'Черновики', telegram: 'Публикация и канал', channels: 'Каналы', media: 'Файлы', spec: 'Спецификация Bot API', service: 'Студия' };
+const tags = { posts: 'Проверка поста', preview: 'Предпросмотр', drafts: 'Черновики', telegram: 'Публикация и канал', channels: 'Каналы', media: 'Файлы', emoji: 'Эмодзи', spec: 'Спецификация Bot API', service: 'Студия' };
 const cell = (text) => text.trim().replace(/\s+/gu, ' ').replaceAll('|', '\\|');
 const rows = new Map();
 for (const [path, operations] of Object.entries(schema.paths)) {

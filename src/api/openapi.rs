@@ -78,7 +78,12 @@ use utoipa::OpenApi as _;
     super::webhook::status,
     super::specs::validate,
     super::telegram_auth::callback,
-    super::preview::draft
+    super::preview::draft,
+    super::emoji::packs_list,
+    super::emoji::packs_add,
+    super::emoji::packs_remove,
+    super::emoji::img,
+    super::emoji::file
 ))]
 struct ApiDoc;
 pub fn document() -> Result<Value, String> {
