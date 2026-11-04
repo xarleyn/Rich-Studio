@@ -11,6 +11,7 @@
     "test:i18n": "node tests/i18n_unit.mjs",
     "test:parity": "node tests/render_parity.mjs",
     "test:shots": "node tests/preview_shots.mjs",
+    "test:docs": "node scripts/generate-rust-docs.mjs --check",
     "test:e2e": "node tests/e2e_ui.mjs",
     "vendor:editor": "node scripts/vendor-code-editor.mjs",
     "test:source": "node scripts/vendor-code-editor.mjs --check && node tests/source_completion.mjs"

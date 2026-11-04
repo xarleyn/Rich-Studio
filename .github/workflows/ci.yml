@@ -85,6 +85,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci && npx playwright install --with-deps chromium
       - run: cargo build --locked --bin rich-studio
+      - run: npm run test:docs
       - name: unchanged browser scenarios against isolated Rust and mock Telegram
         run: node scripts/check-rust-browser.mjs
       - uses: actions/upload-artifact@v7
