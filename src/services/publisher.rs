@@ -156,13 +156,18 @@ impl Publisher {
         .await
     }
 
-    async fn record_failure(&self, id: String, detail: String) -> Result<(), ServiceError> {
+    async fn record_failure(
+        &self,
+        id: String,
+        detail: String,
+        event: Option<&str>,
+    ) -> Result<(), ServiceError> {
         let saved = id.clone();
         blocking::run(&self.context, move |context| {
             Ok(posts::mark_failed(context, &id, &detail)?)
         })
         .await?;
-        self.notify(&saved, None, None).await;
+        self.notify(&saved, event, None).await;
         Ok(())
     }
 
@@ -206,7 +211,8 @@ impl Publisher {
                         .await?;
                         return Err(ServiceError::Telegram(error));
                     }
-                    self.record_failure(id, detail.clone()).await?;
+                    self.record_failure(id, detail.clone(), uncertain.then_some("uncertain"))
+                        .await?;
                     if chats.len() == 1 {
                         return Err(if uncertain {
                             ServiceError::MayHaveGone(json!(detail))
@@ -220,7 +226,8 @@ impl Publisher {
             };
             let Some(message_id) = result["message_id"].as_i64() else {
                 let detail = format!("Telegram response has no message_id. {MAY_HAVE_GONE}");
-                self.record_failure(id, detail.clone()).await?;
+                self.record_failure(id, detail.clone(), Some("uncertain"))
+                    .await?;
                 if chats.len() == 1 {
                     return Err(ServiceError::MayHaveGone(json!(detail)));
                 }
@@ -356,7 +363,7 @@ impl Publisher {
         match self.send(chat, &sent, kind).await {
             Ok(poll_result) => {
                 let Some(message_id) = poll_result["message_id"].as_i64() else {
-                    self.record_failure(id, POLL_MAY_HAVE_GONE.to_owned())
+                    self.record_failure(id, POLL_MAY_HAVE_GONE.to_owned(), None)
                         .await?;
                     return Err(ServiceError::MayHaveGone(json!(POLL_MAY_HAVE_GONE)));
                 };
@@ -379,7 +386,7 @@ impl Publisher {
                 } else {
                     error.to_string()
                 };
-                self.record_failure(id, detail.clone()).await?;
+                self.record_failure(id, detail.clone(), None).await?;
                 Err(ServiceError::Upstream(json!(detail)))
             }
         }

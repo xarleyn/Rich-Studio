@@ -8,10 +8,17 @@ use rich_studio::{
     AppState,
     account_context::{AccountContext, Role},
     build_router,
-    services::{accounts, bot_dialog, bot_notifications, updates},
+    errors::ServiceError,
+    services::{
+        accounts, bot_dialog, bot_notifications, import_forward, in_flight, kinds,
+        publisher::Publisher, scheduler as scheduler_service, updates,
+    },
     settings::Settings,
-    store::{auth, bot_dialog as db, channels, meta, posts},
-    telegram::client::TelegramTransport,
+    store::{
+        auth, bot_dialog as db, channels, editing, import_inbox, meta, posts,
+        scheduler as scheduler_store,
+    },
+    telegram::{TelegramError, client::TelegramTransport, uploads::Uploads},
 };
 use serde_json::{Value, json};
 use std::{
@@ -27,6 +34,7 @@ use tower::ServiceExt as _;
 #[derive(Clone, Default)]
 struct Mock {
     calls: Arc<Mutex<Vec<(String, Value)>>>,
+    queue: Arc<Mutex<Vec<(String, Value)>>>,
     mode: Arc<AtomicU8>,
     updates: Arc<Mutex<Value>>,
     changed: Arc<tokio::sync::Notify>,
@@ -44,12 +52,26 @@ impl Mock {
             .filter(|(name, _)| name == method)
             .count()
     }
+    fn respond(&self, method: &str, response: Value) {
+        self.queue
+            .lock()
+            .unwrap_or_else(|e| panic!("lock: {e}"))
+            .push((method.to_owned(), response));
+    }
+    fn clear_calls(&self) {
+        self.calls
+            .lock()
+            .unwrap_or_else(|e| panic!("lock: {e}"))
+            .clear();
+    }
 }
 async fn mock() -> Result<(String, Mock, tokio::task::JoinHandle<()>), Box<dyn std::error::Error>> {
     let mock = Mock::default();
     let app=axum::Router::new().route("/bot1:fixture/{method}",axum::routing::post(async|State(mock):State<Mock>,Path(method):Path<String>,Json(body):Json<Value>|{
         mock.calls.lock().unwrap_or_else(|e|panic!("lock: {e}")).push((method.clone(),body.clone()));
         mock.changed.notify_one();
+        let queued={let mut queue=mock.queue.lock().unwrap_or_else(|e|panic!("lock: {e}"));queue.iter().position(|(name,_)|name==&method).map(|index|queue.remove(index).1)};
+        if let Some(response)=queued{return(StatusCode::OK,Json(response))}
         let mode=mock.mode.load(Ordering::SeqCst);
         if ["sendMessage","sendRichMessage","answerCallbackQuery"].contains(&method.as_str()) {
             if mode==1{return(StatusCode::BAD_GATEWAY,Json(json!({"ok":false,"error_code":502,"description":"lost response"})))}
@@ -114,7 +136,83 @@ fn callback(id: i64, chat: i64, mid: i64, data: &str) -> Value {
     json!({"update_id":id,"callback_query":{"id":format!("cq{id}"),"from":{"id":chat},"message":{"chat":{"id":chat,"type":if chat>0{"private"}else{"channel"}},"message_id":mid},"data":data}})
 }
 fn private(id: i64, text: &str) -> Value {
-    json!({"message":{"from":{"id":id,"language_code":"en"},"chat":{"id":id,"type":"private"},"text":text}})
+    private_in(id, text, "en")
+}
+fn private_in(id: i64, text: &str, language: &str) -> Value {
+    json!({"message":{"message_id":1,"from":{"id":id,"language_code":language},"chat":{"id":id,"type":"private"},"text":text}})
+}
+fn private_ru(id: i64, text: &str) -> Value {
+    private_in(id, text, "ru")
+}
+fn blocks_post() -> Value {
+    json!({"rich_message":{"blocks":[
+        {"type":"heading","size":1,"text":"Тест"},
+        {"type":"paragraph","text":["Привет, ",{"type":"bold","text":"мир"}]}
+    ]}})
+}
+fn notices(mock: &Mock) -> Vec<Value> {
+    mock.calls()
+        .into_iter()
+        .filter(|(method, _)| method == "sendMessage")
+        .map(|(_, body)| body)
+        .collect()
+}
+fn notice_texts(mock: &Mock) -> Vec<String> {
+    notices(mock)
+        .into_iter()
+        .filter_map(|body| body["text"].as_str().map(str::to_owned))
+        .collect()
+}
+fn last_body(mock: &Mock, method: &str) -> Value {
+    mock.calls()
+        .into_iter()
+        .filter(|(name, _)| name == method)
+        .next_back()
+        .map(|(_, body)| body)
+        .unwrap_or(Value::Null)
+}
+fn subscribe_with(
+    settings: &Settings,
+    uid: i64,
+    mode: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    db::touch(settings, uid, "ru", Some(mode), false)?;
+    Ok(())
+}
+fn stored(
+    context: &AccountContext,
+    chat: &Value,
+    status: &str,
+    message_id: Option<i64>,
+    scheduled_at: Option<i64>,
+) -> Value {
+    let payload = blocks_post();
+    posts::add(
+        context,
+        posts::NewPost {
+            chat_id: chat,
+            payload: &payload,
+            draft_id: None,
+            status,
+            message_id,
+            scheduled_at,
+            error: None,
+            kind: "rich",
+            actor: "test",
+        },
+    )
+    .unwrap_or_else(|e| panic!("post: {e}"))
+}
+fn publisher_for(state: &AppState, context: &AccountContext) -> Publisher {
+    Publisher::new(
+        context.clone(),
+        state.transport(),
+        state.settings.updates_on,
+    )
+    .with_settings(&state.settings)
+}
+fn now() -> i64 {
+    auth::now()
 }
 async fn request(app: axum::Router, body: Value, secret: Option<&str>) -> (StatusCode, Value) {
     let mut request = Request::builder()
@@ -670,5 +768,1167 @@ async fn leader_delivers_reports_even_when_updates_are_disabled_and_joins_on_sto
     tokio::task::yield_now().await;
     assert_eq!(mock.calls().len(), calls);
     server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn bot_dialog_start_help_menu_preferences_and_registered_commands()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.public_url = "https://studio.example".to_owned();
+    let state = AppState::new(config.clone());
+    updates::handle_update(&state, &private_ru(11, "/help")).await?;
+    // Help does not opt in and does not prevent a later /start.
+    assert!(db::contact(&config, 11)?.is_none());
+    assert!(
+        notice_texts(&mock)
+            .last()
+            .ok_or("help notice")?
+            .contains("/notifications")
+    );
+    assert_eq!(
+        updates::handle_update(&state, &private_ru(11, "/start")).await?,
+        Some("bot_command")
+    );
+    assert_eq!(db::contact(&config, 11)?.ok_or("contact")?["mode"], "all");
+    assert_eq!(
+        last_body(&mock, "sendMessage")["reply_markup"]["inline_keyboard"][0][0]["url"],
+        "https://studio.example"
+    );
+    for command in ["/status", "/studio", "/notifications", "/unknown", "Привет"] {
+        assert_eq!(
+            updates::handle_update(&state, &private_ru(11, command)).await?,
+            Some("bot_command")
+        );
+    }
+    let last = notice_texts(&mock).last().cloned().unwrap_or_default();
+    assert!(!last.contains("<b>") || last.contains("Rich"));
+    updates::handle_update(&state, &private_ru(11, "/stop")).await?;
+    updates::handle_update(&state, &private_ru(11, "/start")).await?;
+    // /start never undoes an explicit opt-out.
+    assert_eq!(db::contact(&config, 11)?.ok_or("contact")?["mode"], "off");
+    updates::handle_update(&state, &private_ru(11, "/notifications errors")).await?;
+    assert_eq!(
+        db::contact(&config, 11)?.ok_or("contact")?["mode"],
+        "errors"
+    );
+    // Migration/restart preserves the subscription.
+    let restarted = AppState::new(config.clone());
+    assert_eq!(
+        db::contact(&restarted.settings, 11)?.ok_or("contact")?["mode"],
+        "errors"
+    );
+    bot_dialog::register_commands(&state).await?;
+    let commands: Vec<Value> = mock
+        .calls()
+        .into_iter()
+        .filter(|(method, _)| method == "setMyCommands")
+        .map(|(_, body)| body)
+        .collect();
+    let mut languages: Vec<&str> = commands
+        .iter()
+        .filter_map(|command| command["language_code"].as_str())
+        .collect();
+    languages.sort_unstable();
+    assert_eq!(languages, ["", "en", "ru"]);
+    assert!(
+        commands
+            .iter()
+            .all(|command| command["scope"] == json!({"type":"all_private_chats"}))
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn bot_commands_are_ignored_outside_own_private_chat()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let mut supergroup = private_ru(11, "/start");
+    supergroup["message"]["chat"] = json!({"id":-1009,"type":"supergroup"});
+    let mut other_private = private_ru(11, "/start");
+    other_private["message"]["chat"] = json!({"id":888,"type":"private"});
+    let mut bot = private_ru(11, "/start");
+    bot["message"]["from"] = json!({"id":11,"is_bot":true});
+    let mention = private_ru(11, "/start@SomeOtherBot");
+    let mut forwarded = private_ru(11, "/start");
+    forwarded["message"]["forward_origin"] = json!({"type":"hidden_user"});
+    for update in [supergroup, other_private, bot, mention, forwarded] {
+        assert!(updates::handle_update(&state, &update).await?.is_none());
+    }
+    assert_eq!(mock.count("sendMessage"), 0);
+    assert!(db::contact(&config, 11)?.is_none());
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn bot_dialog_owner_only_in_private_mode_and_username_mentions()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    assert!(
+        updates::handle_update(&state, &private_ru(888, "/start"))
+            .await?
+            .is_none()
+    );
+    assert!(db::contact(&config, 888)?.is_none());
+    assert_eq!(mock.count("sendMessage"), 0);
+    assert_eq!(
+        updates::handle_update(&state, &private_ru(11, "/start@FiXtUrE")).await?,
+        Some("bot_command")
+    );
+    assert_eq!(db::contact(&config, 11)?.ok_or("contact")?["mode"], "all");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn bot_dialog_callback_preferences_and_reply_budget() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let update = callback(1, 11, 1, "rsbot:notifications errors");
+    assert_eq!(
+        updates::handle_update(&state, &update).await?,
+        Some("bot_command")
+    );
+    assert_eq!(
+        db::contact(&config, 11)?.ok_or("contact")?["mode"],
+        "errors"
+    );
+    assert_eq!(
+        last_body(&mock, "answerCallbackQuery")["callback_query_id"],
+        "cq1"
+    );
+    for _ in 0..20 {
+        updates::handle_update(&state, &private_ru(11, "/help")).await?;
+    }
+    assert_eq!(mock.count("sendMessage"), 12);
+    updates::handle_update(&state, &private_ru(11, "/stop")).await?;
+    assert_eq!(db::contact(&config, 11)?.ok_or("contact")?["mode"], "off");
+    assert_eq!(mock.count("sendMessage"), 12);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn public_bot_commands_do_not_create_or_read_another_account()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.public = true;
+    let state = AppState::new(config.clone());
+    stored(&state.account, &json!("@operator"), "sent", Some(1), None);
+    assert_eq!(
+        updates::handle_update(&state, &private_ru(101, "/start")).await?,
+        Some("bot_command")
+    );
+    updates::handle_update(&state, &private_ru(101, "/status 777")).await?;
+    assert!(
+        notice_texts(&mock)
+            .last()
+            .ok_or("status notice")?
+            .contains("Сначала")
+    );
+    assert!(auth::account_ids(&config)?.is_empty());
+    assert!(!config.account_dir(101).exists());
+    for uid in [101, 202] {
+        auth::save_account(&config, &json!({"id":uid,"first_name":"Person"}))?;
+        accounts::initialize(&config, uid)?;
+        let context = AccountContext::account(&config, uid, Role::Publish);
+        stored(&context, &json!("@own"), "failed", None, None);
+        if uid == 202 {
+            stored(&context, &json!("@secret"), "failed", None, None);
+        }
+    }
+    // Another person's id in the text never selects their database.
+    updates::handle_update(&state, &private_ru(101, "/status 202")).await?;
+    let text = notice_texts(&mock).last().cloned().unwrap_or_default();
+    assert!(text.contains("Требуют проверки: 1"), "{text}");
+    assert!(text.contains("Опубликовано: 0"), "{text}");
+    assert!(AccountContext::root(&config).account_id.is_none());
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn private_dm_rejects_other_recipients_and_arbitrary_sends()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let context = AccountContext::account(&config, 101, Role::Publish);
+    let transport = state.transport();
+    assert!(matches!(
+        bot_dialog::send_private(&context, &config, &transport, 202, "secret", json!({})).await,
+        Err(ServiceError::BadRequest(_))
+    ));
+    bot_dialog::send_private(&context, &config, &transport, 101, "hello", json!({})).await?;
+    assert!(matches!(
+        transport
+            .call(
+                &context,
+                "sendMessage",
+                json!({"chat_id":101,"text":"arbitrary"}),
+                Uploads::default()
+            )
+            .await,
+        Err(TelegramError::Policy(_))
+    ));
+    assert_eq!(mock.count("sendMessage"), 1);
+    assert_eq!(last_body(&mock, "sendMessage")["chat_id"], 101);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn reply_transport_failure_restores_account_policy() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let context = AccountContext::account(&config, 101, Role::Publish);
+    let transport = state.transport();
+    mock.mode.store(1, Ordering::SeqCst);
+    assert!(matches!(
+        bot_dialog::send_private(&context, &config, &transport, 101, "hello", json!({})).await,
+        Err(ServiceError::Telegram(TelegramError::NoAnswer(_)))
+    ));
+    assert!(matches!(
+        transport
+            .call(
+                &context,
+                "sendMessage",
+                json!({"chat_id":101,"text":"leak"}),
+                Uploads::default()
+            )
+            .await,
+        Err(TelegramError::Policy(_))
+    ));
+    assert_eq!(mock.count("sendMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn public_notifications_are_scoped_and_private() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.public = true;
+    let state = AppState::new(config.clone());
+    for uid in [101, 202] {
+        auth::save_account(&config, &json!({"id":uid,"first_name":"Person"}))?;
+        accounts::initialize(&config, uid)?;
+        subscribe_with(&config, uid, "all")?;
+        let context = AccountContext::account(&config, uid, Role::Publish);
+        let post = stored(
+            &context,
+            &json!(format!("@channel_{uid}")),
+            "sent",
+            Some(10),
+            None,
+        );
+        bot_notifications::record(&context, &config, &post, None).await?;
+    }
+    // A corrupted destination cannot leak this account's report.
+    let context = AccountContext::account(&config, 101, Role::Publish);
+    db::enqueue(
+        &context,
+        "forged",
+        202,
+        "success",
+        &json!({"title":"private"}),
+    )?;
+    bot_notifications::deliver(&state).await?;
+    let notices = notices(&mock);
+    let mut chats = notices
+        .iter()
+        .map(|body| body["chat_id"].as_i64().ok_or("chat"))
+        .collect::<Result<Vec<_>, _>>()?;
+    chats.sort_unstable();
+    assert_eq!(chats, [101, 202]);
+    for body in &notices {
+        let text = body["text"].as_str().unwrap_or_default();
+        assert!(
+            text.contains(&format!("@channel_{}", body["chat_id"])),
+            "{text}"
+        );
+        assert!(!text.contains("private"), "{text}");
+    }
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn publication_report_is_deduplicated_and_linked() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.public_url = "https://studio.example".to_owned();
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let (results, _) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@test_channel")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    let post = results[0]["post"].clone();
+    assert_eq!(post["status"], "sent");
+    assert_eq!(mock.count("sendMessage"), 0);
+    bot_notifications::record(&state.account, &config, &post, None).await?;
+    bot_notifications::deliver(&state).await?;
+    bot_notifications::deliver(&state).await?;
+    assert_eq!(mock.count("sendMessage"), 1);
+    let notice = last_body(&mock, "sendMessage");
+    assert!(
+        notice["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Пост опубликован")
+    );
+    let link = notice["reply_markup"]["inline_keyboard"][0][0]["url"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(link.starts_with("https://t.me/test_channel/"), "{link}");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn notification_preferences_filter_and_discard_historical_reports()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let publisher = publisher_for(&state, &state.account);
+    let kind = kinds::get(Some(kinds::RICH))?;
+    publisher
+        .publish(&[json!("@old")], &blocks_post(), None, kind, "test")
+        .await?;
+    subscribe_with(&config, 11, "errors")?;
+    publisher
+        .publish(&[json!("@ok")], &blocks_post(), None, kind, "test")
+        .await?;
+    assert!(db::due(&state.account, 10)?.is_empty());
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":400,"description":"Bad Request: no posting rights"}),
+    );
+    let refused = publisher
+        .publish(&[json!("@refused")], &blocks_post(), None, kind, "test")
+        .await;
+    assert!(matches!(
+        refused,
+        Err(ServiceError::Telegram(TelegramError::Refused { .. }))
+    ));
+    bot_notifications::deliver(&state).await?;
+    assert_eq!(mock.count("sendMessage"), 1);
+    assert!(
+        last_body(&mock, "sendMessage")["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("no posting rights")
+    );
+    subscribe_with(&config, 11, "all")?;
+    publisher
+        .publish(&[json!("@queued")], &blocks_post(), None, kind, "test")
+        .await?;
+    db::disable(&config, 11)?;
+    bot_notifications::deliver(&state).await?;
+    subscribe_with(&config, 11, "all")?;
+    bot_notifications::deliver(&state).await?;
+    assert_eq!(mock.count("sendMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn uncertain_publication_reports_may_have_gone_without_retrying()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":502,"description":"gateway down"}),
+    );
+    let result = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@maybe")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await;
+    assert!(matches!(result, Err(ServiceError::MayHaveGone(_))));
+    bot_notifications::deliver(&state).await?;
+    let text = last_body(&mock, "sendMessage")["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(text.contains("Пост мог уйти"), "{text}");
+    assert!(text.contains("Проверьте канал перед повтором"), "{text}");
+    assert_eq!(mock.count("sendRichMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn failed_private_report_never_changes_or_duplicates_publication()
+-> Result<(), Box<dyn std::error::Error>> {
+    for (mode, expected) in [(2, "off"), (1, "all")] {
+        let dir = TempDir::new()?;
+        let (base, mock, server) = mock().await?;
+        let config = settings(&dir, &base);
+        let state = AppState::new(config.clone());
+        subscribe_with(&config, 11, "all")?;
+        let (results, _) = publisher_for(&state, &state.account)
+            .publish(
+                &[json!("@ok")],
+                &blocks_post(),
+                None,
+                kinds::get(Some(kinds::RICH))?,
+                "test",
+            )
+            .await?;
+        let id = results[0]["post"]["id"]
+            .as_str()
+            .ok_or("post id")?
+            .to_owned();
+        mock.mode.store(mode, Ordering::SeqCst);
+        bot_notifications::deliver(&state).await?;
+        bot_notifications::deliver(&state).await?;
+        assert_eq!(
+            posts::get(&state.account, &id)?.ok_or("post")?["status"],
+            "sent"
+        );
+        assert_eq!(mock.count("sendMessage"), 1);
+        assert_eq!(
+            db::contact(&config, 11)?.ok_or("contact")?["mode"],
+            expected
+        );
+        server.abort();
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn definite_private_report_failure_is_retried_only_after_release()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@ok")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    let event = db::due(&state.account, 10)?.remove(0);
+    let key = event["event_key"].as_str().ok_or("key")?.to_owned();
+    let offline = TelegramTransport::new("http://127.0.0.1:0".to_owned(), config.bot_token.clone());
+    bot_notifications::deliver_one(&state.account, &config, &offline, &event).await?;
+    let (state_name, retry_at): (String, i64) = rich_studio::store::Store::connect(&state.account)?
+        .query_row(
+            "select state,retry_at from bot_outbox where event_key=?",
+            [&key],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+    assert_eq!(state_name, "pending");
+    assert!(retry_at > now());
+    db::finish(&state.account, &key, "pending", 0)?;
+    let due = db::due(&state.account, 10)?.remove(0);
+    bot_notifications::deliver_one(&state.account, &config, &state.transport(), &due).await?;
+    assert_eq!(mock.count("sendMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn post_send_warning_is_reported_without_leaking_the_token()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let mut post = blocks_post();
+    post["pin"] = json!(true);
+    mock.respond(
+        "pinChatMessage",
+        json!({"ok":false,"error_code":400,"description":format!("<bad> {}", config.bot_token)}),
+    );
+    let (results, warnings) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@ok")],
+            &post,
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    assert!(!warnings.is_empty());
+    assert_eq!(results[0]["post"]["status"], "sent");
+    bot_notifications::deliver(&state).await?;
+    let text = last_body(&mock, "sendMessage")["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(text.contains("опубликован с предупреждением"), "{text}");
+    assert!(text.contains("&lt;bad&gt;"), "{text}");
+    assert!(!text.contains(&config.bot_token), "{text}");
+    let body: String = rich_studio::store::Store::connect(&state.account)?.query_row(
+        "select body from bot_outbox",
+        [],
+        |row| row.get(0),
+    )?;
+    assert!(!body.contains(&config.bot_token), "{body}");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn outbox_failure_cannot_change_a_successful_publication()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    rich_studio::store::Store::connect(&state.account)?.execute_batch(
+        "create trigger fail_outbox before insert on bot_outbox begin select raise(abort, 'disk full'); end;",
+    )?;
+    let (results, _) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@ok")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    assert_eq!(results[0]["post"]["status"], "sent");
+    assert_eq!(mock.count("sendRichMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn scheduler_reports_sent_missed_retry_and_terminal_failure()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.schedule_late_min = 1.0;
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let sent = stored(
+        &state.account,
+        &json!("@sent"),
+        "scheduled",
+        None,
+        Some(now() - 1),
+    );
+    let missed = stored(
+        &state.account,
+        &json!("@missed"),
+        "scheduled",
+        None,
+        Some(now() - 1000),
+    );
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    assert_eq!(
+        posts::get(&state.account, sent["id"].as_str().ok_or("sent id")?)?.ok_or("sent")?["status"],
+        "sent"
+    );
+    assert_eq!(
+        posts::get(&state.account, missed["id"].as_str().ok_or("missed id")?)?.ok_or("missed")?["status"],
+        "missed"
+    );
+    bot_notifications::deliver(&state).await?;
+    assert_eq!(mock.count("sendMessage"), 2);
+    let retry = stored(
+        &state.account,
+        &json!("@retry"),
+        "scheduled",
+        None,
+        Some(now() - 1),
+    );
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":429,"description":"wait","parameters":{"retry_after":120}}),
+    );
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    bot_notifications::deliver(&state).await?;
+    assert!(
+        last_body(&mock, "sendMessage")["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("задерживается")
+    );
+    rich_studio::store::Store::connect(&state.account)?.execute(
+        "update posts set retry_at=0 where id=?",
+        [retry["id"].as_str().ok_or("retry id")?],
+    )?;
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":400,"description":"forbidden"}),
+    );
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    bot_notifications::deliver(&state).await?;
+    assert!(
+        last_body(&mock, "sendMessage")["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Не удалось")
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn crash_recovery_and_expired_comment_are_reported() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let uncertain = stored(&state.account, &json!("@uncertain"), "sending", None, None);
+    let uncertain_id = uncertain["id"].as_str().ok_or("uncertain id")?.to_owned();
+    let recovered = in_flight::recover_ids(&state.account)?;
+    assert_eq!(recovered, [uncertain_id.clone()]);
+    assert_eq!(
+        posts::get(&state.account, &uncertain_id)?.ok_or("post")?["status"],
+        "failed"
+    );
+    publisher_for(&state, &state.account)
+        .notify(&uncertain_id, Some("uncertain"), None)
+        .await;
+    let comment = stored(&state.account, &json!("@comment"), "sent", Some(42), None);
+    let comment_id = comment["id"].as_str().ok_or("comment id")?;
+    posts::update_delivery(&state.account, comment_id, None, None, Some("waiting"))?;
+    rich_studio::store::Store::connect(&state.account)?
+        .execute("update posts set sent_at=1 where id=?", [comment_id])?;
+    bot_notifications::expire_comments(&state.account, &config, 100, "Пересылка не пришла").await?;
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 2, "{texts:?}");
+    assert!(
+        texts.iter().any(|text| text.contains("мог уйти")),
+        "{texts:?}"
+    );
+    assert!(
+        texts.iter().any(|text| text.contains("комментарий")),
+        "{texts:?}"
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn import_start_is_not_replaced_by_the_welcome_message()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    let ticket = import_inbox::create(&state.account, "https://t.me/test_channel/10", 11, now())?;
+    let token = ticket["id"].as_str().ok_or("ticket id")?.to_owned();
+    assert_eq!(
+        updates::handle_update(&state, &private_ru(11, &format!("/start import_{token}"))).await?,
+        Some("import")
+    );
+    assert!(
+        notice_texts(&mock)
+            .last()
+            .ok_or("import notice")?
+            .contains("перешлите")
+    );
+    assert_eq!(
+        import_forward::get(&state.account, &token)?["state"],
+        "armed"
+    );
+    assert!(db::contact(&config, 11)?.is_none());
+    assert_eq!(
+        updates::handle_update(&state, &private_ru(11, "/start import_missing")).await?,
+        Some("bot_command")
+    );
+    assert!(
+        notice_texts(&mock)
+            .last()
+            .ok_or("expired notice")?
+            .contains("устарел")
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn webhook_deduplicates_bot_commands() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config);
+    let mut update = private_ru(11, "/start");
+    update["update_id"] = json!(42);
+    updates::receive_webhook(&state, &update).await?;
+    updates::receive_webhook(&state, &update).await?;
+    assert_eq!(mock.count("sendMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn english_bot_commands_and_reports() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    updates::handle_update(&state, &private_in(11, "/start", "en-US")).await?;
+    assert!(notice_texts(&mock).last().ok_or("welcome")?.contains("Hi!"));
+    publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@ok")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    bot_notifications::deliver(&state).await?;
+    assert!(
+        notice_texts(&mock)
+            .last()
+            .ok_or("report")?
+            .contains("Post published")
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn preview_never_queues_a_publication_notice() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    rich_studio::services::posts::from_state(&state)
+        .await
+        .preview(&blocks_post(), &Value::Null)
+        .await?;
+    assert!(db::due(&state.account, 10)?.is_empty());
+    assert_eq!(mock.count("sendRichMessage"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn partial_publication_reports_each_channel_once() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":400,"description":"refused"}),
+    );
+    let (results, _) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@bad"), json!("@good")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    assert_eq!(
+        results
+            .iter()
+            .map(|result| result["ok"].clone())
+            .collect::<Vec<_>>(),
+        [json!(false), json!(true)]
+    );
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 2, "{texts:?}");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text.contains("@bad") && text.contains("Не удалось")),
+        "{texts:?}"
+    );
+    assert!(
+        texts
+            .iter()
+            .any(|text| text.contains("@good") && text.contains("опубликован")),
+        "{texts:?}"
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn outbox_claim_survives_restart_and_is_atomic() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@ok")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    let event = db::due(&state.account, 10)?.remove(0);
+    let key = event["event_key"].as_str().ok_or("key")?.to_owned();
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let mut tasks = Vec::new();
+    for _ in 0..2 {
+        let context = state.account.clone();
+        let key = key.clone();
+        let barrier = barrier.clone();
+        tasks.push(tokio::task::spawn_blocking(move || {
+            barrier.wait();
+            db::claim(&context, &key)
+        }));
+    }
+    let mut claimed = Vec::new();
+    for task in tasks {
+        claimed.push(task.await??);
+    }
+    claimed.sort_unstable();
+    assert_eq!(claimed, [false, true]);
+    let restarted = AppState::new(config.clone());
+    bot_notifications::deliver(&restarted).await?;
+    assert_eq!(mock.count("sendMessage"), 0);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn first_comment_failure_is_reported_in_real_time() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.updates_on = true;
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let mut post = blocks_post();
+    post["comment"] = json!({"rich_message":{"markdown":"first"}});
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":true,"result":{"message_id":99,"chat":{"id":-1001}}}),
+    );
+    let (results, _) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@channel")],
+            &post,
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    let saved = results[0]["post"].clone();
+    assert_eq!(saved["comment_status"], "waiting");
+    let update = json!({"message":{
+        "message_id":999,
+        "chat":{"id":-500,"type":"supergroup"},
+        "is_automatic_forward":true,
+        "forward_origin":{
+            "type":"channel",
+            "chat":{"id":saved["chat_num"]},
+            "message_id":saved["message_id"]
+        }
+    }});
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":400,"description":"discussion unavailable"}),
+    );
+    assert_eq!(
+        updates::handle_update(&state, &update).await?,
+        Some("comment")
+    );
+    bot_notifications::deliver(&state).await?;
+    assert!(
+        notice_texts(&mock)
+            .iter()
+            .any(|text| text.contains("первый комментарий"))
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn after_send_failure_keeps_the_publication_and_warns()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    rich_studio::store::Store::connect(&state.account)?.execute_batch(
+        "create trigger fail_delivery before update of chat_num on posts \
+         begin select raise(abort, 'disk full'); end;",
+    )?;
+    let (results, warnings) = publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@one"), json!("@two")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|result| result["ok"] == true));
+    assert!(!warnings.is_empty());
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 2, "{texts:?}");
+    assert!(
+        texts.iter().all(|text| text.contains("с предупреждением")),
+        "{texts:?}"
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn unsubscribe_then_resubscribe_does_not_replay_old_reports()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@old")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    updates::handle_update(&state, &private_ru(11, "/stop")).await?;
+    updates::handle_update(&state, &private_ru(11, "/notifications all")).await?;
+    mock.clear_calls();
+    publisher_for(&state, &state.account)
+        .publish(
+            &[json!("@new")],
+            &blocks_post(),
+            None,
+            kinds::get(Some(kinds::RICH))?,
+            "test",
+        )
+        .await?;
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 1, "{texts:?}");
+    assert!(texts[0].contains("@new"), "{texts:?}");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn delayed_retry_notice_is_discarded_after_publication()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let post = stored(
+        &state.account,
+        &json!("@channel"),
+        "scheduled",
+        None,
+        Some(now() - 1),
+    );
+    let id = post["id"].as_str().ok_or("post id")?.to_owned();
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":429,"description":"wait","parameters":{"retry_after":120}}),
+    );
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    let retry = db::due(&state.account, 10)?.remove(0);
+    assert_eq!(retry["body"]["event"], "retry");
+    rich_studio::store::Store::connect(&state.account)?
+        .execute("update posts set retry_at=0 where id=?", [&id])?;
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 1, "{texts:?}");
+    assert!(texts[0].contains("опубликован"), "{texts:?}");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn new_schedule_can_report_a_new_missed_deadline() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let post = stored(
+        &state.account,
+        &json!("@channel"),
+        "scheduled",
+        None,
+        Some(100),
+    );
+    let id = post["id"].as_str().ok_or("post id")?.to_owned();
+    for at in [100, 200] {
+        if at != 100 {
+            assert!(editing::reschedule(&state.account, &id, at)?);
+        }
+        assert!(scheduler_store::claim(&state.account, &id, at)?);
+        assert!(scheduler_store::missed(&state.account, &id, "missed")?);
+        let missed = posts::get(&state.account, &id)?.ok_or("missed post")?;
+        bot_notifications::record(&state.account, &config, &missed, None).await?;
+        bot_notifications::record(&state.account, &config, &missed, None).await?;
+        bot_notifications::deliver(&state).await?;
+    }
+    assert_eq!(mock.count("sendMessage"), 2);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn rescheduled_post_discards_the_old_missed_report() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    let state = AppState::new(config.clone());
+    subscribe_with(&config, 11, "all")?;
+    let post = stored(
+        &state.account,
+        &json!("@channel"),
+        "missed",
+        None,
+        Some(100),
+    );
+    let id = post["id"].as_str().ok_or("post id")?.to_owned();
+    bot_notifications::record(&state.account, &config, &post, None).await?;
+    assert!(editing::reschedule(&state.account, &id, 200)?);
+    assert!(scheduler_store::claim(&state.account, &id, 200)?);
+    assert!(scheduler_store::missed(
+        &state.account,
+        &id,
+        "new deadline"
+    )?);
+    let current = posts::get(&state.account, &id)?.ok_or("rescheduled post")?;
+    bot_notifications::record(&state.account, &config, &current, None).await?;
+    bot_notifications::deliver(&state).await?;
+    let texts = notice_texts(&mock);
+    assert_eq!(texts.len(), 1, "{texts:?}");
+    assert!(texts[0].contains("new deadline"), "{texts:?}");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn preview_callbacks_take_priority_over_bot_commands()
+-> Result<(), Box<dyn std::error::Error>> {
+    for public in [false, true] {
+        for data in ["rsbot:help", "rsbot:notifications off"] {
+            let dir = TempDir::new()?;
+            let (base, mock, server) = mock().await?;
+            let mut config = settings(&dir, &base);
+            config.public = public;
+            let state = AppState::new(config.clone());
+            subscribe_with(&config, 11, "all")?;
+            if public {
+                auth::save_account(&config, &json!({"id":11,"first_name":"Person"}))?;
+                accounts::initialize(&config, 11)?;
+            }
+            let context = if public {
+                AccountContext::account(&config, 11, Role::Publish)
+            } else {
+                AccountContext::root(&config)
+            };
+            let mut callbacks = serde_json::Map::new();
+            callbacks.insert(data.to_owned(), json!({"text":"custom preview answer"}));
+            updates::remember_preview(&context, &json!(11), 42, &Value::Object(callbacks)).await?;
+            assert_eq!(
+                updates::handle_update(&state, &callback(1, 11, 42, data)).await?,
+                Some("callback")
+            );
+            assert_eq!(
+                last_body(&mock, "answerCallbackQuery")["text"],
+                "custom preview answer"
+            );
+            assert_eq!(mock.count("sendMessage"), 0);
+            assert_eq!(db::contact(&config, 11)?.ok_or("contact")?["mode"], "all");
+            server.abort();
+        }
+    }
     Ok(())
 }
