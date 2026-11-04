@@ -13,6 +13,7 @@ use rich_studio::{
         invite_links::{self, InviteLinks},
         posts::PostService,
         suggested_posts::{self, SuggestedPosts},
+        updates,
     },
     settings::Settings,
     spec::source::Spec,
@@ -24,7 +25,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 use tempfile::TempDir;
@@ -36,6 +37,8 @@ struct Mock {
     mode: Arc<AtomicU8>,
     entered: Arc<tokio::sync::Notify>,
     release: Arc<tokio::sync::Notify>,
+    links: Arc<Mutex<BTreeMap<String, Value>>>,
+    link_ids: Arc<AtomicU64>,
 }
 impl Mock {
     fn calls(&self) -> Vec<(String, Value)> {
@@ -50,6 +53,65 @@ impl Mock {
             .filter(|(method, _)| method == name)
             .count()
     }
+    fn last(&self, name: &str) -> Value {
+        self.calls()
+            .into_iter()
+            .rev()
+            .find(|(method, _)| method == name)
+            .map(|(_, body)| body)
+            .unwrap_or_else(|| panic!("no {name} call"))
+    }
+    fn invite_call(&self, method: &str, body: Value) -> Value {
+        let mut links = self
+            .links
+            .lock()
+            .unwrap_or_else(|error| panic!("lock {error}"));
+        let link = if method.starts_with("create") {
+            let id = self.link_ids.fetch_add(1, Ordering::SeqCst) + 1;
+            let link = format!("https://t.me/+fixture{id}");
+            links.insert(link.clone(), json!({}));
+            link
+        } else {
+            body["invite_link"].as_str().unwrap_or_default().to_owned()
+        };
+        let stored = links.get(&link).cloned().unwrap_or_else(|| json!({}));
+        if method == "revokeChatInviteLink" {
+            let mut record = stored;
+            record["invite_link"] = json!(link.clone());
+            record["is_revoked"] = json!(true);
+            links.insert(link, record.clone());
+            return record;
+        }
+        let mut record = json!({
+            "invite_link": link.clone(),
+            "creator": {"id": 42, "is_bot": true, "first_name": "Bot"},
+            "creates_join_request": false,
+            "is_primary": false,
+            "is_revoked": false
+        });
+        for key in ["subscription_period", "subscription_price"] {
+            if let Some(value) = stored.get(key) {
+                record[key] = value.clone();
+            }
+        }
+        for key in [
+            "name",
+            "expire_date",
+            "member_limit",
+            "creates_join_request",
+            "subscription_period",
+            "subscription_price",
+        ] {
+            if let Some(value) = body.get(key)
+                && !value.is_null()
+                && value.as_str() != Some("")
+            {
+                record[key] = value.clone();
+            }
+        }
+        links.insert(link, record.clone());
+        record
+    }
 }
 async fn mock() -> Result<(String, Mock, tokio::task::JoinHandle<()>), Box<dyn std::error::Error>> {
     let mock = Mock::default();
@@ -62,7 +124,7 @@ async fn mock() -> Result<(String, Mock, tokio::task::JoinHandle<()>), Box<dyn s
             if mode==2{return(StatusCode::BAD_GATEWAY,Json(json!({"ok":false,"error_code":502,"description":"lost acknowledgement"})))}
         }
         let result=if method=="getChatMember"{json!({"status":if body["user_id"]==22{"member"}else{"creator"}})}else if method.contains("InviteLink"){
-            let mut result=body;result["invite_link"]=json!("https://t.me/+fixture");if method=="revokeChatInviteLink"{result["is_revoked"]=json!(true)}result
+            mock.invite_call(&method,body)
         }else{json!(true)};
         (StatusCode::OK,Json(json!({"ok":true,"result":result})))
     })).with_state(mock.clone());
@@ -80,6 +142,7 @@ fn settings(dir: &TempDir, base: &str) -> Settings {
             dir.path().to_string_lossy().into_owned(),
         ),
         ("TG_BOT_TOKEN".to_owned(), "1:fixture".to_owned()),
+        ("TG_DEFAULT_CHAT".to_owned(), "@test_channel".to_owned()),
         ("STUDIO_API_KEY".to_owned(), "owner-secret".to_owned()),
         ("STUDIO_BACKGROUND".to_owned(), "off".to_owned()),
     ]))
@@ -551,6 +614,509 @@ async fn public_invites_and_suggestions_cannot_read_or_mutate_other_accounts()
     assert_eq!(mock.count("createChatInviteLink"), 1);
     assert_eq!(mock.count("getChatMember"), 1);
     assert!(link_store::listing(&b, None)?.is_empty());
+    server.abort();
+    Ok(())
+}
+
+fn member(link: &str, old: &str, new: &str, extra: Value) -> Value {
+    let mut new_member = json!({"status": new, "user": {"id": 7}});
+    if let Some(extra) = extra.as_object() {
+        for (key, value) in extra {
+            new_member[key.as_str()] = value.clone();
+        }
+    }
+    json!({
+        "chat_member": {
+            "chat": {"id": -1001, "type": "channel"},
+            "from": {"id": 7},
+            "date": auth::now(),
+            "old_chat_member": {"status": old, "user": {"id": 7}},
+            "new_chat_member": new_member,
+            "invite_link": {"invite_link": link, "creator": {"id": 42}, "is_primary": false, "is_revoked": false}
+        }
+    })
+}
+
+async fn mcp_call(app: axum::Router, tool: &str, arguments: Value, credential: &str) -> Value {
+    let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":tool,"arguments":arguments}});
+    let (status, response) = request(app, "POST", "/mcp", body, credential, false, None).await;
+    assert_eq!(status, StatusCode::OK, "mcp {tool}: {response}");
+    response["result"].clone()
+}
+
+fn mcp_list(result: &Value) -> Vec<Value> {
+    result["content"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    serde_json::from_str::<Value>(item["text"].as_str().unwrap_or_default()).ok()
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[tokio::test]
+async fn named_link_counts_joins_and_filters_listing_by_chat()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    let created = request(
+        app.clone(),
+        "POST",
+        "/api/invite-links",
+        json!({"chat_id": "@chan", "name": "Хабр", "member_limit": 100}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::OK, "{}", created.1);
+    let link = created.1;
+    assert_eq!(link["name"], "Хабр");
+    assert_eq!(link["member_limit"], 100);
+    assert_eq!(link["joined"], 0);
+    assert_eq!(
+        mock.last("createChatInviteLink"),
+        json!({"chat_id": "@chan", "name": "Хабр", "member_limit": 100})
+    );
+    let url = link["invite_link"].as_str().ok_or("link")?.to_owned();
+    assert_eq!(
+        updates::handle_update(&state, &member(&url, "left", "member", json!({}))).await?,
+        Some("join")
+    );
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &member(&url, "kicked", "restricted", json!({"is_member": true}))
+        )
+        .await?,
+        Some("join")
+    );
+    // an admin promoted, a link the studio did not make: nothing to count
+    assert_eq!(
+        updates::handle_update(&state, &member(&url, "member", "administrator", json!({}))).await?,
+        None
+    );
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &member("https://t.me/+other", "left", "member", json!({}))
+        )
+        .await?,
+        None
+    );
+    let listed = request(
+        app.clone(),
+        "GET",
+        "/api/invite-links?chat_id=%40chan",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    let listed = listed.as_array().ok_or("listing")?;
+    let counts = listed
+        .iter()
+        .map(|link| {
+            (
+                link["name"].as_str().unwrap_or_default(),
+                link["joined"].as_i64().unwrap_or_default(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(counts, [("Хабр", 2)]);
+    assert_eq!(
+        request(
+            app,
+            "GET",
+            "/api/invite-links?chat_id=%40other",
+            Value::Null,
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .1,
+        json!([])
+    );
+    assert!(updates::ALLOWED_UPDATES.contains(&"chat_member"));
+    assert!(updates::ALLOWED_UPDATES.contains(&"chat_join_request"));
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    let expires = auth::now() + 86400;
+    let created = request(
+        app.clone(),
+        "POST",
+        "/api/invite-links",
+        json!({"name": "Заявки", "creates_join_request": true, "expire_date": expires}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::OK, "{}", created.1);
+    let link = created.1;
+    assert_eq!(link["creates_join_request"], 1);
+    assert_eq!(link["expire_date"], expires);
+    let sent = mock.last("createChatInviteLink");
+    assert_eq!(sent["chat_id"], "@test_channel");
+    assert_eq!(sent["creates_join_request"], true);
+    let url = link["invite_link"].as_str().ok_or("link")?.to_owned();
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &json!({"chat_join_request": {"chat": {"id": -1001}, "from": {"id": 8}, "invite_link": {"invite_link": url.clone()}}})
+        )
+        .await?,
+        Some("join_request")
+    );
+    let conflicting = request(
+        app.clone(),
+        "POST",
+        "/api/invite-links",
+        json!({"creates_join_request": true, "member_limit": 5}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(conflicting.0, StatusCode::BAD_REQUEST);
+    assert!(
+        conflicting.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("заяв")
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/invite-links",
+            json!({"name": "x".repeat(33)}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    // Telegram drops what an edit leaves out, so a rename repeats the expiry and the join requests
+    let edited = request(
+        app.clone(),
+        "PATCH",
+        "/api/invite-links",
+        json!({"invite_link": url.clone(), "name": "Заявки 2"}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
+    assert_eq!(edited.1["name"], "Заявки 2");
+    assert_eq!(edited.1["requests"], 1);
+    assert_eq!(edited.1["expire_date"], expires);
+    assert_eq!(edited.1["creates_join_request"], 1);
+    let sent = mock.last("editChatInviteLink");
+    assert_eq!(sent["expire_date"], expires);
+    assert_eq!(sent["creates_join_request"], true);
+    let later = request(
+        app.clone(),
+        "PATCH",
+        "/api/invite-links",
+        json!({"invite_link": url.clone(), "expire_date": expires + 60}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(later["name"], "Заявки 2");
+    assert_eq!(later["expire_date"], expires + 60);
+    assert_eq!(later["creates_join_request"], 1);
+    let off = request(
+        app.clone(),
+        "PATCH",
+        "/api/invite-links",
+        json!({"invite_link": url.clone(), "expire_date": 0, "creates_join_request": false}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(off["name"], "Заявки 2");
+    assert!(off["expire_date"].is_null());
+    assert_eq!(off["creates_join_request"], 0);
+    assert!(mock.last("editChatInviteLink").get("expire_date").is_none());
+    let revoked = request(
+        app.clone(),
+        "POST",
+        "/api/invite-links/revoke",
+        json!({"invite_link": url.clone()}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(revoked["is_revoked"], 1);
+    assert_eq!(revoked["name"], "Заявки 2");
+    assert_eq!(
+        request(
+            app.clone(),
+            "PATCH",
+            "/api/invite-links",
+            json!({"invite_link": url}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        request(
+            app,
+            "POST",
+            "/api/invite-links/revoke",
+            json!({"invite_link": "https://t.me/+nope"}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn subscription_link_rejects_limits_and_changes_only_its_name()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let app = build_router(AppState::new(settings(&dir, &base)));
+    let created = request(
+        app.clone(),
+        "POST",
+        "/api/invite-links",
+        json!({"name": "Клуб", "subscription_price": 50}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::OK, "{}", created.1);
+    let link = created.1;
+    assert_eq!(link["kind"], "subscription");
+    assert_eq!(link["subscription_price"], 50);
+    let body = mock.last("createChatSubscriptionInviteLink");
+    assert_eq!(body["subscription_period"], 2592000);
+    assert_eq!(body["subscription_price"], 50);
+    let url = link["invite_link"].as_str().ok_or("link")?.to_owned();
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/invite-links",
+            json!({"subscription_price": 50, "member_limit": 3}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "PATCH",
+            "/api/invite-links",
+            json!({"invite_link": url.clone(), "name": "Клуб+", "member_limit": 3}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let edited = request(
+        app,
+        "PATCH",
+        "/api/invite-links",
+        json!({"invite_link": url, "name": "Клуб+"}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
+    assert_eq!(edited.1["name"], "Клуб+");
+    assert_eq!(mock.last("editChatSubscriptionInviteLink")["name"], "Клуб+");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn invite_link_mutations_require_publish_while_lists_stay_readable()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    auth::add_token(&config, "d", "draft-secret", "draft")?;
+    let app = build_router(AppState::new(config));
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/invite-links",
+            json!({}),
+            "draft-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "PATCH",
+            "/api/invite-links",
+            json!({"invite_link": "x"}),
+            "draft-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/invite-links/revoke",
+            json!({"invite_link": "x"}),
+            "draft-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request(
+            app,
+            "GET",
+            "/api/invite-links",
+            Value::Null,
+            "draft-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert!(mock.calls().is_empty());
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let app = build_router(AppState::new(settings(&dir, &base)));
+    let created = mcp_call(
+        app.clone(),
+        "create_invite_link",
+        json!({"chat_id": "@chan", "name": "Telegram-чат"}),
+        "owner-secret",
+    )
+    .await;
+    assert_eq!(created["isError"], false);
+    let link = created["structuredContent"].clone();
+    assert!(
+        link["invite_link"]
+            .as_str()
+            .ok_or("link")?
+            .starts_with("https://t.me/+")
+    );
+    let listed =
+        mcp_list(&mcp_call(app.clone(), "list_invite_links", json!({}), "owner-secret").await);
+    let names = listed
+        .iter()
+        .map(|item| item["name"].as_str().unwrap_or_default())
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["Telegram-чат"]);
+    let url = link["invite_link"].as_str().ok_or("link")?.to_owned();
+    let limited = mcp_call(
+        app.clone(),
+        "edit_invite_link",
+        json!({"invite_link": url.clone(), "member_limit": 20}),
+        "owner-secret",
+    )
+    .await["structuredContent"]
+        .clone();
+    assert_eq!(limited["name"], "Telegram-чат");
+    assert_eq!(limited["member_limit"], 20);
+    let renamed = mcp_call(
+        app.clone(),
+        "edit_invite_link",
+        json!({"invite_link": url.clone(), "name": "Чат"}),
+        "owner-secret",
+    )
+    .await["structuredContent"]
+        .clone();
+    assert_eq!(renamed["name"], "Чат");
+    assert_eq!(renamed["member_limit"], 20);
+    let unnamed = mcp_call(
+        app.clone(),
+        "edit_invite_link",
+        json!({"invite_link": url.clone(), "name": "", "member_limit": 0}),
+        "owner-secret",
+    )
+    .await["structuredContent"]
+        .clone();
+    assert!(unnamed["name"].is_null() || unnamed["name"] == json!(""));
+    assert!(unnamed["member_limit"].is_null() || unnamed["member_limit"] == json!(0));
+    let revoked = mcp_call(
+        app,
+        "revoke_invite_link",
+        json!({"invite_link": url}),
+        "owner-secret",
+    )
+    .await["structuredContent"]
+        .clone();
+    assert_eq!(revoked["is_revoked"], 1);
+    assert_eq!(mock.count("revokeChatInviteLink"), 1);
     server.abort();
     Ok(())
 }
