@@ -147,6 +147,11 @@ class Settings:
         return self.account_dir / "media"
 
     @property
+    def emoji_cache_dir(self) -> Path:
+        # emoji pack pictures: outside media/, so storage limits and housekeeping never touch them
+        return self.account_dir / "emoji-cache"
+
+    @property
     def db_path(self) -> Path:
         return self.account_dir / "studio.db"
 

@@ -5,7 +5,7 @@ PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 LINT_IMPORTS = $(firstword $(wildcard .venv/bin/lint-imports .venv/Scripts/lint-imports.exe) lint-imports)
 UV = $(firstword $(wildcard .venv/bin/uv .venv/Scripts/uv.exe) uv)
 
-.PHONY: check check-fast check-rust check-rust-fast check-docs check-py check-js fmt test openapi docs e2e e2e-rust e2e-tgfake mock dev dev-python spec-update token tokens token-revoke lock
+.PHONY: check check-fast check-rust check-rust-fast check-docs check-py check-js fmt test openapi docs e2e e2e-local e2e-rust e2e-tgfake mock dev dev-python spec-update token tokens token-revoke lock
 
 check: check-rust check-docs check-py check-js
 
@@ -104,6 +104,12 @@ dev-python:
 e2e:
 	npm run --silent test:e2e
 
+# Браузерные проверки на своём стенде (Rust + C# mock): свои порты, пустой DATA_DIR.
+# Одна проверка: make e2e-local ONLY=poll
+e2e-local:
+	cargo build --locked --bin rich-studio
+	E2E_ONLY="$(ONLY)" node scripts/check-rust-browser.mjs
+
 # Изолированный запуск тех же сценариев: временные данные, свободные порты, только подставной Telegram.
 e2e-rust:
 	cargo build --locked --bin rich-studio
@@ -114,8 +120,8 @@ e2e-tgfake:
 	@test -n "$(TGFAKE_BIN)" || { echo "Set TGFAKE_BIN to the tgfake binary; see docs/TGFAKE.md"; exit 1; }
 	TGFAKE_BIN="$(TGFAKE_BIN)" cargo test --locked --test tgfake -- --ignored --test-threads=1
 
-# requirements.lock: pinned Python reference dependencies retained for migration checks. After a change in requirements.txt
-# (by hand or Dependabot) run it and commit the lock; npm run test:lock checks they agree.
+# requirements.lock: pinned dependencies. After a change in requirements.txt (and in a Dependabot PR)
+# run `make lock`; `npm run test:lock` checks they agree.
 lock:
 	$(UV) pip compile requirements.txt --universal --python-version 3.12 --generate-hashes \
 	  --annotation-style line --custom-compile-command "make lock" -o requirements.lock

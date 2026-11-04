@@ -13,7 +13,9 @@ from store import templates as records
 
 VARIABLE = re.compile(r"\{\{([A-Za-z][A-Za-z0-9_]{0,31})\}\}")
 KEY = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,31}")
-MARKDOWN_PUNCTUATION = re.compile(r"""[&<>"'\\`*_{}\[\]()#+.!|~=$-]""")
+# Quotes are excluded on purpose: they break nothing in Markdown — neither text, nor links,
+# nor code fences — while numeric entities show up literally inside a fence (2026-10-31).
+MARKDOWN_PUNCTUATION = re.compile(r"""[&<>\\`*_{}\[\]()#+.!|~=$-]""")
 MAX_VALUE = 10000
 
 

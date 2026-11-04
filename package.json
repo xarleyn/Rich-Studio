@@ -4,6 +4,7 @@
   "description": "Dev tools only: the editor itself is plain ES modules served as is, no build step.",
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -p .",
     "test:render": "node tests/render_unit.mjs",

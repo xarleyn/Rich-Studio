@@ -3,6 +3,7 @@ import { tr } from './i18n.js';
 import { closeDialog, editJson, openDialog } from './dialogs.js';
 import { clone, h, toast } from './dom.js';
 import { changed } from './editor.js';
+import { showEmojiPanel } from './emoji-panel.js';
 import { objectFields } from './forms.js';
 import { RT_LABELS, RT_WRAP } from './labels.js';
 import { htmlToRt, linkError } from './paste.js';
@@ -56,13 +57,14 @@ export function richTextEditor(obj, key, opts) {
 
 export function showToolbar(ed) {
   toolbar.replaceChildren();
-  const btn = (label, title, fn) => h('button', { type: 'button', text: label, title, onmousedown: (e) => { e.preventDefault(); fn(); } });
+  const btn = (label, title, fn) => h('button', { type: 'button', text: label, title, onmousedown: (e) => { e.preventDefault(); fn(e.currentTarget); } });
   toolbar.append(
     btn(tr('Ж'), tr('Жирный (Ctrl+B)'), () => wrapSelection('bold')), btn(tr('К'), tr('Курсив (Ctrl+I)'), () => wrapSelection('italic')),
     btn(tr('Ч'), tr('Подчёркнутый (Ctrl+U)'), () => wrapSelection('underline')), btn(tr('З'), tr('Зачёркнутый'), () => wrapSelection('strikethrough')),
     btn('▒', tr('Спойлер'), () => wrapSelection('spoiler')), btn('🖍', tr('Маркер'), () => wrapSelection('marked')),
     btn('</>', tr('Код'), () => wrapSelection('code')), btn('x₂', tr('Нижний индекс'), () => wrapSelection('subscript')), btn('x²', tr('Верхний индекс'), () => wrapSelection('superscript')),
     btn('🔗', tr('Ссылка (Ctrl+K)'), () => editLink()),
+    btn('🙂', tr('Кастомные эмодзи'), (anchor) => showEmojiPanel(anchor, (value) => insertChip(value))),
     btn('⌫', tr('Убрать форматирование'), () => clearFormatting()));
   const others = rtTypes().filter((t) => t.const && !RT_WRAP[t.const] && t.const !== 'url');
   const sel = h('select', { title: tr('Вставить элемент из спецификации'), onmousedown: (e) => e.stopPropagation(), onchange: (e) => {
@@ -213,6 +215,15 @@ export function editEntity(value, onSave, onDelete) {
   if (onDelete) actions.unshift(h('button', { class: 'danger', type: 'button', text: tr('Удалить'), onclick: () => { closeDialog(); onDelete(); } }));
   actions.push(h('button', { type: 'button', text: tr('Готово'), onclick: () => { closeDialog(); onSave(v); } }));
   openDialog([h('h3', { text: RT_LABELS[value.type] || value.type }), h('p', { class: 'muted small', text: T(name).description }), objectFields(name, v, 5)], actions);
+}
+
+/** Вставить готовую сущность чипом в позицию курсора (панель эмодзи и тесты). */
+export function insertChip(value) {
+  if (!activeRte) return false;
+  const chip = chipEl(value);
+  insertFragment(activeRte.ed, chip);
+  activeRte.sync();
+  return true;
 }
 
 export function chipEl(v) {

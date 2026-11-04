@@ -184,6 +184,17 @@ textarea.code { width: 100%; min-height: 380px; font: 13px/1.5 ui-monospace, SFM
 .toolbar select { font-size: 12px; padding: 2px 4px; }
 /* one row on a phone: two rows would cover the block above */
 @media (max-width: 600px) { .toolbar { flex-wrap: nowrap; overflow-x: auto; max-width: calc(100vw - 12px); } .toolbar button { flex: none; } }
+.panel-emoji { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); width: min(320px, calc(100vw - 12px)); }
+.emoji-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.emoji-tabs button { background: none; border: 0; color: var(--text); padding: 3px 8px; font-size: 12px; border-radius: 6px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emoji-tabs button.on { background: var(--soft); color: var(--accent); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 220px; overflow-y: auto; }
+.emoji-cell { background: none; border: 0; border-radius: 6px; padding: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.emoji-cell:hover { background: var(--soft); }
+.emoji-cell img { width: 22px; height: 22px; }
+.packs-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.packs-row { display: flex; align-items: center; gap: 8px; }
+.packs-row .packs-title { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .table-ed { min-width: 0; }
 .table-ed .table-scroll { overflow-x: auto; max-width: 100%; }

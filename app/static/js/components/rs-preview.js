@@ -9,6 +9,7 @@ export class RsPreview extends LitElement {
     post: { attribute: false },
     dark: { type: Boolean, reflect: true },
     channelTitle: { attribute: 'channel-title' },
+    emojiKinds: { attribute: false },
   };
 
   // the chat background fills the host however short the post is
@@ -20,6 +21,8 @@ export class RsPreview extends LitElement {
     this.post = null;
     this.dark = false;
     this.channelTitle = '';
+    /** @type {Record<string, string>} id эмодзи -> 'video' | 'tgs' (из настроенных паков) */
+    this.emojiKinds = {};
   }
 
   // the page's #hash navigation does not see ids inside a shadow root, so in-post links scroll here
@@ -44,7 +47,7 @@ ${options.map((o) => html`<div class="tg-poll-opt">${(o && typeof o === 'object'
     const comment = post && post.comment;
     const poll = post && post.poll_after;
     return html`<link rel="stylesheet" href="/static/vendor/katex/katex.min.css"><link rel="stylesheet" href="/static/tg.css">
-<div class="tg-preview ${this.dark ? 'tg-dark' : ''}" @click=${this.followAnchor}>${post ? RichRender.render(post, { channelTitle: this.channelTitle }) : ''}${comment
+<div class="tg-preview ${this.dark ? 'tg-dark' : ''}" @click=${this.followAnchor}>${post ? RichRender.render(post, { channelTitle: this.channelTitle, emojiKinds: this.emojiKinds }) : ''}${comment
   ? html`<div class="tg-comment-label">${tr("Первый комментарий в обсуждении")}</div>${RichRender.render({ rich_message: comment }, {})}`
   : ''}${poll ? this.pollAfter(poll) : ''}</div>`;
   }

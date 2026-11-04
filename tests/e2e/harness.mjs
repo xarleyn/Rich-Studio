@@ -7,14 +7,41 @@ export const MOCK = process.env.MOCK || 'http://localhost:8081';
 
 /** @typedef {Awaited<ReturnType<typeof start>>} Ctx */
 
+// The checks publish posts. A working studio on the same port talks to the real Telegram and would post them to the
+// channel, so the run starts only on a stand whose Bot API is the mock at `mock` (make e2e-local makes one).
+/** @param {string} base @param {string} mock */
+export async function assertMockStand(base, mock) {
+  const cfg = await fetch(base + '/api/config').then((r) => (r.ok ? r.json() : null), () => null);
+  const api = cfg && cfg.api_base ? new URL(cfg.api_base) : null;
+  if (!api || !['127.0.0.1', 'localhost'].includes(api.hostname) || api.port !== new URL(mock).port) {
+    throw new Error(`${base} is not a test stand: its Bot API is ${(cfg && cfg.api_base) || 'unknown'}, not the mock at ${mock}. Run make e2e-local.`);
+  }
+}
+
 export async function start() {
+  await assertMockStand(BASE, MOCK);
   const results = [];
   const check = (name, ok, info = '') => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${info ? '  ' + info : ''}`); };
   const mockLog = async () => (await fetch(MOCK + '/log')).json();
   const push = (u) => fetch(MOCK + '/push', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(u) }).then((r) => r.json());
+  // wait for the event, not a pause: asks fn every 100 ms until it gives something truthy or the timeout passes,
+  // and returns its last value, so the check after it reports what was there
+  /** @template T @param {() => Promise<T>} fn @param {number} [timeout] @returns {Promise<T>} */
+  const until = async (fn, timeout = 8000) => {
+    const end = Date.now() + timeout;
+    let v = await fn();
+    while (!v && Date.now() < end) { await new Promise((r) => setTimeout(r, 100)); v = await fn(); }
+    return v;
+  };
 
   const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  // E2E_SLOW=<ms> delays every request of the page, like a slow CI runner: a check that waits for its event passes,
+  // one that trusts a fixed pause fails. The proof for a flake fix.
+  if (process.env.E2E_SLOW) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: Number(process.env.E2E_SLOW), downloadThroughput: -1, uploadThroughput: -1 });
+  }
   const errors = [];
   const csp = [];
   let alerts = 0;
@@ -34,5 +61,5 @@ export async function start() {
   const setChat = (v) => page.evaluate((x) => { const i = /** @type {HTMLInputElement} */ (document.querySelector('#chat')); i.value = x; i.dispatchEvent(new Event('input')); }, v);
   const applyJson = async (post) => { await showJson(); await page.fill('#src-json .cm-content', JSON.stringify(post)); await page.click('#json-apply'); await page.waitForTimeout(400); };
 
-  return { BASE, MOCK, browser, page, check, results, errors, csp, alerts: () => alerts, mockLog, push, state, showJson, setChat, applyJson };
+  return { BASE, MOCK, browser, page, check, results, errors, csp, alerts: () => alerts, mockLog, push, until, state, showJson, setChat, applyJson };
 }
