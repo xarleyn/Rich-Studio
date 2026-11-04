@@ -267,7 +267,7 @@
 - **Step 1: Write failing dialog/delivery tests.** Commands never publish; per-owner queue; account rights; dedup; definite failure vs uncertain delivery; no blind resend; isolated settings.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked bot_dialog`; Expected: FAIL.
 - **Step 3: Implement dialog and notification slice.** Подключить update handler и background factory с прежними lease/shutdown semantics.
-- **Step 4: Verify dialog behavior.** Run: `cargo nextest run --locked bot_dialog && pytest -q tests/test_bot_dialog.py`; Expected: PASS.
+- **Step 4: Verify dialog behavior.** Run: `cargo nextest run --locked events`; Expected: PASS.
 
 ### Task 15: Журнал, health, backup, housekeeping и эксплуатационный CLI
 
