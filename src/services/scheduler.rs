@@ -109,9 +109,27 @@ pub async fn run_due(
             }
         };
         let chat = match &record["chat_id"] {
-            Value::String(text) => text
+            Value::String(text) if !text.trim().is_empty() => text
                 .parse::<i64>()
                 .map_or_else(|_| json!(text), |id| json!(id)),
+            Value::String(_) | Value::Null => {
+                // A row can outlive the channel setting it was created with (an old
+                // database or a hand-made queue entry): resolve the default at send time
+                // and refuse before Telegram when there is none.
+                let fallback = state.settings.default_chat.trim();
+                if fallback.is_empty() {
+                    let detail = "не указан chat_id и не задан TG_DEFAULT_CHAT".to_owned();
+                    blocking::run(&context, move |context| {
+                        Ok(posts::mark_failed(context, &id, &detail)?)
+                    })
+                    .await?;
+                    publisher.notify(&notification_id, None, None).await;
+                    continue;
+                }
+                fallback
+                    .parse::<i64>()
+                    .map_or_else(|_| json!(fallback), |id| json!(id))
+            }
             value => value.clone(),
         };
         let result = match publisher.send(&chat, &record["payload"], kind).await {
