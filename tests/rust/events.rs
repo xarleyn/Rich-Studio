@@ -166,8 +166,7 @@ fn notice_texts(mock: &Mock) -> Vec<String> {
 fn last_body(mock: &Mock, method: &str) -> Value {
     mock.calls()
         .into_iter()
-        .filter(|(name, _)| name == method)
-        .next_back()
+        .rfind(|(name, _)| name == method)
         .map(|(_, body)| body)
         .unwrap_or(Value::Null)
 }
@@ -1442,7 +1441,7 @@ async fn crash_recovery_and_expired_comment_are_reported() -> Result<(), Box<dyn
     let uncertain = stored(&state.account, &json!("@uncertain"), "sending", None, None);
     let uncertain_id = uncertain["id"].as_str().ok_or("uncertain id")?.to_owned();
     let recovered = in_flight::recover_ids(&state.account)?;
-    assert_eq!(recovered, [uncertain_id.clone()]);
+    assert_eq!(recovered, std::slice::from_ref(&uncertain_id));
     assert_eq!(
         posts::get(&state.account, &uncertain_id)?.ok_or("post")?["status"],
         "failed"

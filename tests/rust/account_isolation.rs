@@ -563,15 +563,16 @@ async fn start_challenge(app: &Router) -> (String, String) {
     assert_eq!(reply.status, StatusCode::OK, "{}", reply.text());
     let auth_url = reply.json()["auth_url"]
         .as_str()
-        .expect("auth_url")
+        .unwrap_or_else(|| panic!("auth_url"))
         .to_owned();
     let state = url::Url::parse(&auth_url)
-        .expect("auth url")
+        .unwrap_or_else(|error| panic!("auth url: {error}"))
         .query_pairs()
         .find(|(key, _)| key == "state")
         .map(|(_, value)| value.into_owned())
-        .expect("state");
-    let state_cookie = cookie(&reply.headers, "rs_telegram_login").expect("challenge cookie");
+        .unwrap_or_else(|| panic!("state"));
+    let state_cookie =
+        cookie(&reply.headers, "rs_telegram_login").unwrap_or_else(|| panic!("challenge cookie"));
     (state, state_cookie)
 }
 
@@ -588,7 +589,7 @@ async fn login_as(app: &Router, uid: i64) -> String {
     )
     .await;
     assert_eq!(reply.status, StatusCode::SEE_OTHER, "{}", reply.text());
-    let session = cookie(&reply.headers, "rs_session").expect("session cookie");
+    let session = cookie(&reply.headers, "rs_session").unwrap_or_else(|| panic!("session cookie"));
     format!("rs_session={session}")
 }
 

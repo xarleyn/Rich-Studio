@@ -1576,7 +1576,7 @@ async fn token_echoed_by_a_proxy_page_never_reaches_health_or_log() -> TestResul
         move |request: axum::extract::Request| {
             let counter = counter.clone();
             async move {
-                let pad = if counter.fetch_add(1, Ordering::SeqCst) % 2 == 0 {
+                let pad = if counter.fetch_add(1, Ordering::SeqCst).is_multiple_of(2) {
                     0
                 } else {
                     248
