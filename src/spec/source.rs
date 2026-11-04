@@ -613,3 +613,36 @@ mod tests {
         Ok(())
     }
 }
+
+#[test]
+fn gaps_report_a_new_rich_block_and_the_bundled_types_are_complete() {
+    let bundled = serde_json::from_str::<Value>(BUNDLED).expect("bundled spec");
+    let mut types = bundled["types"].clone();
+    assert!(consts(&types, "InputRichBlock").len() >= 20);
+    assert!(consts(&types, "RichText").len() >= 20);
+    types["InputRichBlockHologram"] = json!({
+        "name":"InputRichBlockHologram",
+        "fields":[{
+            "name":"type",
+            "types":["String"],
+            "required":true,
+            "description":"Type of the block, always “hologram”"
+        }]
+    });
+    types["InputRichBlock"]["subtypes"]
+        .as_array_mut()
+        .expect("block subtypes")
+        .push(json!("InputRichBlockHologram"));
+    let found = gaps(&types)
+        .into_iter()
+        .map(|gap| {
+            (
+                gap["part"].as_str().unwrap_or_default().to_owned(),
+                gap["name"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(found.contains(&("labels".to_owned(), "hologram".to_owned())));
+    assert!(found.contains(&("preview".to_owned(), "hologram".to_owned())));
+    assert!(gaps(&bundled["types"]).is_empty());
+}

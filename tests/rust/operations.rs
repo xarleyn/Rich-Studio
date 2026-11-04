@@ -2068,3 +2068,14 @@ fn monitor_skill_explains_every_health_check() {
     .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(explained, expected);
 }
+
+#[test]
+fn telegram_skill_is_where_claude_code_finds_it() {
+    let skill = include_str!("../../.claude/skills/telegram-rich-posts/SKILL.md");
+    let head = skill.split("---").nth(1).unwrap_or_default();
+    assert!(head.contains("name: telegram-rich-posts"));
+    assert!(
+        head.lines()
+            .any(|line| line.starts_with("description: ") && line.len() >= 30)
+    );
+}
