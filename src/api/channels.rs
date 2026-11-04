@@ -38,7 +38,13 @@ pub fn error_response(error: ChannelError) -> Response {
         ChannelError::Telegram(error) => telegram_error(error),
         ChannelError::Store(_) => StatusCode::INTERNAL_SERVER_ERROR,
     };
-    (status, Json(json!({"detail":error.to_string()}))).into_response()
+    // An uncertain gateway answer is not a refusal: say so, like the reference API's 502 handler.
+    let detail = if matches!(&error, ChannelError::Telegram(TelegramError::NoAnswer(_))) {
+        format!("{error}. Действие могло выполниться, проверьте в Telegram")
+    } else {
+        error.to_string()
+    };
+    (status, Json(json!({"detail":detail}))).into_response()
 }
 
 #[utoipa::path(get, path = "/api/channels", operation_id = "list_channels_api_channels_get", summary = "Каналы студии с названиями, темами форума и правами бота", tag = "channels", responses((status = 200, description = "Successful Response")))]

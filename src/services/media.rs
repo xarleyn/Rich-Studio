@@ -187,28 +187,11 @@ impl MediaService {
     }
 
     pub fn used_by(&self, name: &str) -> Result<Vec<String>, MediaError> {
-        let reference = format!("upload:{name}");
+        // Match the JSON string, not a bare prefix: upload:cat.png must not claim upload:cat.png.bak.
+        let reference = json!(format!("upload:{name}")).to_string();
         let mut connection = Store::connect(&self.context)?;
         crate::store::db::migrate(&mut connection)?;
         let mut output = Vec::new();
-        let mut drafts = connection.prepare("select title,payload from drafts")?;
-        let rows = drafts.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-        for row in rows {
-            let (title, payload) = row?;
-            if payload.contains(&reference) {
-                output.push(format!(
-                    "черновик «{}»",
-                    if title.is_empty() {
-                        "Без названия"
-                    } else {
-                        &title
-                    }
-                ));
-            }
-        }
-        drop(drafts);
         let mut posts = connection.prepare(
             "select status,chat_id,payload from posts where status in ('scheduled','missed')",
         )?;
@@ -233,6 +216,24 @@ impl MediaService {
             }
         }
         drop(posts);
+        let mut drafts = connection.prepare("select title,payload from drafts")?;
+        let rows = drafts.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        for row in rows {
+            let (title, payload) = row?;
+            if payload.contains(&reference) {
+                output.push(format!(
+                    "черновик «{}»",
+                    if title.is_empty() {
+                        "Без названия"
+                    } else {
+                        &title
+                    }
+                ));
+            }
+        }
+        drop(drafts);
         let mut templates =
             connection.prepare("select title,payload,fields from post_templates")?;
         let rows = templates.query_map([], |row| {
