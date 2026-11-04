@@ -104,7 +104,8 @@ fn token(arguments: &[String], settings: &Settings) -> Result<i32, String> {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
             {
-                return Err("имя: латиница, цифры, . _ -, до 40 символов".to_owned());
+                eprintln!("имя: латиница, цифры, . _ -, до 40 символов");
+                return Ok(2);
             }
             let level = match rest {
                 [] => "draft",
@@ -113,6 +114,14 @@ fn token(arguments: &[String], settings: &Settings) -> Result<i32, String> {
             };
             if !["read", "draft", "publish", "admin"].contains(&level) {
                 return Err("уровень: read, draft, publish или admin".to_owned());
+            }
+            let taken = auth::list_tokens(settings)
+                .map_err(|error| error.to_string())?
+                .iter()
+                .any(|token| token["name"].as_str() == Some(name));
+            if taken {
+                eprintln!("токен {name} уже есть: отзовите его или возьмите другое имя");
+                return Ok(2);
             }
             let token = secret("rs_");
             auth::add_token(settings, name, &token, level).map_err(|_| {

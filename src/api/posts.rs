@@ -116,14 +116,18 @@ pub async fn send(
 
 #[utoipa::path(post, path = "/api/preview-send", operation_id = "preview_send_api_preview_send_post", summary = "Отправить пост себе в личку (TG_PREVIEW_CHAT)", description = "В ответе `parsed`: блоки, на которые Telegram разобрал пост, и они же для повторной отправки (`input_blocks`).\n`chat_id`, отличный от `TG_PREVIEW_CHAT`, требует права `publish`: это уже отправка в чужой чат.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn preview(ScopedState(state): ScopedState, Json(body): Json<Value>) -> Response {
+    let service = service(&state).await;
     if !body["chat_id"].is_null() && body["chat_id"] != "" {
-        let explicit = body["chat_id"]
-            .as_str()
-            .map(str::to_owned)
-            .unwrap_or_else(|| body["chat_id"].to_string());
-        if explicit != state.settings.preview_chat
-            && !state.principal.can(crate::account_context::Role::Publish)
-        {
+        let preview = state.settings.preview_chat.clone();
+        let same_chat = !preview.is_empty()
+            && match (
+                service.resolve_chat(&body["chat_id"]),
+                service.resolve_chat(&json!(preview)),
+            ) {
+                (Ok(explicit), Ok(target)) => explicit == target,
+                _ => false,
+            };
+        if !same_chat && !state.principal.can(crate::account_context::Role::Publish) {
             return crate::security::AuthError::new(
                 403,
                 "для предпросмотра в другом чате нужны права publish",
@@ -131,11 +135,7 @@ pub async fn preview(ScopedState(state): ScopedState, Json(body): Json<Value>) -
             .into_response();
         }
     }
-    match service(&state)
-        .await
-        .preview(&body["post"], &body["chat_id"])
-        .await
-    {
+    match service.preview(&body["post"], &body["chat_id"]).await {
         Ok(result) => Json(result).into_response(),
         Err(error) => error_response(error),
     }
