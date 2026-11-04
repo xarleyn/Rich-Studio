@@ -110,11 +110,11 @@ path = "tests/rust/runtime.rs"
 
 [[test]]
 name = "public_site"
-path = "tests/rust/public_site.rs"
+path = "tests/rust/public_site/main.rs"
 
 [[test]]
 name = "editing"
-path = "tests/rust/editing.rs"
+path = "tests/rust/editing/main.rs"
 
 [[test]]
 name = "scheduler_recovery"
@@ -150,7 +150,7 @@ path = "tests/rust/tgfake.rs"
 
 [[test]]
 name = "http_mcp_contract"
-path = "tests/rust/http_mcp_contract.rs"
+path = "tests/rust/http_mcp_contract/main.rs"
 
 [[test]]
 name = "architecture"
@@ -158,8 +158,8 @@ path = "tests/rust/architecture.rs"
 
 [[test]]
 name = "api_contract"
-path = "tests/rust/api_contract.rs"
+path = "tests/rust/api_contract/main.rs"
 
 [[test]]
 name = "regressions"
-path = "tests/rust/regressions.rs"
+path = "tests/rust/regressions/main.rs"
