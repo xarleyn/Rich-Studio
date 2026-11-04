@@ -30,6 +30,7 @@ async fn run() -> Result<i32, Box<dyn std::error::Error>> {
     if let cli::Action::Exit(code) = cli::run(&arguments, &settings).await? {
         return Ok(code);
     }
+    runtime::check_data_dir(&settings)?;
     let configured = settings.clone();
     tokio::task::spawn_blocking(move || {
         let mut database = Store::connect_root(&configured).map_err(|error| error.to_string())?;
