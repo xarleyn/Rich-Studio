@@ -6,7 +6,7 @@ on:
     - cron: "41 4 * * *"
   workflow_dispatch:
   pull_request:
-    paths: ["deploy/**", "Dockerfile", "requirements.lock", "app/store/**", "app/settings.py", "app/cli.py",
+    paths: ["deploy/**", "Dockerfile", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "src/**", "app/store/**",
             "scripts/restore_check.sh", ".github/workflows/restore.yml"]
 
 permissions:

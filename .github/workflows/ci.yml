@@ -19,6 +19,18 @@ concurrency:
 # runners pinned: ubuntu-latest moved to 26.04, which Playwright 1.56 cannot install Chromium on;
 # move together with the Playwright version (Dependabot bumps it)
 jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Rust toolchain and quality tools
+        run: |
+          rustup show active-toolchain
+          cargo install cargo-nextest --version 0.9.150 --locked
+          cargo install cargo-deny --version 0.20.2 --locked
+          cargo install cargo-machete --version 0.9.2 --locked
+      - run: make check-rust
+
   python:
     runs-on: ubuntu-24.04
     steps:
@@ -48,6 +60,7 @@ jobs:
       - run: npx tsc -p .
       - run: npx playwright install --with-deps chromium
       - run: npm run test:render
+      - run: npm run test:formats
       - run: npm run test:source
       - run: npm run test:i18n
       - run: npm run test:parity
@@ -60,7 +73,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
-    needs: python
+    needs: [rust, python]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -71,15 +84,9 @@ jobs:
           node-version: "22"
       - run: pip install -r requirements.txt
       - run: npm ci && npx playwright install --with-deps chromium
-      - name: start mock Telegram and studio
-        run: |
-          (cd tests && uvicorn mock_telegram:app --port 8081 &)
-          mkdir -p /tmp/rs-data
-          (cd app && DATA_DIR=/tmp/rs-data TG_BOT_TOKEN=1:x TG_API_BASE=http://127.0.0.1:8081 \
-             TG_DEFAULT_CHAT=@test TG_PREVIEW_CHAT=777 SPEC_URL=http://127.0.0.1:9/off \
-             uvicorn main:app --port 7424 &)
-          for i in $(seq 30); do curl -sf localhost:7424/api/config && break; sleep 1; done
-      - run: node tests/e2e_ui.mjs
+      - run: cargo build --locked --bin rich-studio
+      - name: unchanged browser scenarios against isolated Rust and mock Telegram
+        run: node scripts/check-rust-browser.mjs
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -101,7 +108,7 @@ jobs:
         with:
           node-version: "22"
       - run: pip install pip-audit && pip-audit -r requirements.txt -r requirements-dev.txt
-      # what the image installs, transitive packages included
+      # retained Python reference dependency closure; Rust dependencies are audited by cargo deny
       - run: pip-audit --require-hashes --disable-pip -r requirements.lock
       - run: npm audit --audit-level=high
       - name: gitleaks (same version as .pre-commit-config.yaml)
@@ -110,22 +117,15 @@ jobs:
   # the image builds, starts and answers; critical fixable CVEs in it fail the build
   docker:
     runs-on: ubuntu-24.04
-    needs: python
+    needs: [rust, python]
     steps:
       - uses: actions/checkout@v7
       - run: docker build -t rich-studio .
-      - name: smoke test
-        run: |
-          # as on the server: read-only root, no capabilities, its own uid
-          docker run -d --name rs -p 127.0.0.1:8080:8080 --read-only --tmpfs /tmp --cap-drop ALL \
-            --security-opt no-new-privileges -e SPEC_URL=http://127.0.0.1:9/off -e TG_UPDATES=off rich-studio
-          for i in $(seq 30); do curl -sf localhost:8080/healthz && break; sleep 1; done
-          curl -sf localhost:8080/api/config
-          curl -sf localhost:8080/ -o /dev/null
-          test "$(docker inspect -f '{{.State.Running}}' rs)" = true
-          test "$(docker exec rs id -u)" = 10001
-      - if: failure()
-        run: docker logs rs
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: installed Rust image, native commands, persisted data and graceful stop
+        run: IMAGE=rich-studio node scripts/check-rust-container.mjs
       - name: image scan
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 image \

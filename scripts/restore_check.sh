@@ -5,15 +5,27 @@
 set -euo pipefail
 IMAGE=${IMAGE:-rich-studio}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-WORK=$(mktemp -d)
-P=rs-restore-check
+TEMP_ROOT=$(cd "${TMPDIR:-/tmp}" && pwd -P)
+WORK=$(mktemp -d "$TEMP_ROOT/rs-restore-check.XXXXXXXX")
+# Docker Desktop consumes native Windows bind paths; the same script also runs on Linux CI.
+if command -v cygpath >/dev/null 2>&1; then
+  WORK=$(cygpath -m "$WORK")
+  TEMP_ROOT=$(cygpath -m "$TEMP_ROOT")
+fi
+docker() { MSYS_NO_PATHCONV=1 command docker "$@"; }
+touch "$WORK/.rs-restore-check"
+TAG="restore-check-$RANDOM-$RANDOM"
+P="rs-$TAG"
+DRILL_IMAGE="ghcr.io/xarleyn/rich-studio:$TAG"
 cp "$ROOT"/deploy/{docker-compose.yml,litestream.yml,Caddyfile} "$WORK"/
 mkdir -p "$WORK/secrets" "$WORK/replica" && chmod 777 "$WORK/replica"
 echo "1:check" >"$WORK/secrets/tg_bot_token" && chmod 644 "$WORK/secrets/tg_bot_token"
 cat >"$WORK/.env" <<ENV
 STUDIO_DOMAIN=studio.test
-STUDIO_TAG=restore-check
+STUDIO_TAG=$TAG
 TG_UPDATES=off
+TG_API_BASE=http://127.0.0.1:9
+SPEC_PIN=on
 ENV
 echo "LITESTREAM_REPLICA_URL=file:///replica/studio" >"$WORK/litestream.env"
 cat >"$WORK/docker-compose.check.yml" <<YML
@@ -21,27 +33,25 @@ services:
   litestream:
     volumes: ["$WORK/replica:/replica"]
 YML
-docker tag "$IMAGE" ghcr.io/nikitacodesave/rich-studio:restore-check
+docker tag "$IMAGE" "$DRILL_IMAGE"
 dc() { docker compose -p "$P" --project-directory "$WORK" -f "$WORK/docker-compose.yml" -f "$WORK/docker-compose.check.yml" "$@"; }
 cleanup() {
+  # Only this invocation's freshly created directory and compose project may be removed.
+  [[ "$WORK" == "$TEMP_ROOT"/rs-restore-check.* && -f "$WORK/.rs-restore-check" ]] || return 1
   dc down -v --remove-orphans >/dev/null 2>&1 || true
   # the replica belongs to uid 10001: a runner that is not root removes it through a container
   docker run --rm --user 0 -v "$WORK:/work" --entrypoint rm "$IMAGE" -rf /work/replica >/dev/null 2>&1 || true
   rm -rf "$WORK" || true
+  docker image rm "$DRILL_IMAGE" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-# GET/POST inside the studio container (it has no published port): python, since the image has no curl
+# GET/POST and readiness use the installed Rust binary; the image has no Python interpreter.
 call() {
-  dc exec -T -e TOKEN="$TOKEN" rich-studio python -c '
-import json, os, sys, urllib.request
-method, path, body = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else None)
-req = urllib.request.Request("http://127.0.0.1:8080" + path, method=method, data=body and body.encode(),
-    headers={"Authorization": "Bearer " + os.environ["TOKEN"], "Content-Type": "application/json"})
-print(urllib.request.urlopen(req, timeout=10).read().decode())' "$@"
+  dc exec -T -e STUDIO_TOKEN="$TOKEN" rich-studio rich-studio request "$@"
 }
 wait_ready() {
   for _ in $(seq 60); do
-    dc exec -T rich-studio python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/readyz")' \
+    dc exec -T rich-studio rich-studio healthcheck \
       >/dev/null 2>&1 && return 0
     sleep 1
   done
@@ -49,7 +59,7 @@ wait_ready() {
 }
 
 echo "== first token (server mode does not start without one)"
-TOKEN=$(dc run --rm --no-deps -T rich-studio python cli.py token add restore-check --level admin 2>/dev/null)
+TOKEN=$(dc run --rm --no-deps -T rich-studio rich-studio token add restore-check --level admin 2>/dev/null)
 dc up -d rich-studio litestream
 wait_ready
 echo "== a draft to find after the restore"

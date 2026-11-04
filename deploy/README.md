@@ -15,11 +15,11 @@ mkdir -p secrets && printf '%s\n' '123:ABC…' > secrets/tg_bot_token
 sudo chown 10001:10001 secrets/tg_bot_token && sudo chmod 400 secrets/tg_bot_token   # студия работает от uid 10001
 echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-login> --password-stdin  # приватный образ: PAT с read:packages; образ публичного репозитория открыт, вход не нужен
 # без токена серверная студия не стартует: первый токен (печатается один раз)
-docker compose run --rm --no-deps rich-studio python cli.py token add nikita --level admin
+docker compose run --rm --no-deps rich-studio rich-studio token add nikita --level admin
 docker compose up -d
 ```
 
-Редактор: `https://<домен>`, вход по этому токену. Агентам выдайте свои: `docker compose exec rich-studio python cli.py token add claude-laptop --level draft`, в окружении агента `STUDIO_URL=https://<домен>` (без `/` в конце) и `STUDIO_TOKEN`: их читают `.mcp.json` и хук здоровья, когда Claude Code открыт в папке студии; из другой папки подключение вручную ([README](../README.md#mcp-для-claude-и-других-агентов)).
+Редактор: `https://<домен>`, вход по этому токену. Агентам выдайте свои: `docker compose exec rich-studio rich-studio token add claude-laptop --level draft`, в окружении агента `STUDIO_URL=https://<домен>` (без `/` в конце) и `STUDIO_TOKEN`: их читают `.mcp.json` и хук здоровья, когда Claude Code открыт в папке студии; из другой папки подключение вручную ([README](../README.md#mcp-для-claude-и-других-агентов)).
 
 Что включает серверный режим (`STUDIO_MODE=server`): без токена, `https://` в `STUDIO_URL` и токена бота студия не стартует и пишет, чего не хватает; спецификация Bot API берётся только из образа (`SPEC_PIN`); домен сам попадает в `ALLOWED_HOSTS`. Caddy передаёт студии `Host` как есть; другой прокси перед студией должен делать так же (у nginx `proxy_set_header Host $http_host`), иначе запись из редактора получит 403 «запрос с другого сайта отклонён»: `Origin` браузера сверяется с `Host`.
 
@@ -52,6 +52,10 @@ docker compose up -d
 Загрузки (картинки, видео) Litestream не копирует: они в zip-бэкапе `GET /api/export` (уровень `admin`), храните его отдельно. CI каждый день повторяет эти шаги на копии в файле: [`scripts/restore_check.sh`](../scripts/restore_check.sh).
 
 ## Мониторинг
+
+Для публичного сайта перечислите основной домен, `www` и приложение в фактическом `STUDIO_DOMAINS`, например `example.com, www.example.com, app.example.com`; DNS A/AAAA всех трёх имён должны вести на сервер. Caddy выпускает сертификаты для этих имён и постоянно перенаправляет `www` на адрес без `www` с кодом 308, сохраняя путь и query. Домен приложения продолжает проксироваться. Применение файла в репозитории само по себе не меняет работающий прокси: сначала проверьте его через `caddy validate`, затем после обновления выполните `node scripts/check-public-seo.mjs --site https://example.com --app https://app.example.com --www https://www.example.com`. Подробности: [SEARCH.md](../docs/SEARCH.md).
+
+Штатный Caddy использует `zstd` и `gzip`; CSS и JS лендинга сервер умеет отдавать из подготовленных Brotli-копий без дополнительных модулей прокси. Годовой кэш применяется только к ресурсам с проверенной версией по содержимому. Обычные адреса `/static/` требуют ревалидации, чтобы модули редактора обновлялись согласованно.
 
 - `DEADMAN_URL` (healthchecks.io или похожий): студия пингует его раз в 5 минут, `…/fail`, если отчёт о состоянии `fail`. Нет пингов — сервис пишет вам. Подробнее: [0011](../docs/decisions/0011-dead-mans-switch.md).
 - Внешний uptime-монитор на `https://<домен>/readyz` (без токена).

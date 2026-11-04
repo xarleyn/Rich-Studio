@@ -9,6 +9,7 @@ __pycache__/
 node_modules/
 test-results/
 work/
+/target/
 .venv/
 deploy/secrets/
 /.anet
