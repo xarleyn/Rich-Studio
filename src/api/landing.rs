@@ -142,7 +142,9 @@ pub async fn page(settings: &Settings, language: &str, slug: &str) -> Result<Str
     let directory = crate::runtime::static_dir();
     let mut content = tokio::fs::read_to_string(directory.join(template))
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        // Python reads templates in text mode, so both platforms serve LF.
+        .replace("\r\n", "\n");
     for (key, value) in [
         (
             "__APP_URL__",

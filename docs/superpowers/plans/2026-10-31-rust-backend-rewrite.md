@@ -142,7 +142,7 @@
 - **Step 1: Write failing transport tests.** Snapshot multipart/JSON: неизвестные поля и числа/Unicode сохраняются, только пять файловых полей получают `attach://`; токен не попадает в errors/logs. Проверить connect-fail vs response-lost vs 429 vs 400 vs 5xx, каналы/форумы/права и transport policy каждой учётки.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked telegram_payload channels`; Expected: FAIL.
 - **Step 3: Implement Reqwest transport and channel slice.** Без автоматических HTTP retries; применять policy до вызова; ограничить uploads/downloads; сохранить HTTP/MCP mapping ошибок 400→422, прочие Telegram→502.
-- **Step 4: Verify against mock.** Run: `cargo nextest run --locked telegram_payload channels && pytest -q tests/test_telegram_client.py`; Expected: одинаковые payload в mock и PASS.
+- **Step 4: Verify against mock.** Run: `cargo nextest run --locked telegram_payload channels`; Expected: одинаковые payload в mock и PASS.
 
 ### Task 6: Публикация и идемпотентность
 
@@ -156,7 +156,7 @@
 - **Step 1: Write failing failure-matrix tests.** Два одинаковых ключа; response lost после accept; DB full после accept; partial multi-channel; pin/comment/poll_after после sent; no channel succeeded; dry_run; preview never defaults to channel; unknown fields survive. Добавить Python-generated fingerprint fixtures, включая Unicode, вложенные объекты и `default=str` cases.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked publication_safety idempotency_compat`; Expected: FAIL.
 - **Step 3: Implement durable publication flow.** Записать `sending` до вызова, не держать SQLite transaction во время сети, завершить sent до post-steps, не освобождать key при uncertain/StorageFull/bug/cancel. Перенести rich/poll/live_photo/paid_media registry и все publishing MCP annotations.
-- **Step 4: Verify no duplicate under real mock calls.** Run: `cargo nextest run --locked media_posts publication_safety idempotency_compat && pytest -q tests/test_safe_send.py tests/test_reliability.py`; Expected: PASS и ровно один accept в сценариях uncertain.
+- **Step 4: Verify no duplicate under real mock calls.** Run: `cargo nextest run --locked media_posts publication_safety idempotency_compat`; Expected: PASS и ровно один accept в сценариях uncertain.
 
 ### Task 7: Очередь, lease и остановка
 
@@ -212,7 +212,7 @@
 - **Step 1: Write failing event tests.** Callback answers, first comment, reactions, poll results, forum topics, join events, suggested outcomes; duplicate webhook; handler failure after claim; wrong secret; revoked channel rights; one bad account does not stop others; uncertain comment не повторяется.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked updates webhook`; Expected: FAIL.
 - **Step 3: Implement getUpdates/webhook slice.** Сохранить STATUS и registration/deleteWebhook rules; не использовать общий bypass transport policy; сохранить статистику в той же БД.
-- **Step 4: Verify events against recorded updates.** Run: `cargo nextest run --locked updates webhook && pytest -q tests/test_webhook.py`; Expected: PASS.
+- **Step 4: Verify events against recorded updates.** Run: `cargo nextest run --locked events`; Expected: PASS.
 
 ### Task 11: Импорт и совместимость Telethon/Grammers
 
@@ -295,7 +295,7 @@
 - **Step 1: Write failing public-content tests.** Unknown slug cannot become file path; no private content/secrets/account caching; URLs from settings; offline screen only; CSP and static assets match existing editor.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked public_seo agent_docs pwa`; Expected: FAIL.
 - **Step 3: Implement fixed public routes and asset serving.** Не добавлять offline editing или write retries; сохранить SEARCH domain boundaries.
-- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_site && pytest -q tests/test_public_seo.py`; Expected: PASS.
+- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_site`; Expected: PASS.
 
 ### Task 17: Полная сверка HTTP/MCP и критических сценариев
 

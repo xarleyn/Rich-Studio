@@ -93,6 +93,34 @@ async fn get(
     get_with(app, path, host, &[]).await
 }
 
+async fn head_with(
+    app: Router,
+    path: &str,
+    host: &str,
+    headers: &[(&str, &str)],
+) -> Result<(StatusCode, HeaderMap, Vec<u8>), Box<dyn std::error::Error>> {
+    let mut builder = Request::builder()
+        .method("HEAD")
+        .uri(path)
+        .header("host", host);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    let response = app.oneshot(builder.body(Body::empty())?).await?;
+    let status = response.status();
+    let headers = response.headers().clone();
+    let body = to_bytes(response.into_body(), 1_000_000).await?.to_vec();
+    Ok((status, headers, body))
+}
+
+async fn head(
+    app: Router,
+    path: &str,
+    host: &str,
+) -> Result<(StatusCode, HeaderMap, Vec<u8>), Box<dyn std::error::Error>> {
+    head_with(app, path, host, &[]).await
+}
+
 async fn post_json(
     app: Router,
     path: &str,
@@ -120,6 +148,27 @@ async fn post_json(
 
 fn body_text(body: &[u8]) -> Result<&str, Box<dyn std::error::Error>> {
     Ok(std::str::from_utf8(body)?)
+}
+
+fn between<'a>(
+    text: &'a str,
+    start: &str,
+    end: &str,
+) -> Result<&'a str, Box<dyn std::error::Error>> {
+    text.split_once(start)
+        .and_then(|(_, rest)| rest.split_once(end))
+        .map(|(value, _)| value)
+        .ok_or_else(|| format!("missing {start}..{end}").into())
+}
+
+fn seo_pages() -> Result<BTreeMap<String, Value>, Box<dyn std::error::Error>> {
+    let raw = std::fs::read_to_string("app/bundled/public-site-seo.json")?;
+    let data: Value = serde_json::from_str(&raw)?;
+    let pages = data["pages"].as_object().ok_or("SEO pages")?;
+    Ok(pages
+        .iter()
+        .map(|(path, entry)| (path.clone(), entry.clone()))
+        .collect())
 }
 
 fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -438,6 +487,81 @@ async fn marketing_templates_and_sitemap_preserve_languages_and_fixed_inventory(
         assert!(text.contains(&format!("<loc>https://example.com{path}</loc>")));
     }
     assert!(!text.contains("/api/") && !text.contains("/landing") && !text.contains("/agents.md"));
+    let entries = text
+        .split("<url>")
+        .skip(1)
+        .filter_map(|chunk| chunk.split("</url>").next())
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), public_site::page_paths().len());
+    let date_format = time::format_description::parse_borrowed::<3>("[year]-[month]-[day]")?;
+    let today = time::OffsetDateTime::now_utc().date();
+    let hreflang = regex::Regex::new(r#"hreflang="([^"]+)""#)?;
+    let mut locations = BTreeSet::new();
+    for entry in entries {
+        let location = between(entry, "<loc>", "</loc>")?;
+        locations.insert(location.to_owned());
+        let lastmod = between(entry, "<lastmod>", "</lastmod>")?;
+        let modified = time::Date::parse(lastmod, &date_format)?;
+        assert!(modified <= today, "{lastmod}");
+        let alternates = hreflang
+            .captures_iter(entry)
+            .filter_map(|captures| captures.get(1))
+            .map(|matched| matched.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            alternates,
+            BTreeSet::from(["ru", "en", "x-default"]),
+            "{location}"
+        );
+    }
+    let expected = public_site::page_paths()
+        .into_iter()
+        .map(|path| format!("https://example.com{path}"))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(locations, expected);
+    let pages = seo_pages()?;
+    assert_eq!(
+        pages.keys().cloned().collect::<BTreeSet<_>>(),
+        public_site::page_paths()
+            .into_iter()
+            .collect::<BTreeSet<_>>()
+    );
+    for location in &locations {
+        let path = location
+            .strip_prefix("https://example.com")
+            .ok_or("sitemap host")?;
+        let (status, headers, body) = get(app.clone(), path, "example.com").await?;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert!(!headers.contains_key("x-robots-tag"), "{path}");
+        let html = body_text(&body)?;
+        assert!(
+            html.contains(&format!("<link rel=\"canonical\" href=\"{location}\">")),
+            "{path}"
+        );
+        assert_eq!(html.matches("<h1").count(), 1, "{path}");
+        assert!(
+            html.contains("hreflang=\"ru\"") && html.contains("hreflang=\"en\""),
+            "{path}"
+        );
+        assert!(!html.contains("__APP_URL__"), "{path}");
+        assert!(
+            headers["content-security-policy"]
+                .to_str()?
+                .contains("script-src 'self'"),
+            "{path}"
+        );
+        let (head_status, head_headers, head_body) = head(app.clone(), path, "example.com").await?;
+        assert_eq!(head_status, StatusCode::OK, "HEAD {path}");
+        assert!(head_body.is_empty(), "HEAD {path}");
+        assert_eq!(
+            head_headers["content-type"], headers["content-type"],
+            "{path}"
+        );
+        assert_eq!(
+            head_headers["content-length"], headers["content-length"],
+            "{path}"
+        );
+    }
     let response = app
         .oneshot(
             Request::builder()
@@ -475,29 +599,29 @@ async fn public_head_and_canonical_slashes_keep_methods_and_queries() -> TestRes
         if path == "/" {
             continue;
         }
-        for method in ["GET", "HEAD"] {
-            let response = app
-                .clone()
-                .oneshot(
-                    Request::builder()
-                        .method(method)
-                        .uri(format!(
-                            "{}?utm_source=a%20b&lang=en",
-                            path.trim_end_matches('/')
-                        ))
-                        .header("host", "example.com")
-                        .body(Body::empty())?,
-                )
-                .await?;
-            assert_eq!(
-                response.status(),
-                StatusCode::PERMANENT_REDIRECT,
-                "{method} {path}"
-            );
-            assert_eq!(
-                response.headers()["location"],
-                format!("{path}?utm_source=a%20b&lang=en")
-            );
+        for query in ["utm_source=a%20b&lang=en", "utm_source=telegram&x=1"] {
+            for method in ["GET", "HEAD"] {
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri(format!("{}?{query}", path.trim_end_matches('/')))
+                            .header("host", "example.com")
+                            .body(Body::empty())?,
+                    )
+                    .await?;
+                assert_eq!(
+                    response.status(),
+                    StatusCode::PERMANENT_REDIRECT,
+                    "{method} {path}?{query}"
+                );
+                assert_eq!(
+                    response.headers()["location"],
+                    format!("{path}?{query}"),
+                    "{method} {path}?{query}"
+                );
+            }
         }
     }
     for path in ["/robots.txt", "/sitemap.xml", "/favicon.ico"] {
@@ -543,34 +667,50 @@ async fn public_head_and_canonical_slashes_keep_methods_and_queries() -> TestRes
 async fn marketing_missing_pages_are_html_without_changing_api_authorization() -> TestResult {
     let directory = TempDir::new()?;
     let app = app(&directory)?;
-    for path in ["/missing", "/features/no-such-guide/", "/en/missing"] {
-        let response = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .uri(path)
-                    .header("host", "example.com")
-                    .body(Body::empty())?,
-            )
-            .await?;
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    for path in [
+        "/missing-page",
+        "/mcp-missing",
+        "/docs-missing",
+        "/features/no-such-guide/",
+        "/en/features/no-such-guide/",
+        "/missing",
+        "/en/missing",
+    ] {
+        let (status, headers, body) = get(app.clone(), path, "example.com").await?;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
+        assert!(!headers.contains_key("location"), "{path}");
         assert!(
-            response.headers()["content-type"]
-                .to_str()?
-                .starts_with("text/html")
+            headers["content-type"].to_str()?.starts_with("text/html"),
+            "{path}"
         );
-        assert_eq!(response.headers()["x-robots-tag"], "noindex, nofollow");
-        assert!(response.headers().contains_key("content-security-policy"));
-        let text = String::from_utf8(to_bytes(response.into_body(), 1_000_000).await?.to_vec())?;
-        assert!(text.contains("RichPost"));
-        assert!(!text.contains("rel=\"canonical\"") && !text.contains("__"));
-        assert!(text.contains(if path.starts_with("/en/") {
-            "lang=\"en\""
-        } else {
-            "lang=\"ru\""
-        }));
-        assert!(text.contains("/features/"));
+        assert_eq!(headers["x-robots-tag"], "noindex, nofollow", "{path}");
+        assert!(headers.contains_key("content-security-policy"), "{path}");
+        let text = body_text(&body)?;
+        assert!(text.contains("RichPost"), "{path}");
+        assert!(
+            !text.contains("rel=\"canonical\"") && !text.contains("__"),
+            "{path}"
+        );
+        assert!(
+            text.contains(if path.starts_with("/en/") {
+                "lang=\"en\""
+            } else {
+                "lang=\"ru\""
+            }),
+            "{path}"
+        );
+        assert!(text.contains("<a") && text.contains("/features/"), "{path}");
+        assert_eq!(text.matches("<h1").count(), 1, "{path}");
+        let (head_status, _, head_body) = head(app.clone(), path, "example.com").await?;
+        assert_eq!(head_status, StatusCode::NOT_FOUND, "HEAD {path}");
+        assert!(head_body.is_empty(), "HEAD {path}");
     }
+    let (status, _, body) = get(app.clone(), "/en/no-such-page", "example.com").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        body_text(&body)?.starts_with("<!doctype html>\n<html lang=\"en\">"),
+        "English fallback keeps its document language"
+    );
     let unauthorized = app
         .oneshot(
             Request::builder()
@@ -592,7 +732,15 @@ async fn marketing_missing_pages_are_html_without_changing_api_authorization() -
 async fn public_metadata_is_parseable_hashed_and_not_authorized_by_request_headers() -> TestResult {
     let directory = TempDir::new()?;
     let app = app(&directory)?;
+    let pages = seo_pages()?;
+    let placeholders = regex::Regex::new(r"__[A-Z_]+__")?;
+    let social_preview = regex::Regex::new(
+        r#"<meta property="og:image" content="https://example\.com/static/images/social-preview\.png\?v=[a-f0-9]{12}">"#,
+    )?;
     for path in public_site::page_paths() {
+        let entry = pages.get(&path).ok_or("SEO entry")?;
+        let title = entry["title"].as_str().ok_or("SEO title")?;
+        let description = entry["description"].as_str().ok_or("SEO description")?;
         let response = app
             .clone()
             .oneshot(
@@ -615,6 +763,19 @@ async fn public_metadata_is_parseable_hashed_and_not_authorized_by_request_heade
             .ok_or("missing script-src")?;
         assert!(!script_policy.contains("unsafe-inline") && !script_policy.contains("unsafe-eval"));
         let html = String::from_utf8(to_bytes(response.into_body(), 1_000_000).await?.to_vec())?;
+        assert!(html.contains(&format!("<title>{title}</title>")), "{path}");
+        assert!(
+            html.contains(&format!(
+                "<meta name=\"description\" content=\"{description}\">"
+            )),
+            "{path}"
+        );
+        assert_eq!(
+            html.matches("<script type=\"application/ld+json\">")
+                .count(),
+            1,
+            "{path}"
+        );
         let json = html
             .split_once("<script type=\"application/ld+json\">")
             .and_then(|(_, tail)| tail.split_once("</script>"))
@@ -626,10 +787,18 @@ async fn public_metadata_is_parseable_hashed_and_not_authorized_by_request_heade
         assert_eq!(data["@context"], "https://schema.org");
         let graph = data["@graph"].as_array().ok_or("missing schema graph")?;
         assert!(!graph.is_empty());
+        assert!(!placeholders.is_match(&html), "{path}");
+        assert!(social_preview.is_match(&html), "{path}");
         assert!(!html.contains("__STRUCTURED_DATA__") && !html.contains("__SITE_URL__"));
         assert!(html.contains("property=\"og:image\""));
         assert!(html.contains("name=\"twitter:card\" content=\"summary_large_image\""));
         assert!(html.contains("/static/images/social-preview.png?v="));
+        if path.contains("/features/") {
+            assert!(
+                graph.iter().any(|item| item["@type"] == "BreadcrumbList"),
+                "{path}"
+            );
+        }
     }
     let app_page = app
         .oneshot(
@@ -652,6 +821,7 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
     let fingerprint = rich_studio::hex::encode(&Sha256::digest(&css))[..12].to_owned();
     for (query, immutable) in [
         (String::new(), false),
+        ("?v=old".to_owned(), false),
         ("?v=000000000000".to_owned(), false),
         (format!("?v={fingerprint}&extra=1"), false),
         (format!("?v={fingerprint}&v={fingerprint}"), false),
@@ -680,7 +850,12 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
             css
         );
     }
-    for (accept, encoded) in [("br", true), ("br;q=0, identity;q=1", false)] {
+    for (accept, encoded) in [
+        ("br", true),
+        ("gzip, br", true),
+        ("br;q=0, identity;q=1", false),
+        ("br;q=0, *;q=1", false),
+    ] {
         let response = app
             .clone()
             .oneshot(
@@ -693,6 +868,12 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
             .await?;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()["vary"], "Accept-Encoding");
+        assert!(
+            response.headers()["content-type"]
+                .to_str()?
+                .starts_with("text/css"),
+            "{accept}"
+        );
         assert_eq!(response.headers().contains_key("content-encoding"), encoded);
         if encoded {
             assert_eq!(response.headers()["content-encoding"], "br");
@@ -739,11 +920,20 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
                 .body(Body::empty())?,
         )
         .await?;
-    // ServeDir currently rejects multi-range requests instead of producing a
-    // multipart body. Either form must never claim a compressed envelope.
-    assert_eq!(multiple.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+    // Multipart ranges keep serving the original file and never borrow the
+    // Brotli sidecar as a compressed envelope.
+    assert_eq!(multiple.status(), StatusCode::PARTIAL_CONTENT);
     assert!(!multiple.headers().contains_key("content-encoding"));
+    assert!(
+        multiple.headers()["content-type"]
+            .to_str()?
+            .starts_with("multipart/byteranges")
+    );
+    let multiple = to_bytes(multiple.into_body(), 1_000_000).await?;
+    assert!(multiple.windows(10).any(|window| window == &css[..10]));
+    assert!(multiple.windows(10).any(|window| window == &css[30..40]));
     let icon = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri("/favicon.ico")
@@ -756,6 +946,15 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
         to_bytes(icon.into_body(), 1_000_000)
             .await?
             .starts_with(&[0, 0, 1, 0])
+    );
+    let (status, headers, _) = get(app, "/api/drafts", "app.example.com").await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(
+        !headers
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .contains("immutable")
     );
     Ok(())
 }
@@ -772,14 +971,18 @@ async fn fingerprints_cannot_read_parent_paths_encoded_traversal_or_missing_asse
         .ok_or("missing fingerprint")?;
     for path in [
         "/static/../secret.css",
+        "/static/../../.env",
         "/static/%2e%2e/secret.css",
+        "/static/%2e%2e/%2e%2e/.env",
         "/static/%2E%2E%2fsecret.css",
         "/static/..%5csecret.css",
         "/static/C:/secret.css",
         "/static/..\\secret.css",
         "/static//asset.css",
         "/static/missing.css",
+        "/static/%00",
         "/static/",
+        "/api/drafts",
         "/other/asset.css",
     ] {
         assert_eq!(
@@ -1234,5 +1437,228 @@ async fn human_pages_expose_setup_links_and_markdown_discovery() -> TestResult {
         assert!(page.contains("href=\"https://example.com/agents.md\""));
         assert!(page.contains("href=\"/skills/richpost/SKILL.md\""));
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn languages_are_explicit_and_reciprocal() -> TestResult {
+    let directory = TempDir::new()?;
+    let app = app(&directory)?;
+    let alternate = regex::Regex::new(r#"<link rel="alternate"[^>]+>"#)?;
+    let cyrillic = regex::Regex::new("[а-яА-ЯёЁ]")?;
+    for path in ["/", "/features/telegram-tables/"] {
+        let (status, _, ru_body) = get_with(
+            app.clone(),
+            path,
+            "example.com",
+            &[("accept-language", "en")],
+        )
+        .await?;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        let (status, _, en_body) = get_with(
+            app.clone(),
+            &format!("/en{path}"),
+            "example.com",
+            &[("accept-language", "ru")],
+        )
+        .await?;
+        assert_eq!(status, StatusCode::OK, "/en{path}");
+        let ru = body_text(&ru_body)?;
+        let en = body_text(&en_body)?;
+        assert!(ru.contains("<html lang=\"ru\">"), "{path}");
+        assert!(en.contains("<html lang=\"en\">"), "/en{path}");
+        let ru_alternates = alternate
+            .find_iter(ru)
+            .map(|matched| matched.as_str())
+            .collect::<Vec<_>>();
+        let en_alternates = alternate
+            .find_iter(en)
+            .map(|matched| matched.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(ru_alternates, en_alternates, "{path}");
+        assert!(en.contains("?lang=en\""), "/en{path}");
+        let without_label = en.replace("aria-label=\"Русская версия\"", "");
+        assert!(!cyrillic.is_match(&without_label), "/en{path}");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn app_and_local_previews_are_noindex() -> TestResult {
+    let directory = TempDir::new()?;
+    let app = app(&directory)?;
+    for path in ["/", "/en/", "/landing", "/landing/en/"] {
+        let (status, headers, _) = get(app.clone(), path, "app.example.com").await?;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert_eq!(headers["x-robots-tag"], "noindex, nofollow", "{path}");
+    }
+    let (status, _, home) = get(app.clone(), "/", "example.com").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body_text(&home)?.contains("data-nosnippet"));
+    let (status, headers, _) = get(app, "/api/drafts", "app.example.com").await?;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(headers["x-robots-tag"], "noindex, nofollow");
+    Ok(())
+}
+
+#[tokio::test]
+async fn robots_allows_reading_noindex_and_advertises_only_marketing_sitemap() -> TestResult {
+    let directory = TempDir::new()?;
+    let app = app(&directory)?;
+    let (status, headers, body) = get(app.clone(), "/robots.txt", "example.com").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(headers["content-type"].to_str()?.starts_with("text/plain"));
+    let text = body_text(&body)?;
+    assert!(text.contains("Allow: /"));
+    assert!(text.contains("Sitemap: https://example.com/sitemap.xml"));
+    let (status, _, body) = get(app.clone(), "/robots.txt", "app.example.com").await?;
+    assert_eq!(status, StatusCode::OK);
+    let text = body_text(&body)?;
+    assert!(!text.contains("Disallow: /") && !text.contains("Sitemap:"));
+    let (status, _, _) = get(app, "/sitemap.xml", "app.example.com").await?;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    Ok(())
+}
+
+#[tokio::test]
+async fn json_ld_cannot_break_out_of_script_from_a_configured_url() -> TestResult {
+    let directory = TempDir::new()?;
+    let malicious = "https://app.example.com/?x=</script><script>alert(1)</script>&y=2";
+    let (app, _settings) = app_with(&directory, &[("STUDIO_URL", malicious)])?;
+    let (status, _, body) = get(app, "/", "example.com").await?;
+    assert_eq!(status, StatusCode::OK);
+    let html = body_text(&body)?;
+    assert_eq!(
+        html.matches("<script type=\"application/ld+json\">")
+            .count(),
+        1
+    );
+    let data = between(html, "<script type=\"application/ld+json\">", "</script>")?;
+    assert!(!data.contains('<') && !data.contains('&'), "{data}");
+    assert!(!html.contains("<script>alert(1)</script>"));
+    let parsed: Value = serde_json::from_str(data)?;
+    assert!(serde_json::to_string(&parsed)?.contains("</script>"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn icons_discovery_head_and_fingerprint_cache_are_usable() -> TestResult {
+    let directory = TempDir::new()?;
+    let app = app(&directory)?;
+    let mut paths = vec!["/favicon.ico", "/robots.txt", "/sitemap.xml"];
+    paths.extend_from_slice(public_site::AGENT_PATHS);
+    for path in paths {
+        let (status, headers, _) = get(app.clone(), path, "example.com").await?;
+        let (head_status, head_headers, head_body) = head(app.clone(), path, "example.com").await?;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert_eq!(head_status, status, "HEAD {path}");
+        assert!(head_body.is_empty(), "HEAD {path}");
+        assert_eq!(
+            head_headers["content-type"], headers["content-type"],
+            "{path}"
+        );
+    }
+    let (status, _, favicon) = get(app.clone(), "/favicon.ico", "example.com").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(favicon.starts_with(b"\x00\x00\x01\x00"));
+
+    let static_dir = rich_studio::runtime::static_dir();
+    let asset = "/static/landing.css";
+    let digest = static_assets::fingerprint(&static_dir, asset)
+        .await
+        .ok_or("missing fingerprint")?;
+    let source = std::fs::read("app/static/landing.css")?;
+    for (query, immutable) in [
+        (String::new(), false),
+        ("?v=old".to_owned(), false),
+        (format!("?v={digest}"), true),
+        (format!("?v={digest}&v={digest}"), false),
+    ] {
+        let (status, headers, body) = get_with(
+            app.clone(),
+            &format!("{asset}{query}"),
+            "example.com",
+            &[("accept-encoding", "identity")],
+        )
+        .await?;
+        assert_eq!(status, StatusCode::OK, "{query}");
+        assert_eq!(
+            headers["cache-control"],
+            if immutable {
+                "public, max-age=31536000, immutable"
+            } else {
+                "public, max-age=0, must-revalidate"
+            },
+            "{query}"
+        );
+        assert_eq!(body, source, "{query}");
+    }
+    for path in [
+        "/static/../../.env",
+        "/static/%2e%2e/%2e%2e/.env",
+        "/api/drafts",
+        "/static/%00",
+    ] {
+        assert_eq!(
+            static_assets::fingerprint(&static_dir, path).await,
+            None,
+            "{path}"
+        );
+    }
+    for encoding in ["identity", "br"] {
+        let (status, _, _) = get_with(
+            app.clone(),
+            "/static/%00",
+            "example.com",
+            &[("accept-encoding", encoding)],
+        )
+        .await?;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{encoding}");
+    }
+    Ok(())
+}
+
+#[test]
+fn checked_in_public_derivatives_match_their_sources() -> TestResult {
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string("app/bundled/public-assets.json")?)?;
+    let static_dir = std::path::Path::new("app/static");
+    let sha = |path: &str| -> Result<String, Box<dyn std::error::Error>> {
+        let bytes = std::fs::read(static_dir.join(path))?;
+        Ok(rich_studio::hex::encode(&Sha256::digest(&bytes)))
+    };
+    for (path, entry) in manifest["compressed"].as_object().ok_or("compressed")? {
+        assert_eq!(
+            sha(path)?,
+            entry["source_sha256"].as_str().ok_or("source_sha256")?,
+            "{path}"
+        );
+        assert_eq!(
+            sha(&format!("{path}.br"))?,
+            entry["brotli_sha256"].as_str().ok_or("brotli_sha256")?,
+            "{path}.br"
+        );
+    }
+    for (path, entry) in manifest["derived"].as_object().ok_or("derived")? {
+        assert_eq!(
+            sha(entry["source"].as_str().ok_or("source")?)?,
+            entry["source_sha256"].as_str().ok_or("source_sha256")?,
+            "{path}"
+        );
+        assert_eq!(
+            sha(path)?,
+            entry["sha256"].as_str().ok_or("sha256")?,
+            "{path}"
+        );
+    }
+    let font = &manifest["font"];
+    assert_eq!(
+        sha("fonts/manrope.ttf")?,
+        font["source_sha256"].as_str().ok_or("font source")?
+    );
+    assert_eq!(
+        sha("fonts/manrope.woff2")?,
+        font["sha256"].as_str().ok_or("font")?
+    );
     Ok(())
 }
