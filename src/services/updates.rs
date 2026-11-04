@@ -380,9 +380,13 @@ async fn handle_scoped(
         if suggested_posts::on_service(context, message).await? {
             return Ok(Some("suggested_post_outcome"));
         }
-        if let Some(topic) = message
-            .get("forum_topic_created")
-            .or_else(|| message.get("forum_topic_edited"))
+        if let Some(topic) = [
+            message.get("forum_topic_created"),
+            message.get("forum_topic_edited"),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|topic| topic.as_object().is_some_and(|topic| !topic.is_empty()))
         {
             if let (Some(name), Some(id)) = (
                 topic["name"].as_str().filter(|s| !s.is_empty()),
