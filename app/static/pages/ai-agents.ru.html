@@ -3,52 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Подключить ИИ-агента к Telegram-постам — RichPost</title>
-  <meta name="description" content="Дайте агенту ссылку на RichPost: он прочитает инструкцию и настроит MCP. Создайте персональный токен, чтобы работать с черновиками и шаблонами из чата.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="Ваш ИИ-агент в RichPost">
-  <meta property="og:description" content="Одна ссылка для подключения. Ваши черновики, шаблоны и предпросмотр прямо из чата с агентом.">
+  <title>ИИ агент для Telegram через MCP — RichPost</title>
+  <meta name="description" content="Подключите ИИ агента к RichPost через MCP: персональный токен, права на черновики и публикацию, настройка клиента и проверка соединения без отправки поста.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="ИИ агент для Telegram через MCP — RichPost">
+  <meta property="og:description" content="Подключите ИИ агента к RichPost через MCP: персональный токен, права на черновики и публикацию, настройка клиента и проверка соединения без отправки поста.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Редактор RichPost с предпросмотром поста для Telegram">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ИИ агент для Telegram через MCP — RichPost">
+  <meta name="twitter:description" content="Подключите ИИ агента к RichPost через MCP: персональный токен, права на черновики и публикацию, настройка клиента и проверка соединения без отправки поста.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="Редактор RichPost с предпросмотром поста для Telegram">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
-  <meta property="og:locale" content="ru_RU">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
 <body>
-<a class="skip" href="#main">К содержимому</a>
-<header class="site-header wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__EN_URL__" lang="en" hreflang="en">EN</a><a class="button quiet" href="__APP_URL__">Открыть редактор ↗</a></div></header>
+<a class="skip body-4" href="#main">Перейти к содержимому</a>
+<header class="site-header wrap">
+  <a class="logo" href="/" aria-label="RichPost, главная"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+  <nav id="site-nav" aria-label="Основная навигация">
+    <div class="nav-links guide-nav"><a class="title-4" href="/features/">Руководства</a><a href="/features/telegram-tables/">Таблицы</a><a href="/features/telegram-markdown/">Markdown</a><a href="/features/scheduled-posts/">Отложенные</a><a href="/features/ai-agents/" aria-current="page">MCP</a></div>
+    <a class="button primary button-md nav-cta" href="__APP_URL__">Открыть редактор <span aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="header-actions"><a class="language title-4" href="__EN_URL__" lang="en" hreflang="en" aria-label="English version">EN</a><a class="button quiet button-sm" href="__APP_URL__">Редактор <span aria-hidden="true">↗</span></a></div>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Открыть меню"><span></span><span></span></button>
+</header>
 <main id="main" class="guide-content wrap">
-  <a href="/">← Все возможности</a>
-  <h1>Дайте агенту ссылку.<br>Работайте с постами из чата.</h1>
-  <p class="lead">Агент может готовить черновики, показывать предпросмотр и заполнять ваши шаблоны. Вы сможете продолжить редактирование в RichPost.</p>
-  <h2>Что написать агенту</h2>
-  <p>Скопируйте сообщение в Codex, Claude Code или другой клиент с поддержкой удалённых MCP-подключений:</p>
-  <blockquote><p>Подключи мне RichPost. Прочитай <a href="/agents.md">инструкцию для агента</a> по адресу <a href="__AGENT_GUIDE_URL__">__AGENT_GUIDE_URL__</a>, настрой MCP и установи skill, если мой клиент его поддерживает. Попроси меня выписать персональный токен. После подключения проверь, что инструменты работают.</p></blockquote>
-  <p>Можно отправить и просто ссылку на эту страницу. Здесь есть ссылки на инструкции, которые агент сможет прочитать без входа.</p>
-  <h2>Один шаг остаётся за вами: токен</h2>
-  <ol>
-    <li><a href="__APP_URL__">Войдите в RichPost через Telegram</a>.</li>
-    <li>Откройте меню своей учётки → <strong>«Токены API и MCP»</strong> → <strong>«Создать токен»</strong>. Укажите название клиента и срок действия.</li>
-    <li>Для работы с текстами и шаблонами выберите <strong>«Черновики»</strong>. «Чтение» подходит для просмотра, «Публикация» — когда хотите разрешить агенту отправлять посты.</li>
-    <li>Сохраните показанный один раз токен в настройках секретов своего клиента по инструкции агента. Не размещайте его в публичном чате или репозитории.</li>
-  </ol>
-  <aside><p>Агент сам токен не выписывает. Вы можете отозвать его в том же меню. Разрешение на публикацию не означает просьбу отправить конкретный пост — сначала согласуйте текст и канал.</p></aside>
-  <h2>Как понять, что всё подключилось</h2>
-  <p>Агент должен проверить соединение и доступность инструментов, а затем сообщить результат. Иногда клиенту нужен перезапуск или подтверждение нового подключения. Если клиент поддерживает только OAuth-вход, потребуется другой способ подключения с персональным токеном.</p>
-  <p>После настройки попробуйте: «Подготовь черновик анонса», «Покажи предпросмотр» или «Создай пост по моему шаблону». Для публикации подключите свой канал в редакторе и выдайте боту необходимые права.</p>
-  <h2>Инструкции для агентов</h2>
-  <ul>
-    <li><a href="/agents.md">Подключение, настройка клиента и проверка</a></li>
-    <li><a href="/skills/richpost/SKILL.md">Устанавливаемый skill RichPost</a></li>
-    <li><a href="/llms.txt">Краткий указатель llms.txt</a> · <a href="/llms-full.txt">Вся инструкция одним файлом</a></li>
-    <li><a href="/agents.txt">Обнаружение возможностей</a> · <a href="/agents.json">Описание в JSON</a></li>
-  </ul>
-  <p>Наличие этих файлов помогает агенту найти нужный путь. Подключение зависит от возможностей вашего клиента.</p>
-  <p><a class="button primary" href="__APP_URL__">Открыть RichPost ↗</a></p>
+<nav class="breadcrumbs caption-2" aria-label="Хлебные крошки"><ol><li><a href="/">RichPost</a></li><li><a href="__HUB_URL__">Руководства</a></li><li aria-current="page">Подключение ИИ агента к Telegram через MCP</li></ol></nav>
+<article>
+<h1 class="heading-2">Подключение ИИ агента к Telegram через MCP</h1>
+<p class="lead body-2">Агент может готовить черновики, показывать предпросмотр и заполнять ваши шаблоны в RichPost. Вы продолжаете работу в редакторе, а права агента задаёте персональным токеном.</p>
+<h2>Что даёт подключение</h2>
+<p>MCP позволяет совместимому клиенту вызывать инструменты RichPost из разговора с агентом. Можно поручить подготовку анонса, изменение черновика или создание поста по сохранённому шаблону. Результат остаётся в вашей учётке, поэтому текст можно открыть в обычном редакторе и проверить вручную.</p>
+<p>Для подключения к размещённому сервису не нужно запускать свой сервер или скачивать приложение. Нужен клиент с поддержкой удалённого MCP через HTTP и персонального bearer токена. Если клиент работает только через OAuth, эта схема подключения ему не подойдёт. Возможность установить skill тоже зависит от клиента.</p>
+<h2>Что написать агенту</h2>
+<p>Отправьте клиенту, который поддерживает такие подключения, следующую задачу. В ней есть инструкция по настройке и отдельная проверка результата.</p>
+<blockquote><p>Подключи мне RichPost. Прочитай <a href="/agents.md">инструкцию для агента</a> по адресу <a href="__AGENT_GUIDE_URL__">__AGENT_GUIDE_URL__</a>, настрой MCP и установи skill, если мой клиент его поддерживает. Попроси меня выписать персональный токен. После подключения проверь доступность инструментов и состояние студии. Не создавай и не отправляй пост для проверки подключения.</p></blockquote>
+<p>Можно передать и ссылку на эту страницу. Инструкции открыты без входа, а рабочие инструменты требуют токен. Публичная ссылка сама по себе не предоставляет доступ к вашим черновикам.</p>
+<h2>Создайте персональный токен</h2>
+<ol><li><a href="__APP_URL__">Войдите в RichPost через Telegram</a> и откройте меню своей учётки.</li><li>Выберите «Токены API и MCP» → «Создать токен». Укажите понятное название клиента и срок действия.</li><li>Выберите минимальные права для задачи. Для подготовки текстов обычно достаточно «Черновики».</li><li>Сохраните показанный один раз токен в защищённых настройках клиента. Не помещайте его в ссылку, публичный чат, скриншот или репозиторий.</li></ol>
+<h3>Как выбрать права</h3>
+<ul><li><strong>Чтение:</strong> просмотр доступных данных без изменения черновиков.</li><li><strong>Черновики:</strong> работа с текстами, черновиками и шаблонами без права публикации.</li><li><strong>Публикация:</strong> действия отправки, когда они нужны для согласованной задачи.</li></ul>
+<aside><p>Агент не выпускает токен вместо вас и не использует для подключения токен бота, пароль или код Telegram. Вы можете отозвать персональный токен в том же меню. Техническое разрешение на публикацию не заменяет ваше поручение отправить конкретный пост.</p></aside>
+<h2>Проверьте подключение без публикации</h2>
+<p>После сохранения настроек клиенту может потребоваться перезапуск или подтверждение нового MCP сервера. Агент должен получить список инструментов и успешно вызвать <code>studio_status</code>. Запись в конфигурации и ответ HTTP 200 сами по себе ещё не подтверждают, что инструмент выполнился без ошибки.</p>
+<p>При отказе проверьте срок действия и роль токена, адрес сервера и способ передачи секрета в клиент. Не отправляйте токен на другой адрес вслед за неожиданным перенаправлением. Для отдельного клиента удобнее отдельный токен: его можно отозвать, не отключая остальные подключения.</p>
+<h2>Первая рабочая задача</h2>
+<p>Начните с черновика: «Подготовь анонс встречи, покажи предпросмотр и сохрани для моей проверки». Уточните факты, ссылки и желаемое оформление. Перед публикацией согласуйте окончательный текст, канал и время. Канал подключается в редакторе отдельно; выдача токена не добавляет его автоматически.</p>
+<p>Для текста используйте <a href="/features/telegram-markdown/">руководство по Markdown</a>, для данных — <a href="/features/telegram-tables/">таблицы</a>, для выбранного времени — <a href="/features/scheduled-posts/">отложенные посты</a>.</p>
+<h2>Документы для настройки</h2>
+<ul><li><a href="/agents.md">Подключение, настройка клиента и проверка</a></li><li><a href="/skills/richpost/SKILL.md">Устанавливаемый skill RichPost</a></li><li><a href="/llms.txt">Краткий указатель</a> и <a href="/llms-full.txt">вся инструкция одним файлом</a></li><li><a href="/agents.txt">Обнаружение возможностей</a> и <a href="/agents.json">описание в JSON</a></li></ul>
+<h2>Частые вопросы</h2>
+<div class="questions guide-faq"><details><summary class="title-3">Подойдёт ли любой чат с ИИ?</summary><p class="body-3">Нет. Клиент должен поддерживать удалённый MCP через HTTP с персональным bearer токеном. Поддержка skill и способ хранения секрета зависят от клиента.</p></details><details><summary class="title-3">Можно ли разрешить только подготовку черновиков?</summary><p class="body-3">Да. Выберите роль «Черновики». Для просмотра достаточно роли «Чтение», а право публикации выдаётся отдельно.</p></details><details><summary class="title-3">Нужно ли передавать агенту токен Telegram бота?</summary><p class="body-3">Нет. Для подключения используется персональный API/MCP токен RichPost. Токен бота, пароль и код входа Telegram для этого не нужны.</p></details><details><summary class="title-3">Как отключить подключение?</summary><p class="body-3">Отзовите его персональный токен в меню «Токены API и MCP». При необходимости удалите запись MCP сервера из настроек клиента.</p></details></div>
+<p class="guide-action"><a class="button primary button-md" href="__APP_URL__">Открыть редактор <span aria-hidden="true">↗</span></a></p>
+</article>
+<section class="related-guides" aria-label="Другие руководства"><h2>Другие руководства RichPost</h2><div class="related-links"><a href="/features/telegram-tables/">Таблицы в Telegram</a><a href="/features/telegram-markdown/">Markdown и предпросмотр</a><a href="/features/scheduled-posts/">Отложенные посты</a><a href="/features/ai-agents/" aria-current="page">ИИ агенты и MCP</a></div><p><a href="__HUB_URL__">Все возможности и руководства</a></p></section>
 </main>
-<footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><a href="/agents.md">Для ИИ-агентов</a><a href="__APP_URL__">Приложение ↗</a></footer>
+<footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Сделано для ваших каналов в Telegram.</span></div><nav class="footer-links caption-2" aria-label="Дополнительные ссылки"><a href="/features/">Все руководства</a><a href="/features/telegram-tables/">Таблицы в Telegram</a><a href="/features/telegram-markdown/">Markdown и предпросмотр</a><a href="/features/scheduled-posts/">Отложенные посты</a><a href="/features/ai-agents/" aria-current="page">ИИ агенты и MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Открытый код ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></nav></footer>
 </body>
 </html>

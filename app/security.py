@@ -23,8 +23,9 @@ import store
 from services import accounts
 from store import account_tokens
 
+# 'wasm-unsafe-eval' — только для компиляции vendor/tlottie (анимации .tgs), не для eval скриптов
 CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
     "media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; "
     "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
 )
@@ -124,6 +125,9 @@ async def guard(request: Request, call_next):
     path = request.url.path
     if not host_ok(request.headers.get("host", "")):
         return JSONResponse({"detail": "неизвестный Host; добавьте его в ALLOWED_HOSTS"}, status_code=400)
+    if request.method in ("GET", "HEAD") and path + "/" in public_site.PAGE_PATHS | public_site.PREVIEW_PATHS:
+        query = "?" + request.url.query if request.url.query else ""
+        return RedirectResponse(path + "/" + query, status_code=308)
     if (
         settings.get().is_landing_host(request.headers.get("host", ""))
         and path not in PUBLIC_PATHS
@@ -190,7 +194,7 @@ async def guard(request: Request, call_next):
     finally:
         _current.reset(reset)
     if public_site.is_page(path) or path.startswith("/render/") or path == "/api/render":
-        csp = CSP
+        csp = response.headers.get("Content-Security-Policy", CSP)
         if (
             path == "/"
             and settings.get().public
@@ -199,7 +203,8 @@ async def guard(request: Request, call_next):
             csp = csp.replace("script-src 'self'", "script-src 'self' https://telegram.org")
             csp += "; frame-src https://oauth.telegram.org"
         response.headers["Content-Security-Policy"] = csp
-    if not public or path.startswith(("/api/auth/", "/auth/")):
+    # a route that set its own policy (immutable emoji pictures) knows better; everything else: no-store
+    if (not public or path.startswith(("/api/auth/", "/auth/"))) and "Cache-Control" not in response.headers:
         response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"

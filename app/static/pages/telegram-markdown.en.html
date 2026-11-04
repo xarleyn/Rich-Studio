@@ -3,39 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Telegram Markdown editor with preview — RichPost</title>
-  <meta name="description" content="Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try an example and check the result in RichPost before publishing.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="Telegram Markdown editor with preview — RichPost">
-  <meta property="og:description" content="Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try an example and check the result in RichPost before publishing.">
+  <title>Telegram Markdown editor and example — RichPost</title>
+  <meta name="description" content="Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try the example, preview it and check the result in RichPost.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="Telegram Markdown editor and example — RichPost">
+  <meta property="og:description" content="Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try the example, preview it and check the result in RichPost.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The RichPost editor with a Telegram post preview">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Telegram Markdown editor and example — RichPost">
+  <meta name="twitter:description" content="Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try the example, preview it and check the result in RichPost.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="The RichPost editor with a Telegram post preview">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
-  <meta property="og:locale" content="en_US">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
-<body><a class="skip" href="#main">Skip to content</a>
-<header class="site-header wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__RU_URL__" lang="ru" hreflang="ru">RU</a><a class="button quiet" href="__APP_URL__">Open the editor ↗</a></div></header>
-<main id="main" class="guide-content wrap"><a href="/en/">← All features</a><h1>Telegram Markdown editor with preview</h1>
-<p class="lead">Write in the Markdown tab and check formatting as you go. RichPost uses Rich Markdown for Telegram rich messages, with headings and tables, rather than just the older MarkdownV2 format.</p>
-<h2>A starting example</h2><pre><code># See you on Saturday
+<body>
+<a class="skip body-4" href="#main">Skip to content</a>
+<header class="site-header wrap">
+  <a class="logo" href="/en/" aria-label="RichPost home"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+  <nav id="site-nav" aria-label="Main navigation">
+    <div class="nav-links guide-nav"><a class="title-4" href="/en/features/">Guides</a><a href="/en/features/telegram-tables/">Tables</a><a href="/en/features/telegram-markdown/" aria-current="page">Markdown</a><a href="/en/features/scheduled-posts/">Scheduling</a><a href="/en/features/ai-agents/">MCP</a></div>
+    <a class="button primary button-md nav-cta" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="header-actions"><a class="language title-4" href="__RU_URL__" lang="ru" hreflang="ru" aria-label="Russian version">RU</a><a class="button quiet button-sm" href="__APP_URL__">Editor <span aria-hidden="true">↗</span></a></div>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+</header>
+<main id="main" class="guide-content wrap">
+<nav class="breadcrumbs caption-2" aria-label="Breadcrumb"><ol><li><a href="/en/">RichPost</a></li><li><a href="__HUB_URL__">Guides</a></li><li aria-current="page">Telegram Markdown with a live preview</li></ol></nav>
+<article>
+<h1 class="heading-2">Telegram Markdown with a live preview</h1>
+<p class="lead body-2">Write in the Markdown tab and check formatting beside your source. RichPost uses Rich Markdown for rich Telegram messages, including headings and tables. Its rules differ from regular MarkdownV2.</p>
+<h2>Start with a small example</h2>
+<p>A short announcement can show a heading, an emphasized time, a quote, a list and a link. Copy this text into a new draft, then replace the subject, time and address with your own details.</p>
+<pre><code># See you on Saturday
 
 **Starts at 10:00.** Bring a notebook.
 
-&gt; Good ideas start with a conversation.
+&gt; Good ideas begin with a conversation.
 
 - Discuss our plans
-- Answer your questions
+- Answer questions
 
 [Details](https://example.com/meeting)</code></pre>
-<p>The preview shows a heading, a highlighted time, a quote, a list and a link. Replace the example with your text and a real destination before publishing.</p>
-<h2>Check before publishing</h2><ol><li>Create a draft and choose Markdown. Paste the example or use the snippet toolbar.</li><li>Check the preview on the right. On a phone, switch to the Preview tab.</li><li>Save the draft. Select a channel and use Send preview to send a test to yourself.</li><li>If parsing differs, open Telegram's result. You can use Telegram's returned blocks in visual mode; your source text remains in its tab.</li></ol>
-<h2>Common surprises</h2><p>A single newline within a paragraph becomes a space. Use a blank line for a new paragraph, or two trailing spaces or a backslash for a line break. Double underscores produce bold text. For underline, use the HTML tag <code>&lt;u&gt;…&lt;/u&gt;</code>.</p>
-<p>Formulas, tables and allowed HTML tags extend the format. Check unfamiliar syntax in the preview and your direct messages: the local renderer does not replace Telegram's parser.</p>
-<aside><p>Switching tabs does not automatically rewrite another format's source. Edit and check the format you intend to send; the editor identifies the active format above your content.</p></aside>
-<p><a class="button primary" href="__APP_URL__">Open the editor ↗</a></p><h2>Related guides</h2><ul><li><a href="/en/features/telegram-tables/">How to create a table in Telegram</a></li><li><a href="/en/features/scheduled-posts/">Schedule posts for Telegram channels</a></li></ul></main>
-<footer class="site-footer wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><a href="https://t.me/__BOT_USERNAME__" rel="noopener" target="_blank">Our bot ↗</a><a href="__APP_URL__">App ↗</a></footer></body></html>
+<p>The preview should show a separate heading, a bold time, a quote and two list items. The example.com address is for demonstration. Replace it with a real link and check its destination before publishing.</p>
+<h2>Rich Markdown and MarkdownV2</h2>
+<p>Markdown is a name shared by several formats. Instructions for the regular Bot API using <code>parse_mode=MarkdownV2</code> do not transfer directly to this editor. Rich messages have their own content structure, including headings, lists and tables. Pasting source text into a regular chat is also not equivalent to sending a rich post through the editor.</p>
+<p>Start with a small set of familiar constructs. Test a new construct by itself before adding it to a longer post. This makes it easier to identify the cause when a line break, link or emphasis does not appear as expected.</p>
+<h2>Work through the post in the editor</h2>
+<ol><li>Create a draft and select Markdown. Paste the example or insert a construct from the snippets panel.</li><li>Check the result on the right. On a narrow screen, open Preview to inspect the full post.</li><li>Save the draft, start the bot and send a preview to your private chat. This does not publish the post to the selected channel.</li><li>If the result differs, inspect how Telegram parsed the message and compare the returned structure. Update the source and check again.</li><li>Select a channel, verify links and buttons, then publish now or choose a future time.</li></ol>
+<h2>Understand line breaks and emphasis</h2>
+<h3>A paragraph versus a new line</h3>
+<p>A single line break inside a paragraph becomes a space. Leave an empty line for a new paragraph. To break a line within the same paragraph, use two trailing spaces or a backslash. If a post looks too dense, check paragraph spacing before adding extra tags.</p>
+<h3>Bold text and underlining</h3>
+<p>Double asterisks produce bold text. Double underscores also mean bold emphasis, not underlining. For an underline, use the supported HTML tag <code>&lt;u&gt;…&lt;/u&gt;</code> and check the result. Do not paste scripts or the layout of an entire web page into your post.</p>
+<h2>Switching between formats</h2>
+<p>When you switch between visual blocks, HTML and Markdown, the editor tries to convert the post content. If a construct cannot be transferred without losing data, the switch is cancelled and the original content is preserved. Read the editor's message, then continue in the original format or simplify the part it identifies.</p>
+<aside><p>JSON is applied through a separate action. Unapplied source changes should not be treated as the published version. Before sending, check the active format, the preview and the saved draft.</p></aside>
+<h2>A final check before publishing</h2>
+<p>Read the rendered post without looking at its source. Are the headings clear? Are list items separate? Can readers find the intended next action? Check the real destinations of links and the selected channels. The local preview is useful while editing, but Telegram's parser and the reader's client also affect the final appearance.</p>
+<p>For rows and columns, try the <a href="/en/features/telegram-tables/">table example</a>. You can <a href="/en/features/scheduled-posts/">schedule a finished draft</a> or let an <a href="/en/features/ai-agents/">AI agent work with it through MCP</a>.</p>
+<h2>Frequently asked questions</h2>
+<div class="questions guide-faq"><details><summary class="title-3">Do regular MarkdownV2 rules apply?</summary><p class="body-3">Not completely. RichPost uses Rich Markdown for rich messages. Check new constructs in the preview and a private Telegram test message.</p></details><details><summary class="title-3">Why did a line break disappear?</summary><p class="body-3">A single break within a paragraph becomes a space. Use a blank line for a new paragraph, or two trailing spaces or a backslash for a line break.</p></details><details><summary class="title-3">What should I do if a format switch is cancelled?</summary><p class="body-3">The editor preserves your original content when conversion without data loss is unavailable. Continue in the original format or simplify the identified construct.</p></details></div>
+<p class="guide-action"><a class="button primary button-md" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a></p>
+</article>
+<section class="related-guides" aria-label="Related guides"><h2>More RichPost guides</h2><div class="related-links"><a href="/en/features/telegram-tables/">Tables in Telegram</a><a href="/en/features/telegram-markdown/" aria-current="page">Markdown and preview</a><a href="/en/features/scheduled-posts/">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a></div><p><a href="__HUB_URL__">All features and guides</a></p></section>
+</main>
+<footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Made for your Telegram channels.</span></div><nav class="footer-links caption-2" aria-label="Additional links"><a href="/en/features/">All guides</a><a href="/en/features/telegram-tables/">Tables in Telegram</a><a href="/en/features/telegram-markdown/" aria-current="page">Markdown and preview</a><a href="/en/features/scheduled-posts/">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Open source ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Our bot ↗</a><a href="__APP_URL__">App ↗</a></nav></footer>
+</body>
+</html>
