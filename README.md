@@ -110,7 +110,7 @@ ACCOUNT_DATABASE_MB=50
 
 <img src="docs/images/spec.jpg" alt="Окно спецификации: Bot API 10.3, источник и кнопка проверки обновлений" width="640">
 
-Что обновляется вручную: RU/EN-переводы интерфейса (`app/static/js/locale-en.js`) и публичных страниц (`landing*.html`, `pages/`), русские подписи блоков (без них показывается имя из спецификации), заготовки HTML-тегов в `app/static/snippets.js` и правила разбора HTML и Markdown в `render.js` (грамматики нет в спецификации; сверяются с настоящим Telegram через `scripts/capture_telegram_parse.py` и `npm run test:parity`) и отрисовка новых блоков в предпросмотре (до этого новый блок показывается рамкой с его JSON). Чего из этого не хватает для текущей спецификации, показывает окно спецификации (поле `gaps` в `GET /api/spec`) и проверяет тест `tests/test_spec_coverage.py`.
+Что обновляется вручную: RU/EN-переводы интерфейса (`app/static/js/locale-en.js`) и публичных страниц (`landing*.html`, `pages/`), русские подписи блоков (без них показывается имя из спецификации), заготовки HTML-тегов в `app/static/snippets.js` и правила разбора HTML и Markdown в `render.js` (грамматики нет в спецификации; сверяются с настоящим Telegram через `scripts/capture_telegram_parse.py` и `npm run test:parity`) и отрисовка новых блоков в предпросмотре (до этого новый блок показывается рамкой с его JSON). Чего из этого не хватает для текущей спецификации, показывает окно спецификации (поле `gaps` в `GET /api/spec`) и проверяет Rust-тест gaps в `src/spec/source.rs`.
 
 На сервере (`STUDIO_MODE=server`) спецификация закреплена (`SPEC_PIN`): студия ничего не скачивает и работает на копии из образа, новая версия приходит с обновлением образа. Ещё вручную: CodeMirror обновляется через `npm run vendor:editor` (подробности ниже, в разделе «Редактор»); Rust toolchain и зависимости фиксируются в `rust-toolchain.toml` и `Cargo.lock`, а `make docs` собирает справочники из Rust-бинарника. После изменения `requirements.txt` (и после PR Dependabot) `make lock` обновляет хэши Python-зависимостей эталонной реализации; новый рабочий образ их не устанавливает. Для публичного входа Telegram домен настраивается через `/setdomain` у @BotFather; при смене домена его нужно обновить и там.
 
@@ -435,10 +435,11 @@ claude mcp add --transport http rich-studio http://localhost:7424/mcp --header "
 CI на каждый PR: тесты и линтеры, браузерные проверки, аудит зависимостей (`pip-audit`, `npm audit`), поиск секретов (gitleaks), сборка и запуск образа с проверкой Trivy. Каждый push в `main` публикует образ в GHCR: `:latest` (amd64; amd64 + arm64 — по тегу `v*` и ручному запуску). Зависимости раз в неделю обновляет Dependabot.
 
 ```
-pip install -r requirements-dev.txt
-pytest                          # 312 тестов API и MCP на подставном Telegram, без сети и токена
-ruff check . && ruff format --check . && mypy   # линтер, формат, типы (настройки в pyproject.toml)
+cargo nextest run --workspace --locked   # Rust: HTTP/MCP, SQLite, права, очередь и сбои
+cargo test --workspace --doc --locked    # doctests (nextest их не запускает)
 npm ci && npm run lint && npm run typecheck   # ESLint и проверка типов редактора; Node нужен только для проверок
+npm run test:lock               # requirements.txt и requirements.lock согласованы
+npm run test:docs               # docs/openapi.json и docs/reference/ совпадают с Rust-бинарником
 npm run test:render             # 43 проверки очистки HTML и разбора Markdown в предпросмотре (Playwright, без студии)
 npm run test:parity             # предпросмотр HTML и Markdown против блоков настоящего Telegram (tests/telegram_parse)
 npm run test:shots              # примеры из examples/ в обеих темах: вёрстка и скриншоты в test-results/preview/
@@ -457,24 +458,25 @@ npm ci && npx playwright install chromium && make e2e
 ## Структура
 
 ```
-app/main.py        сборка приложения: middleware, роутеры, фоновые циклы
-app/settings.py    все настройки из окружения
-app/logs.py        журнал с ротацией; app/metrics.py — счётчики для /api/health
-app/security.py    защита: Host, CSRF, ключ API, CSP
-app/api/           маршруты HTTP (тонкие)
-app/mcp_tools/     MCP-сервер для агентов и страница предпросмотра для чата (MCP App)
-app/services/      логика: публикация, отложенные посты, события от Telegram, загрузки, ключи повтора
-app/telegram/      клиент Bot API без преобразований (+ multipart для upload:)
-app/store/         SQLite: черновики, посты, миграции
-app/spec/          спецификация Bot API: загрузка, отчёт об изменениях, проверка постов
+src/main.rs        сборка приложения: middleware, роутеры, фоновые циклы
+src/settings.rs    настройки из окружения
+src/logs.rs        журнал с ротацией; src/metrics.rs — счётчики для /api/health
+src/security.rs    защита: Host, CSRF, ключ API, CSP
+src/api/           маршруты HTTP (тонкие)
+src/mcp_tools/     MCP-сервер для агентов и страница предпросмотра (MCP App)
+src/services/      логика: публикация, отложенные посты, события от Telegram, загрузки, ключи повтора
+src/telegram/      клиент Bot API без преобразований (+ multipart для upload:)
+src/store/         SQLite: черновики, посты, миграции
+src/spec/          спецификация Bot API: загрузка, отчёт об изменениях, проверка постов
 app/static/        редактор (js/, ES-модули без сборки), рендер предпросмотра (render.js, tg.css), заготовки (snippets.js)
 app/static/vendor  KaTeX 0.16.11, markdown-it 14.1.0, @preact/signals-core 1.14.4 (MIT), Lit 3.3.3 (BSD-3), чтобы работало без CDN
 app/bundled/       встроенная копия спецификации Bot API 10.3
 examples/          примеры постов (HTML и JSON-блоки)
-scripts/           обновление спецификации (update_spec.py), запись разбора настоящим Telegram (capture_telegram_parse.py)
-.claude/skills/    skills для Claude Code: посты и здоровье студии (+ субагент в .claude/agents, хуки в .claude/hooks: форматирование, состояние студии при старте сессии)
-tests/             тесты API (pytest) и браузера (Playwright)
-docs/              устройство кода (ARCHITECTURE.md), наблюдаемость (OBSERVABILITY.md), контракт API (openapi.json), решения и отказы (decisions/), чек-лист ревью, картинки для README
+scripts/           генерация docs, обновление спецификации (update_spec.py), запись разбора настоящим Telegram
+.claude/skills/    skills для Claude Code: посты и здоровье студии (+ субагент в .claude/agents, хуки в .claude/hooks)
+tests/rust/        Rust-тесты API, MCP, SQLite, прав и фоновых задач
+tests/e2e/         браузерные сценарии (Playwright); tests/mock_telegram.py — dev-стенд
+docs/              устройство кода (ARCHITECTURE.md), наблюдаемость (OBSERVABILITY.md), контракт API (openapi.json), решения и отказы (decisions/), чек-лист ревью
 ```
 
 Что ещё есть в Bot API для каналов и чего нет: `posting-features.md` в общей папке проекта.

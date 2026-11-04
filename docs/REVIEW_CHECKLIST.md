@@ -36,7 +36,7 @@
 - [ ] Новая фича — тест API на фейковом Telegram (`tests/`). Изменение UI — проверка в `tests/e2e/` (новый файл).
 - [ ] Тест не зависит от порядка и от фонового планировщика (вызывает `run_due_posts` сам).
 - [ ] Никаких реальных сетевых запросов и реального токена.
-- [ ] `ruff check`, `ruff format --check`, `mypy`, `pytest`, `npm run lint`, `npm run test:render` зелёные.
+- [ ] `cargo nextest`, `cargo test --doc`, `ruff check`, `ruff format --check`, `mypy`, `npm run lint`, `npm run test:render`, `npm run test:docs` зелёные.
 
 ## 7. Документация и скилл
 - [ ] Новая возможность описана в README и, если ею будут пользоваться агенты, в `.claude/skills/telegram-rich-posts/SKILL.md`.

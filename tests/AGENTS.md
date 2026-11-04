@@ -1,11 +1,9 @@
 # Тесты
 
-- `pytest`: API на подставном Telegram (`mock_telegram.py`), у каждого теста своя пустая папка данных, фоновые циклы выключены (`STUDIO_BACKGROUND=off`). Нужен цикл — вызывай `scheduler.run_due_posts()` или `updates.handle_update()` сам.
-- Подменять Telegram: `monkeypatch.setattr(telegram, "call", fake)`. Настройки: `monkeypatch.setattr(settings.get(), "preview_chat", "")`.
-- Ожидание подменяй через `_sleep` модуля (`telegram.client`, `services.updates`), никогда не `asyncio.sleep` глобально.
-- Найденный баг — сначала падающий тест (`test_regressions.py`), потом исправление.
-- `render_unit.mjs`: враждебные примеры для санитайзера, запуск `npm run test:render`, студия не нужна.
-- `preview_shots.mjs`: каждый пример из `examples/` в светлой и тёмной теме, проверка вёрстки (нет ошибок, у блоков есть размер, ничего не вылезает из пузыря) и скриншоты в `test-results/preview/` (в CI это артефакт). Пиксели не сравниваются: шрифты на разных машинах разные. Новый блок в спецификации: добавь пример в `examples/`, и он попадёт сюда сам.
-- `e2e_ui.mjs`: проверки в браузере против `make mock` + `make dev`. Каждая проверка — отдельный файл `e2e/NN-имя.mjs` (`export default async function (ctx)`, помощники в `e2e/harness.mjs`). Файлы идут по порядку имён на одной странице. Новая проверка — новый файл со следующим номером, общие файлы не трогаются. Одна проверка: `E2E_ONLY=poll node tests/e2e_ui.mjs`. Ждите событие (`waitForFunction`, опрос лога mock), а не фиксированную паузу.
-- `test_spec_coverage.py`: подписи и предпросмотр покрывают все блоки и inline-типы из `app/bundled/api.json`; сообщение об ошибке перечисляет, что добавить.
-- `tests/rust/http_mcp_contract.rs`: схема API совпадает с `docs/openapi.json`; после намеренного изменения `make docs`.
+- **Rust** — основной набор: `cargo nextest run --workspace --locked` (или `cargo test --workspace --locked`). Контракты HTTP/MCP, SQLite, права, очередь и сбои лежат в `tests/rust/`.
+- **JS** — `npm run test:render`, `test:formats`, `test:source`, `test:i18n`, `test:parity`, `test:shots`. Враждебные примеры санитайзера — в `tests/render_unit.mjs`.
+- **Браузер** — `make e2e-rust`: временная база, свободные порты, Rust-сервер и подставной Telegram. Сценарии — `tests/e2e/NN-имя.mjs`; новая проверка — новый файл со следующим номером.
+- `tests/mock_telegram.py` — только dev-стенд для браузерных сценариев; production и Rust-тесты от него не зависят. tgfake-проверка описана в `docs/TGFAKE.md`.
+- Найденный баг сначала получает падающий Rust-тест (обычно в `tests/rust/regressions.rs`), потом исправление.
+- `scripts/generate-rust-docs.mjs --check` (или `make check-docs`) сверяет `docs/openapi.json` и `docs/reference/` с Rust-бинарником; после намеренного изменения API запускайте `make docs`.
+- `npm run test:lock` сверяет `requirements.txt` и `requirements.lock`.

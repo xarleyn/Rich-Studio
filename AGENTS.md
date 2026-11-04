@@ -12,7 +12,7 @@ make check                                      # Rust quality gates + Python-э
 make fmt                                        # автоисправление формата и линтеров
 ```
 
-Изменение готово, только когда `make check` зелёный. Изменил маршруты, модели API или инструменты MCP намеренно — `make docs` и закоммить `docs/openapi.json` и `docs/reference/` (тесты `test_openapi_contract.py` и `test_reference_docs.py` сверяют их). Браузерные проверки: `make mock`, `make dev`, затем `make e2e` (нужен Chromium для Playwright).
+Изменение готово, только когда `make check` зелёный. Изменил маршруты, модели API или инструменты MCP намеренно — `make docs` и закоммить `docs/openapi.json` и `docs/reference/` (`make check-docs` и `tests/rust/http_mcp_contract.rs` сверяют их). Браузерные проверки: `make mock`, `make dev`, затем `make e2e` (нужен Chromium для Playwright).
 
 ### Критерии Rust-задач
 
@@ -25,7 +25,7 @@ make fmt                                        # автоисправление
 ## Главные правила
 
 1. **Payload уходит в Bot API как есть.** Не переименовывай и не «чини» поля поста. `telegram/` меняет только `upload:<имя>` → `attach://`. Незнакомые поля дают предупреждение, а не ошибку: так новые возможности Bot API работают в день релиза.
-2. **Редактор генерируется из спецификации** (`app/bundled/api.json`, кэш в `DATA_DIR`). Не заводи жёстких списков блоков и полей. Руками поддерживаются только русские подписи (`labels.js`), сниппеты (`snippets.js`) и отрисовка новых блоков в `render.js`. Чего из этого не хватает для текущей `api.json`, перечисляет `tests/test_spec_coverage.py`: после обновления спецификации сделай его зелёным.
+2. **Редактор генерируется из спецификации** (`app/bundled/api.json`, кэш в `DATA_DIR`). Не заводи жёстких списков блоков и полей. Руками поддерживаются только русские подписи (`labels.js`), сниппеты (`snippets.js`) и отрисовка новых блоков в `render.js`. Чего из этого не хватает для текущей `api.json`, проверяет Rust-тест gaps в `src/spec/source.rs`: после обновления спецификации сделай его зелёным.
 3. **Слои** `api | mcp_tools → services → telegram | store | spec`. Сервисы и ниже не импортируют HTTP/MCP-адаптеры. Rust проверяет `tests/rust/architecture.rs`, Python-эталон — `lint-imports` (контракты в `pyproject.toml`); нарушение роняет `make check`.
 4. **Политика ошибок отправки** (ARCHITECTURE.md): ушедший пост всегда записан как отправленный; при сетевой ошибке во время отправки повтора нет (`MayHaveGone`, и `Idempotency-Key` тоже не даёт повторить); предпросмотр никогда не уходит в канал по умолчанию. Новый маршрут, который публикует в канал, оборачивай в `services::idempotency::Idempotency::run` и передавай `actor` (см. `src/api/posts.rs`).
 5. **Безопасность.** Пользовательский HTML в DOM только через `h()`/`textContent` или `RichRender` (санитайзер). `innerHTML` запрещён ESLint. CSP без inline-скриптов. Новая дыра в санитайзере: сначала пример в `tests/render_unit.mjs`.
@@ -62,12 +62,12 @@ make fmt                                        # автоисправление
 
 ## Не делать
 
-- Не править `app/bundled/api.json` руками: это копия спецификации с https://github.com/PaulSonOfLars/telegram-bot-api-spec. Обновляет её `make spec-update` (код выхода 10, если версия новая); после него сделай зелёным `tests/test_spec_coverage.py`.
+- Не править `app/bundled/api.json` руками: это копия спецификации с https://github.com/PaulSonOfLars/telegram-bot-api-spec. Обновляет её `make spec-update` (код выхода 10, если версия новая); после него сделай зелёным Rust-тест gaps в `src/spec/source.rs`.
 - Не подменять `asyncio.sleep` глобально в тестах: это останавливает подставной Telegram в соседнем потоке. Подменяй `_sleep` модуля.
 - Не менять старые файлы в `app/store/migrations/`, только добавлять новые.
-- Не править `requirements.lock` руками: после изменения `requirements.txt` (и в PR Dependabot) `make lock`, `tests/test_lock.py` сверяет их.
+- Не править `requirements.lock` руками: после изменения `requirements.txt` (и в PR Dependabot) `make lock`, `npm run test:lock` сверяет их.
 - Не добавлять сборщик, фреймворк или новую рантайм-зависимость без обсуждения: редактор специально работает без сборки.
-- Не отправлять ничего в настоящий Telegram из тестов. Для всего есть `tests/mock_telegram.py`.
+- Не отправлять ничего в настоящий Telegram из тестов. Для Rust-тестов есть in-process mock и опциональный tgfake, для браузерных сценариев — `tests/mock_telegram.py`.
 
 ## Где что
 

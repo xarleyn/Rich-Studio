@@ -5,9 +5,9 @@ PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 LINT_IMPORTS = $(firstword $(wildcard .venv/bin/lint-imports .venv/Scripts/lint-imports.exe) lint-imports)
 UV = $(firstword $(wildcard .venv/bin/uv .venv/Scripts/uv.exe) uv)
 
-.PHONY: check check-fast check-rust check-rust-fast check-py check-js fmt test openapi docs e2e e2e-rust e2e-tgfake mock dev dev-python spec-update token tokens token-revoke lock
+.PHONY: check check-fast check-rust check-rust-fast check-docs check-py check-js fmt test openapi docs e2e e2e-rust e2e-tgfake mock dev dev-python spec-update token tokens token-revoke lock
 
-check: check-rust check-py check-js
+check: check-rust check-docs check-py check-js
 
 check-rust:
 	cargo fmt --all -- --check
@@ -24,13 +24,17 @@ check-rust-fast:
 	cargo nextest run --workspace --locked --no-fail-fast
 	cargo test --workspace --doc --locked
 
+# docs/openapi.json и docs/reference/ остаются актуальными относительно Rust-бинарника.
+check-docs:
+	cargo build --locked --bin rich-studio
+	node scripts/generate-rust-docs.mjs --check
+
 # Быстрая проверка между шагами, без браузера. Перед PR всё равно нужен `make check`.
 check-fast: check-rust-fast
 	$(PY) -m ruff check .
 	$(PY) -m ruff format --check .
 	$(PY) -m mypy
 	PYTHONPATH=app $(LINT_IMPORTS) --no-cache
-	$(PY) -m pytest -q -x
 	npx eslint .
 	npx tsc -p .
 
@@ -39,11 +43,11 @@ check-py:
 	$(PY) -m ruff format --check .
 	$(PY) -m mypy
 	PYTHONPATH=app $(LINT_IMPORTS) --no-cache
-	$(PY) -m pytest -q
 
 check-js:
 	npx eslint .
 	npx tsc -p .
+	npm run --silent test:lock
 	npm run --silent test:render
 	npm run --silent test:formats
 	npm run --silent test:source
@@ -58,7 +62,7 @@ fmt:
 	npx eslint --fix .
 
 test:
-	$(PY) -m pytest -q
+	cargo test --workspace --locked
 
 # После намеренного изменения API: обновить docs/openapi.json и закоммитить его.
 openapi: docs
@@ -111,11 +115,11 @@ e2e-tgfake:
 	TGFAKE_BIN="$(TGFAKE_BIN)" cargo test --locked --test tgfake -- --ignored --test-threads=1
 
 # requirements.lock: pinned Python reference dependencies retained for migration checks. After a change in requirements.txt
-# (by hand or Dependabot) run it and commit the lock; tests/test_lock.py checks they agree.
+# (by hand or Dependabot) run it and commit the lock; npm run test:lock checks they agree.
 lock:
 	$(UV) pip compile requirements.txt --universal --python-version 3.12 --generate-hashes \
 	  --annotation-style line --custom-compile-command "make lock" -o requirements.lock
 
-# newer Bot API spec into app/bundled/api.json; exit 10 = updated, then make tests/test_spec_coverage.py green
+# newer Bot API spec into app/bundled/api.json; exit 10 = updated, then make the Rust spec-gaps test green
 spec-update:
 	$(PY) scripts/update_spec.py

@@ -45,7 +45,6 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: PYTHONPATH=app lint-imports --no-cache
-      - run: pytest --cov --cov-report=term-missing
 
   js:
     runs-on: ubuntu-24.04

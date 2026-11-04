@@ -94,12 +94,11 @@ SQLite и синхронные файловые операции выполня�
 ## Тесты
 
 - `cargo nextest run --workspace --locked --no-fail-fast` — Rust-контракты HTTP/MCP, SQLite, права, сбои отправки, фоновые задачи и CLI. `make e2e-rust` запускает прежние браузерные сценарии на изолированной Rust-сборке и mock Telegram.
-- `pytest` — Python-эталон API на фейковом Telegram (`tests/mock_telegram.py`, он же сервер для браузерных проверок). У каждого теста своя пустая папка данных, порядок тестов не важен. Фоновые циклы выключены (`STUDIO_BACKGROUND=off`); тест сам вызывает `scheduler.run_due_posts()` или `updates.handle_update()`.
-- Ожидание в коде подменяется через `_sleep` модуля (`telegram.client`, `services.updates`), а не через `asyncio.sleep`: глобальная подмена останавливает фейковый сервер в соседнем потоке, и тесты зависают.
-- Подменять настройки: `monkeypatch.setattr(settings.get(), "preview_chat", "")`.
-- Подменять Telegram: `monkeypatch.setattr(telegram, "call", fake)`.
+- `tests/mock_telegram.py` — только dev-стенд для браузерных сценариев (`make mock`, `make dev`, `make e2e`); Rust-тесты от него не зависят. Опциональная внешняя проверка: `docs/TGFAKE.md`.
+- `npm run test:lock` — `scripts/check-python-lock.mjs`: `requirements.txt` и `requirements.lock` согласованы.
+- `npm run test:docs` — `scripts/generate-rust-docs.mjs --check`: `docs/openapi.json` и `docs/reference/` совпадают с Rust-бинарником; `make check-docs` собирает его и запускает проверку.
 - `tests/e2e_ui.mjs` — раннер браузерных проверок против запущенной студии и `tests/mock_telegram.py`; сами проверки — по файлу на каждую в `tests/e2e/`.
 - `npm run test:render` — `tests/render_unit.mjs`: очистка HTML/Markdown в render.js на враждебных примерах (script, on*, javascript:, svg, mXSS), без студии. Новая дыра в санитайзере → сначала пример сюда.
 - `npm run test:parity` — `tests/render_parity.mjs`: предпросмотр каждого примера из `tests/telegram_parse/captured.json` совпадает с предпросмотром блоков, которые для него вернул настоящий Telegram. Новый пример: добавить в `cases.json` и записать `scripts/capture_telegram_parse.py` (нужен токен и чат, сообщения сразу удаляются). Осознанное расхождение помечается `known_gap` с причиной.
 - `npm run lint` — ESLint для `app/static` и тестов на JS: ловит неопределённые имена и забытые импорты, которые браузер покажет только при клике.
-- Перед PR: `make docs`, `make check`, `make e2e-rust`. `check-rust` включает fmt, Clippy без предупреждений, nextest, doctests, cargo-deny, cargo-machete и release-сборку. Python/JS проверки остаются в полном `make check`. Контейнерную проверку запускает `scripts/check-rust-container.mjs`; она подтверждает установленный бинарник, отсутствие Python, сохранение данных и остановку, отдельно от локальных тестов.
+- Перед PR: `make docs`, `make check`, `make e2e-rust`. `check-rust` включает fmt, Clippy без предупреждений, nextest, doctests, cargo-deny, cargo-machete и release-сборку; `check-docs` сверяет документацию. Контейнерную проверку запускает `scripts/check-rust-container.mjs`; она подтверждает установленный бинарник, отсутствие Python, сохранение данных и остановку, отдельно от локальных тестов.
