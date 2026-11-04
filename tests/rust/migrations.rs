@@ -23,8 +23,27 @@ fn root_connection(data_dir: &Path) -> Connection {
 #[test]
 fn migration_files_are_numbered_one_by_one() {
     let migrations = db::load_migrations(db::MIGRATIONS_DIR).expect("bundled migrations");
-    assert_eq!(migrations.len(), 17);
+    assert_eq!(migrations.len(), db::embedded_migrations().len());
     assert!(migrations.iter().all(|sql| sql.starts_with("-- ")));
+    let mut files: Vec<String> = std::fs::read_dir(Path::new(db::MIGRATIONS_DIR))
+        .expect("migrations folder")
+        .map(|entry| {
+            entry
+                .expect("migration entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .filter(|name| name.ends_with(".sql"))
+        .collect();
+    files.sort();
+    for name in &files {
+        assert_eq!(
+            name.as_bytes().get(4),
+            Some(&b'_'),
+            "migration file name must be NNNN_name.sql: {name}"
+        );
+    }
 }
 
 #[test]
@@ -33,10 +52,19 @@ fn duplicate_or_skipped_migration_numbers_stop_startup() {
     for name in ["0001_a.sql", "0002_b.sql", "0002_c.sql"] {
         std::fs::write(dir.path().join(name), "-- test\nselect 1;").expect("migration fixture");
     }
-    assert!(db::load_migrations(dir.path()).is_err());
+    let duplicate =
+        db::load_migrations(dir.path()).expect_err("a number taken twice must stop startup");
+    assert!(
+        duplicate.to_string().contains("without gaps"),
+        "unexpected duplicate error: {duplicate}"
+    );
     std::fs::rename(dir.path().join("0002_c.sql"), dir.path().join("0004_c.sql"))
         .expect("renumber fixture");
-    assert!(db::load_migrations(dir.path()).is_err());
+    let skipped = db::load_migrations(dir.path()).expect_err("a skipped number must stop startup");
+    assert!(
+        skipped.to_string().contains("without gaps"),
+        "unexpected skipped error: {skipped}"
+    );
 }
 
 #[test]
@@ -48,7 +76,7 @@ fn fresh_database_runs_every_step_with_durable_pragmas() {
     let version: i64 = connection
         .query_row("pragma user_version", [], |row| row.get(0))
         .expect("schema version");
-    assert_eq!(version, 17);
+    assert_eq!(version, db::embedded_migrations().len() as i64);
     let journal_mode: String = connection
         .query_row("pragma journal_mode", [], |row| row.get(0))
         .expect("journal mode");
@@ -112,7 +140,7 @@ fn old_database_gets_only_new_steps_and_keeps_data() {
     let version: i64 = connection
         .query_row("pragma user_version", [], |row| row.get(0))
         .expect("schema version");
-    assert_eq!(version, 17);
+    assert_eq!(version, db::embedded_migrations().len() as i64);
     connection
         .execute_batch("select post_id, chat_ids from drafts;")
         .expect("new draft columns");
@@ -122,16 +150,21 @@ fn old_database_gets_only_new_steps_and_keeps_data() {
 fn failed_step_rolls_back_schema_and_version_then_can_run_again() {
     let dir = TempDir::new().expect("temp dir");
     let mut connection = root_connection(dir.path());
+    let done = db::embedded_migrations().len();
     db::migrate(&mut connection).expect("base migrations");
     let mut migrations = db::load_migrations(db::MIGRATIONS_DIR).expect("bundled migrations");
     let broken = "-- test\ncreate table half_done(x);\ninsert into no_such_table values (1);";
     migrations.push(broken.to_owned());
 
-    assert!(db::migrate_steps(&mut connection, &migrations).is_err());
+    let error = db::migrate_steps(&mut connection, &migrations).expect_err("broken migration");
+    assert!(
+        error.to_string().contains("no_such_table"),
+        "unexpected migration error: {error}"
+    );
     let version: i64 = connection
         .query_row("pragma user_version", [], |row| row.get(0))
         .expect("schema version");
-    assert_eq!(version, 17);
+    assert_eq!(version, done as i64);
     let half_done: i64 = connection
         .query_row(
             "select count(*) from sqlite_master where name='half_done'",
@@ -143,6 +176,10 @@ fn failed_step_rolls_back_schema_and_version_then_can_run_again() {
 
     *migrations.last_mut().expect("broken step") = broken.replace("no_such_table", "half_done");
     db::migrate_steps(&mut connection, &migrations).expect("fixed migration");
+    let version: i64 = connection
+        .query_row("pragma user_version", [], |row| row.get(0))
+        .expect("schema version after retry");
+    assert_eq!(version, done as i64 + 1);
     let inserted: i64 = connection
         .query_row("select x from half_done", [], |row| row.get(0))
         .expect("fixed migration result");
