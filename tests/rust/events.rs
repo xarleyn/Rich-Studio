@@ -18,7 +18,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicBool, AtomicU8, Ordering},
     },
 };
 use tempfile::TempDir;
@@ -166,6 +166,10 @@ async fn webhook_secret_strict_id_and_persistent_claim_prevent_duplicate_effects
         StatusCode::FORBIDDEN
     );
     assert_eq!(
+        request(app.clone(), update.clone(), Some("wrong")).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
         request(
             app.clone(),
             json!({"update_id":true}),
@@ -209,6 +213,7 @@ async fn webhook_secret_strict_id_and_persistent_claim_prevent_duplicate_effects
         StatusCode::OK
     );
     assert_eq!(mock.count("answerCallbackQuery"), 2);
+    assert_eq!(updates::public_status(&state).await["mode"], "webhook");
     config.updates_mode = "polling".to_owned();
     assert_eq!(
         request(
@@ -222,6 +227,40 @@ async fn webhook_secret_strict_id_and_persistent_claim_prevent_duplicate_effects
     );
     server.abort();
     Ok(())
+}
+
+#[test]
+fn webhook_configuration_requires_secret_and_https_public_url() {
+    let config = |pairs: &[(&str, &str)]| {
+        Settings::from_map(
+            &pairs
+                .iter()
+                .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+                .collect::<BTreeMap<_, _>>(),
+        )
+    };
+    assert!(
+        config(&[
+            ("TG_UPDATES_MODE", "webhook"),
+            ("STUDIO_URL", "https://example.org"),
+        ])
+        .is_err()
+    );
+    assert!(
+        config(&[
+            ("TG_UPDATES_MODE", "webhook"),
+            ("TG_WEBHOOK_SECRET", "valid"),
+            ("STUDIO_URL", "http://example.org"),
+        ])
+        .is_err()
+    );
+    let valid = config(&[
+        ("TG_UPDATES_MODE", "webhook"),
+        ("TG_WEBHOOK_SECRET", "valid"),
+        ("STUDIO_URL", "https://example.org"),
+    ])
+    .unwrap_or_else(|error| panic!("settings: {error}"));
+    assert_eq!(valid.updates_mode, "webhook");
 }
 
 #[tokio::test]
@@ -484,6 +523,43 @@ async fn polling_persists_offset_before_failed_handler_and_webhook_registration_
     assert_eq!(
         registration,
         json!({"url":"https://studio.example/api/telegram/webhook","secret_token":"hook-secret","max_connections":1,"allowed_updates":updates::ALLOWED_UPDATES})
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn webhook_loop_registers_once_with_exact_payload_and_stops()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let mut config = settings(&dir, &base);
+    config.updates_on = true;
+    config.updates_mode = "webhook".to_owned();
+    config.webhook_secret = "test_secret-123".to_owned();
+    config.public_url = "https://example.org".to_owned();
+    let state = AppState::new(config);
+    let stopping = Arc::new(AtomicBool::new(false));
+    let task = tokio::spawn(updates::run(state, stopping.clone()));
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while mock.count("setWebhook") == 0 {
+            mock.changed.notified().await;
+        }
+    })
+    .await?;
+    stopping.store(true, Ordering::SeqCst);
+    tokio::time::timeout(std::time::Duration::from_secs(10), task).await???;
+    let registrations: Vec<Value> = mock
+        .calls()
+        .into_iter()
+        .filter(|(method, _)| method == "setWebhook")
+        .map(|(_, payload)| payload)
+        .collect();
+    assert_eq!(
+        registrations,
+        [
+            json!({"url":"https://example.org/api/telegram/webhook","secret_token":"test_secret-123","allowed_updates":updates::ALLOWED_UPDATES,"max_connections":1})
+        ]
     );
     server.abort();
     Ok(())
