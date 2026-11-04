@@ -1,18 +1,26 @@
 use std::collections::BTreeMap;
 use std::io::ErrorKind;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use axum::Router;
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
 use rich_studio::account_context::AccountContext;
+use rich_studio::logs::{scrub, scrub_all};
 use rich_studio::services::media::MediaService;
 use rich_studio::settings::Settings;
 use rich_studio::telegram::TelegramError;
 use rich_studio::telegram::client::TelegramTransport;
 use rich_studio::telegram::uploads::{Uploads, collect_uploads};
+use rich_studio::{AppState, build_router};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
+use tower::ServiceExt as _;
+
+const TOKEN: &str = "123:ABC-def_9";
 
 fn context(dir: &TempDir) -> AccountContext {
     let settings = Settings::from_map(&BTreeMap::from([(
@@ -268,5 +276,172 @@ async fn short_rate_limit_retries_but_server_failure_does_not()
         request_count += 1;
     }
     assert_eq!(request_count, 3);
+    Ok(())
+}
+
+fn app_settings(dir: &TempDir, base: &str) -> Settings {
+    Settings::from_map(&BTreeMap::from([
+        (
+            "DATA_DIR".to_owned(),
+            dir.path().to_string_lossy().into_owned(),
+        ),
+        ("TG_API_BASE".to_owned(), base.to_owned()),
+        ("TG_BOT_TOKEN".to_owned(), TOKEN.to_owned()),
+        ("TG_UPDATES".to_owned(), "off".to_owned()),
+        ("TG_DEFAULT_CHAT".to_owned(), "@public".to_owned()),
+        ("STUDIO_BACKGROUND".to_owned(), "off".to_owned()),
+    ]))
+    .unwrap_or_else(|error| panic!("settings: {error}"))
+}
+
+// The same post shape as BLOCKS_POST in the Python reference tests.
+fn blocks_post() -> Value {
+    json!({"rich_message":{"blocks":[
+        {"type":"heading","size":1,"text":"Тест"},
+        {"type":"paragraph","text":["Привет, ",{"type":"bold","text":"мир"}]}
+    ]}})
+}
+
+async fn api_send(app: Router, body: Value) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .method("POST")
+        .uri("/api/send")
+        .header("host", "localhost")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap_or_else(|error| panic!("request: {error}"));
+    let response = app
+        .oneshot(request)
+        .await
+        .unwrap_or_else(|error| panic!("response: {error}"));
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap_or_else(|error| panic!("body: {error}"));
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("json {bytes:?}: {error}")),
+    )
+}
+
+fn sent_requests(requests: &mut mpsc::UnboundedReceiver<String>) -> usize {
+    let mut sent = 0;
+    while let Ok(request) = requests.try_recv() {
+        if request
+            .lines()
+            .next()
+            .is_some_and(|line| line.contains("/sendRichMessage "))
+        {
+            sent += 1;
+        }
+    }
+    sent
+}
+
+#[tokio::test]
+async fn short_429_is_retried_once_and_the_post_goes_out() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mut requests) = server(vec![
+        (429, json!({"ok":false,"error_code":429,"description":"Too Many Requests: retry after 2","parameters":{"retry_after":2}}).to_string()),
+        (200, json!({"ok":true,"result":{"message_id":9,"chat":{"id":"@public"},"rich_message":{"blocks":[]}}}).to_string()),
+    ])
+    .await;
+    let app = build_router(AppState::new(app_settings(&dir, &base)));
+    let started = Instant::now();
+    let (status, response) = tokio::time::timeout(
+        Duration::from_secs(20),
+        api_send(app, json!({"post":blocks_post()})),
+    )
+    .await
+    .map_err(|_| "short 429 retry took longer than the advertised wait")?;
+    assert_eq!(status, StatusCode::OK, "{response}");
+    assert_eq!(response["message"]["message_id"], 9);
+    assert!(
+        started.elapsed() >= Duration::from_secs(2),
+        "retry_after=2 was not observed: {:?}",
+        started.elapsed()
+    );
+    assert_eq!(sent_requests(&mut requests), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn long_429_is_reported_not_waited() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mut requests) = server(vec![(
+        429,
+        json!({"ok":false,"error_code":429,"description":"Too Many Requests: retry after 600","parameters":{"retry_after":600}}).to_string(),
+    )])
+    .await;
+    let app = build_router(AppState::new(app_settings(&dir, &base)));
+    let (status, response) = tokio::time::timeout(
+        Duration::from_secs(10),
+        api_send(app, json!({"post":blocks_post()})),
+    )
+    .await
+    .map_err(|_| "a 600 second retry_after must be reported, not waited out")?;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{response}");
+    assert!(
+        response["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Too Many Requests"),
+        "{response}"
+    );
+    assert_eq!(sent_requests(&mut requests), 1);
+    Ok(())
+}
+
+fn secret_settings(dir: &TempDir) -> Settings {
+    Settings::from_map(&BTreeMap::from([
+        (
+            "DATA_DIR".to_owned(),
+            dir.path().to_string_lossy().into_owned(),
+        ),
+        ("TG_BOT_TOKEN".to_owned(), TOKEN.to_owned()),
+    ]))
+    .unwrap_or_else(|error| panic!("settings: {error}"))
+}
+
+#[test]
+fn token_is_hidden_in_log_lines() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let settings = secret_settings(&dir);
+    let line = format!(
+        "HTTP Request: {} {} \"{}\"",
+        "POST", "https://api.telegram.org/bot123:ABC-def_9/sendMessage", "HTTP/1.1 200 OK"
+    );
+    let scrubbed = scrub(&settings, &line);
+    assert!(!scrubbed.contains("ABC-def_9"), "{scrubbed}");
+    assert!(scrubbed.contains("bot<secret>/sendMessage"), "{scrubbed}");
+    Ok(())
+}
+
+#[test]
+fn token_is_hidden_in_structured_log_values() -> Result<(), Box<dyn std::error::Error>> {
+    // The Python reference passes an httpx.URL object as a log argument; Rust
+    // log events carry values in JSON, so the token must be scrubbed there too.
+    let dir = TempDir::new()?;
+    let settings = secret_settings(&dir);
+    let event = json!({
+        "msg": "HTTP Request",
+        "args": [
+            "POST",
+            "https://api.telegram.org/bot123:ABC-def_9/sendMessage",
+            "HTTP/1.1",
+            200
+        ]
+    });
+    let scrubbed = scrub_all(&settings, &event);
+    let text = scrubbed.to_string();
+    assert!(!text.contains("ABC-def_9"), "{text}");
+    assert!(
+        scrubbed["args"][1]
+            .as_str()
+            .unwrap_or_default()
+            .contains("bot<secret>/sendMessage"),
+        "{scrubbed}"
+    );
     Ok(())
 }
