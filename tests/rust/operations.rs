@@ -2040,3 +2040,31 @@ fn session_health_hook_is_registered_next_to_the_format_hook() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn monitor_skill_explains_every_health_check() {
+    let skill = include_str!("../../.claude/skills/studio-health/SKILL.md");
+    let explained = skill
+        .lines()
+        .filter_map(|line| line.strip_prefix("| `"))
+        .filter_map(|line| line.split_once("` |").map(|(name, _)| name.to_owned()))
+        .collect::<std::collections::BTreeSet<_>>();
+    let expected = [
+        "database",
+        "editor",
+        "telegram",
+        "loops",
+        "scheduler",
+        "posts",
+        "sends",
+        "spec",
+        "backup",
+        "storage",
+        "log",
+        "disk",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(explained, expected);
+}
