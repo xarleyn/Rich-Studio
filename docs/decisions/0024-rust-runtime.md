@@ -1,6 +1,6 @@
 # 0024. Один Rust runtime с сохранением существующих контрактов
 
-Дата: 2026-11-01. Основание: `RUST_REWRITE_BRIEF.md` и план `docs/superpowers/plans/2026-10-31-rust-backend-rewrite.md`.
+Дата: 2026-11-01. Основание: план `docs/superpowers/plans/2026-10-31-rust-backend-rewrite.md`.
 
 Сервер и операторский CLI выполняются одним Rust-бинарником. Axum отвечает за HTTP, официальный rmcp — за Streamable HTTP, Grammers — за MTProto. Python остаётся эталоном поведения и локальным mock-сервером для проверок; production-образ его не содержит. Редактор, исходная Bot API спецификация, SQL-миграции и расположение данных сохраняются.
 

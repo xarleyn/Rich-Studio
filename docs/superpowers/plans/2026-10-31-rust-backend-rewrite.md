@@ -8,7 +8,7 @@
 
 **Tech Stack (фактически):** Rust 1.99.1, edition 2024, Tokio, Axum, Serde/serde_json, Reqwest, Rusqlite через конечные blocking workers, rmcp 3.8.0, Grammers 0.11.0, Utoipa 6, tracing, nextest. Точный набор и версии — `Cargo.toml` и `Cargo.lock`.
 
-**Spec:** `RUST_REWRITE_BRIEF.md`; исходные контракты: `docs/openapi.json`, `docs/reference/mcp-tools.md`, `docs/ARCHITECTURE.md`.
+**Spec:** исходные контракты: `docs/openapi.json`, `docs/reference/mcp-tools.md`, `docs/ARCHITECTURE.md`.
 
 ## Выполнение на 1 ноября 2026
 
@@ -79,11 +79,11 @@
 - Test: `tests/rust/contract_surface.rs`
 
 **Interfaces:**
-- Produces: `pub fn build_router(state: AppState) -> Router`, `pub struct AppState`; `make check-rust` с командами из брифа.
+- Produces: `pub fn build_router(state: AppState) -> Router`, `pub struct AppState`; `make check-rust` с полным набором команд качества.
 
 - **Step 1: Write failing contract tests.** Проверить реальный liveness `/healthz` → `{"ok":true}`, статический `/` и GET `/mcp` → 405 с `Allow: POST`. Полные 55 путей/71 операция, 39 tools, health report и preview metadata проверяются в Tasks 4, 15 и 17 после появления реальных сервисов, без фиктивных ответов.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked contract_surface`; Expected: отсутствует crate/реализация.
-- **Step 3: Implement minimal Axum shell and quality configuration.** Добавить lints из брифа, `unsafe_code=forbid`, static-file adapter, health route и заготовку MCP без регистрации фиктивных рабочих tools. `make check-rust` включает fmt, Clippy без warnings, nextest, doctests, deny, machete и release `--locked`; `make check` включает этот target и прежние проверки.
+- **Step 3: Implement minimal Axum shell and quality configuration.** Добавить lints, `unsafe_code=forbid`, static-file adapter, health route и заготовку MCP без регистрации фиктивных рабочих tools. `make check-rust` включает fmt, Clippy без warnings, nextest, doctests, deny, machete и release `--locked`; `make check` включает этот target и прежние проверки.
 - **Step 4: Run foundation checks.** Run: `cargo fmt --all -- --check && CARGO_BUILD_WARNINGS=deny cargo clippy --workspace --all-targets --locked && cargo nextest run --workspace --locked --no-fail-fast && cargo test --workspace --doc --locked`; Expected: PASS, без изменения существующих OpenAPI/reference docs.
 
 ### Task 2: Settings, SQLite-миграции и явный AccountContext
@@ -307,7 +307,7 @@
 - Consumes: все предыдущие slices.
 - Produces: black-box contract suite против Rust server и mock Telegram.
 
-- **Step 1: Write full parity tests.** Сравнить все 71 операцию/55 путей, 39 tools, schemas/annotations/errors/roles; прогнать 12 критических сценариев брифа и malformed legacy JSON. Проверить `MCP_PUBLISH=off` как отсутствие publish tools, а не только отказ вызова.
+- **Step 1: Write full parity tests.** Сравнить все 71 операцию/55 путей, 39 tools, schemas/annotations/errors/roles; прогнать 12 критических сценариев и malformed legacy JSON. Проверить `MCP_PUBLISH=off` как отсутствие publish tools, а не только отказ вызова.
 - **Step 2: Run parity to expose gaps.** Run: `cargo nextest run --locked parity critical_migration`; Expected: FAIL по каждому неперенесённому контракту; составить явный список, не удалять assertions.
 - **Step 3: Close every compatibility gap in owning slice.** Никаких заглушек, skipped routes/tools или изменения expected JSON ради зелёного результата.
 - **Step 4: Run complete regression and browser scenarios.** Run: `make check` и `make e2e` против Rust `make dev` + mock; Expected: все Python-reference, Rust, JS и 47 браузерных сценариев PASS.
