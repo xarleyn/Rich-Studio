@@ -9,8 +9,8 @@ use serde_json::{Value, json};
 pub async fn get(ScopedState(state): ScopedState) -> Json<Value> {
     let spec = state.spec.read().await;
     Json(json!({
-        "default_chat": if state.account.root && !state.settings.default_chat.is_empty() {json!(state.settings.default_chat)} else {Value::Null},
-        "preview_chat": if state.account.root {json!(state.settings.preview_chat)} else {json!(state.account.account_id)},
+        "default_chat": if state.account.root {json!(state.settings.default_chat)} else {json!("")},
+        "preview_chat": if state.account.root {json!(state.settings.preview_chat)} else {json!(state.account.account_id.map(|uid| uid.to_string()).unwrap_or_default())},
         "token_set":!state.settings.bot_token.is_empty(),
         "api_base":if state.settings.public {Value::Null}else{json!(state.settings.api_base)},
         "spec_version":spec.version(),

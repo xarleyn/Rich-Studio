@@ -78,7 +78,13 @@ pub fn save(
         ));
     }
     let mut connection = Store::connect(context)?;
-    let transaction = connection.transaction()?;
+    // The reference API takes the write lock up front for public accounts: a deferred
+    // read-then-write transaction fails with SQLITE_BUSY when two editors save at once.
+    let transaction = connection.transaction_with_behavior(if context.root {
+        rusqlite::TransactionBehavior::Deferred
+    } else {
+        rusqlite::TransactionBehavior::Immediate
+    })?;
     if !context.root {
         let exists: Option<i64> = transaction
             .query_row("select 1 from drafts where id=?", [&id], |row| row.get(0))

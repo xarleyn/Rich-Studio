@@ -197,6 +197,25 @@ fn public_path(path: &str, method: &Method) -> bool {
         || (path == "/api/telegram/webhook" && method == Method::POST)
 }
 
+fn landing_path(path: &str, method: &Method) -> bool {
+    is_page(path)
+        || ([Method::GET, Method::HEAD].contains(method)
+            && crate::public_site::page_paths()
+                .iter()
+                .any(|known| known != "/" && known.trim_end_matches('/') == path))
+        || crate::public_site::AGENT_PATHS.contains(&path)
+        || [
+            "/favicon.ico",
+            "/healthz",
+            "/readyz",
+            "/sw.js",
+            "/robots.txt",
+            "/sitemap.xml",
+        ]
+        .contains(&path)
+        || path.starts_with("/static/")
+}
+
 fn safe(method: &Method) -> bool {
     [Method::GET, Method::HEAD, Method::OPTIONS].contains(method)
 }
@@ -258,7 +277,7 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
             .into_response();
     }
     let landing = state.settings.is_landing_host(&host);
-    if landing && !public_path(&path, &method) {
+    if landing && !landing_path(&path, &method) {
         if !safe(&method) {
             return AuthError::new(
                 403,
