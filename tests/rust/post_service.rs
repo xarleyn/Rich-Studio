@@ -10,7 +10,9 @@ use rich_studio::{
     account_context::{AccountContext, Role},
     services::{
         drafts::{DraftService, SaveDraft},
-        posts, updates,
+        kinds, posts,
+        publisher::Publisher,
+        updates,
     },
     settings::Settings,
     store::{auth, channels, db, meta},
@@ -365,4 +367,21 @@ async fn streamed_media_failure_and_cancellation_remove_partial_downloads() -> T
     })
     .await?;
     Ok(())
+}
+
+#[test]
+fn every_kind_sends_with_its_own_method() {
+    let rich = kinds::get(None).unwrap_or_else(|error| panic!("rich kind: {error}"));
+    let (method, _) =
+        Publisher::request(&json!(-1), &json!({"rich_message":{"markdown":"x"}}), rich)
+            .unwrap_or_else(|error| panic!("rich request: {error}"));
+    assert_eq!(method, "sendRichMessage");
+    for kind in kinds::KINDS.iter().filter(|kind| kind.key.is_some()) {
+        let key = kind.key.unwrap_or_default();
+        let (method, params) =
+            Publisher::request(&json!(-1), &json!({key:{"a":1},"pin":true}), kind)
+                .unwrap_or_else(|error| panic!("{} request: {error}", kind.name));
+        assert_eq!(method, kind.method);
+        assert_eq!(params, json!({"a":1,"chat_id":-1}));
+    }
 }

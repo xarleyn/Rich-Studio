@@ -466,11 +466,10 @@ fn first_sent(results: &[Value]) -> Result<Value, ServiceError> {
     let errors = results
         .iter()
         .map(|result| {
-            format!(
-                "{}: {}",
-                result["chat_id"],
-                result["error"].as_str().unwrap_or_default()
-            )
+            let chat = result["chat_id"]
+                .as_str()
+                .map_or_else(|| result["chat_id"].to_string(), str::to_owned);
+            format!("{chat}: {}", result["error"].as_str().unwrap_or_default())
         })
         .collect::<Vec<_>>();
     if results.iter().any(|result| {

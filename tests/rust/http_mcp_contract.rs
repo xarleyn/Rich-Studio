@@ -3,7 +3,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
-use rich_studio::{AppState, build_router, settings::Settings};
+use rich_studio::{AppState, build_router, services::kinds, settings::Settings};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use tempfile::TempDir;
@@ -393,6 +393,41 @@ async fn http_patch_preserves_omitted_fields_and_explicit_clear_values() -> Test
     assert_eq!(
         cleared,
         json!({"invite_link":"https://t.me/+fixture","name":"","member_limit":0,"creates_join_request":false})
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn config_and_mcp_media_schemas_match_the_kind_registry() -> TestResult {
+    let dir = TempDir::new()?;
+    let app = app(&dir, true);
+    let (status, config) = request(app, "GET", "/api/config", None).await;
+    assert_eq!(status, StatusCode::OK, "{config}");
+    let described = config["kinds"].as_object().ok_or("missing kinds")?;
+    assert_eq!(described.len(), kinds::KINDS.len());
+    for kind in kinds::KINDS {
+        let entry = &described[kind.name];
+        assert_eq!(entry["label"], kind.label, "{}", kind.name);
+        assert_eq!(entry["badge"], json!(kind.badge), "{}", kind.name);
+        assert_eq!(entry["editable"], kind.editable, "{}", kind.name);
+        assert_eq!(entry["stoppable"], kind.stoppable, "{}", kind.name);
+        assert_eq!(entry["media"], kind.media, "{}", kind.name);
+    }
+    let contract: Value = serde_json::from_str(include_str!("../../src/mcp_tools/contract.json"))?;
+    let tool = contract["tools"]
+        .as_array()
+        .ok_or("tools")?
+        .iter()
+        .find(|tool| tool["name"] == "send_media_post")
+        .ok_or("send_media_post")?;
+    let media = kinds::KINDS
+        .iter()
+        .filter(|kind| kind.media)
+        .map(|kind| kind.name)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        tool["inputSchema"]["properties"]["kind"]["enum"],
+        json!(media)
     );
     Ok(())
 }

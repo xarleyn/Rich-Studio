@@ -255,6 +255,9 @@ impl Publisher {
             .await;
             warnings.extend(after_warnings.into_iter().map(|warning| {
                 if chats.len() > 1 {
+                    let chat = chat
+                        .as_str()
+                        .map_or_else(|| chat.to_string(), str::to_owned);
                     format!("{chat}: {warning}")
                 } else {
                     warning

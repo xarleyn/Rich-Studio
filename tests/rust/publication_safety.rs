@@ -516,3 +516,57 @@ async fn publishing_mcp_tools_have_public_annotations_and_dry_run()
     assert!(requests.try_recv().is_err());
     Ok(())
 }
+
+#[tokio::test]
+async fn poll_buttons_are_sent_with_send_poll() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mut requests) = mock(|_, method, payload| match method {
+        "sendPoll" => ok(message(payload, 15)),
+        _ => ok(json!(true)),
+    })
+    .await;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    let at = 4070930400_i64;
+    let keyboard = json!({"inline_keyboard":[[{"text":"Сайт","url":"https://t.me/telegram"}]]});
+    let poll = json!({"poll":{"question":"Как?","options":["Да","Нет"]},"chat_id":"@chan","at":at});
+    let (status, created) = request(app.clone(), "/api/poll", poll, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    let id = created["scheduled"][0]["id"]
+        .as_str()
+        .ok_or("scheduled poll id")?
+        .to_owned();
+    let buttons_path = format!("/api/posts/{id}/buttons");
+    let (status, changed) =
+        request(app, &buttons_path, json!({"reply_markup":keyboard}), &[]).await;
+    assert_eq!(status, StatusCode::OK, "{changed}");
+    assert_eq!(changed["payload"]["poll"]["reply_markup"], keyboard);
+    assert!(changed["payload"].get("reply_markup").is_none());
+
+    let context = context(&dir);
+    let connection = rich_studio::store::db::Store::connect(&context)?;
+    connection.execute(
+        "update posts set scheduled_at=?1 where id=?2",
+        rusqlite::params![at - 1, id],
+    )?;
+    drop(connection);
+    assert_eq!(
+        rich_studio::services::scheduler::run_due(
+            &state,
+            state.account.clone(),
+            at,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .await?,
+        1
+    );
+    let mut sent = None;
+    while let Ok((method, payload)) = requests.try_recv() {
+        if method == "sendPoll" {
+            sent = Some(payload);
+        }
+    }
+    let sent = sent.ok_or("sendPoll request")?;
+    assert_eq!(sent["reply_markup"], keyboard);
+    Ok(())
+}

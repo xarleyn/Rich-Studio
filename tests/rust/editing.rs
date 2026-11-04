@@ -129,6 +129,22 @@ fn listing_preserves_titles_thumbnails_buttons_and_links() {
         json!({"cb":"Go"})
     );
     assert_eq!(
+        listing::button_texts(
+            &json!({"reply_markup":{"inline_keyboard":[[{"text":"Да","callback_data":"yes"}]]}}),
+            None,
+        )
+        .unwrap_or(Value::Null),
+        json!({"yes":"Да"})
+    );
+    assert_eq!(
+        listing::title(&json!({"poll":{"question":"Как?"}}), Some("poll")).unwrap_or_default(),
+        "Как?"
+    );
+    assert_eq!(
+        listing::title(&json!({"paid_media":{}}), Some("paid_media")).unwrap_or_default(),
+        "Платный контент"
+    );
+    assert_eq!(
         listing::link(&json!("-1001234"), &json!(8)),
         Some("https://t.me/c/1234/8".to_owned())
     );

@@ -4,7 +4,7 @@ use std::path::Path;
 use rich_studio::account_context::AccountContext;
 use rich_studio::settings::Settings;
 use rich_studio::store::db::{self, Store};
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use tempfile::TempDir;
 
 fn settings(data_dir: &Path) -> Settings {
@@ -175,4 +175,71 @@ fn root_connection_does_not_require_an_account_context() {
     assert!(root.root);
     assert!(root.account_id.is_none());
     Store::connect(&root).expect("explicit root connection");
+}
+
+#[test]
+fn migration_gives_old_rows_the_kind_of_their_content() {
+    let dir = TempDir::new().expect("temp dir");
+    let mut connection = root_connection(dir.path());
+    connection
+        .execute_batch(db::SCHEMA)
+        .expect("old base schema");
+    for (column, declaration) in db::EXTRA_COLUMNS {
+        connection
+            .execute_batch(&format!(
+                "alter table posts add column {column} {declaration}"
+            ))
+            .expect("old extra column");
+    }
+    let migrations = db::load_migrations(db::MIGRATIONS_DIR).expect("bundled migrations");
+    for step in migrations.iter().take(9) {
+        connection.execute_batch(step).expect("old migration");
+    }
+    connection
+        .execute_batch("pragma user_version = 9;")
+        .expect("old version");
+    for (id, kind, payload) in [
+        ("a", Some("rich"), r#"{"poll":{"question":"?"}}"#),
+        ("b", Some("rich"), r#"{"live_photo":{"caption":"c"}}"#),
+        ("c", None, r#"{"paid_media":{"star_count":1}}"#),
+        ("d", None, r#"{"rich_message":{"markdown":"x"}}"#),
+        ("e", Some("poll"), r#"{"poll":{"question":"?"}}"#),
+        ("f", Some("rich"), "not json"),
+        (
+            "g",
+            Some("rich"),
+            r#"{"rich_message":{"markdown":"x"},"live_photo":{"caption":"лишнее поле"}}"#,
+        ),
+    ] {
+        connection
+            .execute(
+                "insert into posts(id, chat_id, payload, status, kind) values (?1, '@c', ?2, 'sent', ?3)",
+                params![id, payload, kind],
+            )
+            .expect("old post row");
+    }
+
+    db::migrate(&mut connection).expect("upgrade old database");
+    let mut statement = connection
+        .prepare("select id, kind from posts order by id")
+        .expect("kind query");
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .expect("kind rows")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("kind values");
+    assert_eq!(
+        rows,
+        [
+            ("a".to_owned(), "poll".to_owned()),
+            ("b".to_owned(), "live_photo".to_owned()),
+            ("c".to_owned(), "paid_media".to_owned()),
+            ("d".to_owned(), "rich".to_owned()),
+            ("e".to_owned(), "poll".to_owned()),
+            ("f".to_owned(), "rich".to_owned()),
+            ("g".to_owned(), "rich".to_owned()),
+        ]
+    );
 }

@@ -155,10 +155,10 @@ pub fn prepare(kind: &Kind, params: &Value) -> Result<Value, ServiceError> {
         if !(1..=10).contains(&count) {
             return invalid("платный контент: в media от 1 до 10 фото или видео".to_owned());
         }
-        if params["star_count"]
-            .as_i64()
-            .is_some_and(|stars| !(1..=STARS_MAX).contains(&stars))
-        {
+        let Some(stars) = params["star_count"].as_i64() else {
+            return invalid("платный контент: star_count обязателен".to_owned());
+        };
+        if !(1..=STARS_MAX).contains(&stars) {
             return invalid(format!(
                 "платный контент: star_count от 1 до {STARS_MAX} звёзд"
             ));

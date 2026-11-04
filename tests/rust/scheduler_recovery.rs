@@ -330,3 +330,38 @@ async fn no_connection_is_definite_and_safe_to_retry() {
     assert_eq!(row["status"], "scheduled");
     assert_eq!(row["retry_at"], 1061);
 }
+
+#[tokio::test]
+async fn unknown_kind_fails_without_calling_telegram() {
+    let dir = TempDir::new().unwrap();
+    let (base, mock, _server) = mock(0).await;
+    let state = app(&dir, &base);
+    let records = posts::add_scheduled(
+        &state.account,
+        &[json!(-100123)],
+        &json!({"rich_message":{"markdown":"scheduled"}}),
+        1000,
+        None,
+        "story",
+        "api",
+    )
+    .unwrap_or_else(|error| panic!("scheduled row: {error}"));
+    let id = records[0]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("post id"));
+    assert_eq!(
+        scheduler::run_due(
+            &state,
+            state.account.clone(),
+            1001,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+        .unwrap(),
+        1
+    );
+    let row = posts::get(&state.account, id).unwrap().unwrap();
+    assert_eq!(row["status"], "failed");
+    assert!(row["error"].as_str().unwrap_or_default().contains("story"));
+    assert_eq!(mock.calls.load(Ordering::SeqCst), 0);
+}

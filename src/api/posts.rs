@@ -201,7 +201,7 @@ pub async fn media(
 ) -> Response {
     let kind = body["kind"].as_str().unwrap_or_default().to_owned();
     if ![kinds::LIVE_PHOTO, kinds::PAID_MEDIA].contains(&kind.as_str()) {
-        return error_response(ServiceError::BadRequest(
+        return error_response(ServiceError::Unprocessable(
             "kind: live_photo или paid_media".to_owned(),
         ));
     }

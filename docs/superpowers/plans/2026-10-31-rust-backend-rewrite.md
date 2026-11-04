@@ -156,7 +156,7 @@
 - **Step 1: Write failing failure-matrix tests.** Два одинаковых ключа; response lost после accept; DB full после accept; partial multi-channel; pin/comment/poll_after после sent; no channel succeeded; dry_run; preview never defaults to channel; unknown fields survive. Добавить Python-generated fingerprint fixtures, включая Unicode, вложенные объекты и `default=str` cases.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked publication_safety idempotency_compat`; Expected: FAIL.
 - **Step 3: Implement durable publication flow.** Записать `sending` до вызова, не держать SQLite transaction во время сети, завершить sent до post-steps, не освобождать key при uncertain/StorageFull/bug/cancel. Перенести rich/poll/live_photo/paid_media registry и все publishing MCP annotations.
-- **Step 4: Verify no duplicate under real mock calls.** Run: `cargo nextest run --locked publication_safety idempotency_compat && pytest -q tests/test_safe_send.py tests/test_reliability.py tests/test_media_posts.py`; Expected: PASS и ровно один accept в сценариях uncertain.
+- **Step 4: Verify no duplicate under real mock calls.** Run: `cargo nextest run --locked media_posts publication_safety idempotency_compat && pytest -q tests/test_safe_send.py tests/test_reliability.py`; Expected: PASS и ровно один accept в сценариях uncertain.
 
 ### Task 7: Очередь, lease и остановка
 
