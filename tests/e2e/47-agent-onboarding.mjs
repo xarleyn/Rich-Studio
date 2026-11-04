@@ -1,4 +1,4 @@
-// Public, script-free entry points for a person sharing one URL with their agent.
+// Public entry points for a person sharing one URL with their agent.
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 
@@ -9,7 +9,7 @@ export default async function ({ browser, BASE, check }) {
   page.on('pageerror', (e) => errors.push(e.message));
   mkdirSync('test-results/ui', { recursive: true });
   try {
-    for (const [lang, prefix, title] of [['ru', '', 'Дайте агенту ссылку.'], ['en', '/en', 'Give your agent a link.']]) {
+    for (const [lang, prefix, title] of [['ru', '', 'Подключение ИИ агента к Telegram через MCP'], ['en', '/en', 'Connect an AI agent to Telegram through MCP']]) {
       await page.goto(BASE + prefix + '/features/ai-agents/');
       assert.equal(await page.locator('html').getAttribute('lang'), lang);
       assert.ok((await page.locator('h1').textContent()).includes(title));
@@ -29,7 +29,7 @@ export default async function ({ browser, BASE, check }) {
     }
     await page.goto(BASE + '/landing');
     await page.locator('footer a[href="/features/ai-agents/"]').click();
-    await page.locator('h1').filter({ hasText: 'Дайте агенту ссылку.' }).waitFor();
+    await page.locator('h1').filter({ hasText: 'Подключение ИИ агента к Telegram через MCP' }).waitFor();
     check('Landing links to agent onboarding and all machine-readable setup documents resolve', true);
     check('Agent onboarding pages have no JavaScript errors', errors.length === 0, errors.join(' | '));
   } finally { await context.close(); }

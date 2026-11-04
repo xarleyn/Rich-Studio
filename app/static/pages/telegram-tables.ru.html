@@ -3,34 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Как сделать таблицу в Telegram — RichPost</title>
-  <meta name="description" content="Создайте таблицу в посте Telegram: пример Markdown, визуальный редактор, предпросмотр и проверка перед публикацией в RichPost.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="Как сделать таблицу в Telegram — RichPost">
-  <meta property="og:description" content="Создайте таблицу в посте Telegram: пример Markdown, визуальный редактор, предпросмотр и проверка перед публикацией в RichPost.">
+  <title>Таблица в Telegram: пример и редактор — RichPost</title>
+  <meta name="description" content="Как сделать таблицу в посте Telegram: готовый пример Markdown, визуальный редактор, вставка ячеек из Excel и проверка перед публикацией в RichPost.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="Таблица в Telegram: пример и редактор — RichPost">
+  <meta property="og:description" content="Как сделать таблицу в посте Telegram: готовый пример Markdown, визуальный редактор, вставка ячеек из Excel и проверка перед публикацией в RichPost.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Редактор RichPost с предпросмотром поста для Telegram">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Таблица в Telegram: пример и редактор — RichPost">
+  <meta name="twitter:description" content="Как сделать таблицу в посте Telegram: готовый пример Markdown, визуальный редактор, вставка ячеек из Excel и проверка перед публикацией в RichPost.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="Редактор RichPost с предпросмотром поста для Telegram">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
-  <meta property="og:locale" content="ru_RU">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
-<body><a class="skip" href="#main">К содержимому</a>
-<header class="site-header wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__EN_URL__" lang="en" hreflang="en">EN</a><a class="button quiet" href="__APP_URL__">Открыть редактор ↗</a></div></header>
-<main id="main" class="guide-content wrap"><a href="/">← Все возможности</a><h1>Как сделать таблицу в Telegram</h1>
-<p class="lead">Прайс, расписание или сравнение удобно показать в таблице. RichPost позволяет собрать её визуально или вставить Markdown и проверить результат рядом с редактором.</p>
-<h2>Пример: расписание встреч</h2><p>Две колонки помогают быстро найти день и время. В посте таблица остаётся частью сообщения; это не картинка с мелким текстом.</p>
-<table><caption>Расписание встреч</caption><thead><tr><th>День</th><th>Начало</th></tr></thead><tbody><tr><td>Понедельник</td><td>10:00</td></tr><tr><td>Среда</td><td>18:30</td></tr></tbody></table>
-<h2>Вставьте Markdown в редактор</h2><pre><code>| День | Начало |
+<body>
+<a class="skip body-4" href="#main">Перейти к содержимому</a>
+<header class="site-header wrap">
+  <a class="logo" href="/" aria-label="RichPost, главная"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+  <nav id="site-nav" aria-label="Основная навигация">
+    <div class="nav-links guide-nav"><a class="title-4" href="/features/">Руководства</a><a href="/features/telegram-tables/" aria-current="page">Таблицы</a><a href="/features/telegram-markdown/">Markdown</a><a href="/features/scheduled-posts/">Отложенные</a><a href="/features/ai-agents/">MCP</a></div>
+    <a class="button primary button-md nav-cta" href="__APP_URL__">Открыть редактор <span aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="header-actions"><a class="language title-4" href="__EN_URL__" lang="en" hreflang="en" aria-label="English version">EN</a><a class="button quiet button-sm" href="__APP_URL__">Редактор <span aria-hidden="true">↗</span></a></div>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Открыть меню"><span></span><span></span></button>
+</header>
+<main id="main" class="guide-content wrap">
+<nav class="breadcrumbs caption-2" aria-label="Хлебные крошки"><ol><li><a href="/">RichPost</a></li><li><a href="__HUB_URL__">Руководства</a></li><li aria-current="page">Как сделать таблицу в Telegram</li></ol></nav>
+<article>
+<h1 class="heading-2">Как сделать таблицу в Telegram</h1>
+<p class="lead body-2">Прайс, расписание встреч или сравнение вариантов легче читать по строкам и колонкам. В RichPost таблица становится частью rich сообщения: её можно собрать визуально или написать в Markdown.</p>
+<h2>Выберите способ под вашу задачу</h2>
+<h3>Таблица внутри rich поста</h3>
+<p>Этот вариант подходит, когда читателю нужно видеть подписи и значения в самом сообщении. Редактор позволяет менять строки, колонки и ячейки, а предпросмотр показывает таблицу вместе с остальным постом. Здесь речь о rich сообщениях Telegram: вставка того же Markdown в обычное поле сообщения не равнозначна публикации из RichPost.</p>
+<h3>Картинка или ссылка на таблицу</h3>
+<p>Изображение удобно, если важен строго заданный макет. Но мелкий текст на нём придётся увеличивать, а менять цифры нужно в исходном изображении. Для большой рабочей таблицы с формулами и постоянными обновлениями разумнее дать ссылку на документ. В пост вынесите короткий итог или несколько строк, нужных читателю прямо сейчас.</p>
+<h2>Пример: расписание встреч</h2>
+<p>Начните с двух колонок. Названия дней и время помещаются на телефоне, а короткий заголовок над таблицей объясняет, что в ней искать. Ниже пример, который можно заменить своим расписанием.</p>
+<table><caption>Расписание встреч</caption><thead><tr><th scope="col">День</th><th scope="col">Начало</th></tr></thead><tbody><tr><td>Понедельник</td><td>10:00</td></tr><tr><td>Среда</td><td>18:30</td></tr></tbody></table>
+<pre><code>| День | Начало |
 |---|---|
 | Понедельник | 10:00 |
 | Среда | 18:30 |</code></pre>
-<ol><li>Откройте RichPost и создайте черновик. Выберите вкладку Markdown.</li><li>Вставьте пример и замените значения своими. Сверяйте столбцы и подписи в предпросмотре.</li><li>Выберите подключённый канал. Кнопка «Мне в личку» отправит проверочный пост только вам: сначала запустите бота.</li><li>Публикуйте сразу или назначьте время через меню «Опубликовать».</li></ol>
-<h2>Когда удобнее визуальный режим</h2><p>Добавьте блок «Таблица», затем строки и колонки. Нажмите ячейку, чтобы выбрать выравнивание, сделать её заголовком или объединить. Можно вставить диапазон из Google Sheets или Excel в ячейку.</p>
-<aside><p>Markdown-таблицы получают рамки и чередование строк. Для других настроек используйте визуальный режим или HTML. Предпросмотр в браузере помогает с оформлением; перед важной публикацией проверьте результат в Telegram. Отображение зависит и от клиента Telegram.</p></aside>
-<p>Не помещайте слишком много столбцов в один пост: проверьте читаемость на телефоне. Длинные сравнения лучше разбить на несколько таблиц.</p>
-<p><a class="button primary" href="__APP_URL__">Открыть редактор ↗</a></p><h2>Другие руководства</h2><ul><li><a href="/features/telegram-markdown/">Markdown для Telegram с предпросмотром</a></li><li><a href="/features/scheduled-posts/">Отложенная публикация в Telegram</a></li></ul></main>
-<footer class="site-footer wrap"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><a href="https://t.me/__BOT_USERNAME__" rel="noopener" target="_blank">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></footer></body></html>
+<h2>Создайте и проверьте пост</h2>
+<ol><li>Откройте RichPost, создайте черновик и выберите вкладку Markdown. Вставьте пример целиком, включая строку с разделителями.</li><li>Замените дни и время. Добавьте над таблицей пояснение: например, часовой пояс или место встречи. Читателю не нужно угадывать единицы измерения.</li><li>Посмотрите на предпросмотр рядом с редактором. На телефоне откройте вкладку «Предпросмотр». Проверьте, что данные не оказались в соседних колонках.</li><li>Для проверки в Telegram запустите бота и отправьте пост через «Мне в личку». Убедитесь, что таблица читается в том клиенте, которым пользуетесь.</li><li>Выберите подключённый канал. Опубликуйте пост сразу или назначьте время через меню публикации. После отправки проверьте результат во вкладке «Посты».</li></ol>
+<h2>Когда удобнее визуальный редактор</h2>
+<p>Добавьте блок «Таблица», затем строки и колонки. Нажмите на ячейку, чтобы изменить текст, выравнивание или признак заголовка. Для более сложного оформления доступны объединение ячеек и настройки таблицы. Это удобнее исходного текста, когда нужно работать с устройством таблицы, а не только заменить несколько значений.</p>
+<p>Диапазон из Excel или Google Sheets можно скопировать и вставить в ячейку. Проверьте полученные строки и столбцы: редактор переносит данные в таблицу поста, а не связывает её с исходным документом. Если цифры в документе изменились, обновите и пост.</p>
+<h2>Проверьте читаемость на телефоне</h2>
+<ul><li>Оставляйте только колонки, которые нужны для решения читателя. Подробности можно вынести в отдельный абзац.</li><li>Используйте короткие заголовки и одинаковый формат чисел. Валюту, единицы и часовой пояс укажите явно.</li><li>Разбивайте длинное сравнение на несколько тематических таблиц. Так подписи не теряются при чтении.</li><li>Проверяйте длинные слова, ссылки и объединённые ячейки отдельно: именно они часто делают таблицу слишком широкой.</li></ul>
+<aside><p>Предпросмотр в браузере помогает найти ошибки оформления, но отображение зависит и от клиента Telegram. Перед важной публикацией проверьте личный тестовый пост. Таблица не выполняет формулы и не обновляет данные из внешнего файла автоматически.</p></aside>
+<p>Для общего оформления пригодится <a href="/features/telegram-markdown/">руководство по Markdown</a>. Если таблица должна выйти к определённой дате, переходите к <a href="/features/scheduled-posts/">отложенной публикации</a>.</p>
+<h2>Частые вопросы</h2>
+<div class="questions guide-faq"><details><summary class="title-3">Можно ли сделать таблицу без Markdown?</summary><p class="body-3">Да. Добавьте блок «Таблица» в визуальном редакторе и заполните ячейки. Markdown удобен для простых примеров, но не обязателен.</p></details><details><summary class="title-3">Можно ли вставить данные из Excel?</summary><p class="body-3">Да, диапазон ячеек можно вставить в таблицу. После вставки проверьте строки и колонки. Пост не синхронизируется с исходным файлом.</p></details><details><summary class="title-3">Почему таблица выглядит иначе на телефоне?</summary><p class="body-3">Ширина экрана и клиент Telegram влияют на отображение. Сократите длинные подписи, уменьшите число колонок и проверьте пост в личных сообщениях.</p></details></div>
+<p class="guide-action"><a class="button primary button-md" href="__APP_URL__">Открыть редактор <span aria-hidden="true">↗</span></a></p>
+</article>
+<section class="related-guides" aria-label="Другие руководства"><h2>Другие руководства RichPost</h2><div class="related-links"><a href="/features/telegram-tables/" aria-current="page">Таблицы в Telegram</a><a href="/features/telegram-markdown/">Markdown и предпросмотр</a><a href="/features/scheduled-posts/">Отложенные посты</a><a href="/features/ai-agents/">ИИ агенты и MCP</a></div><p><a href="__HUB_URL__">Все возможности и руководства</a></p></section>
+</main>
+<footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Сделано для ваших каналов в Telegram.</span></div><nav class="footer-links caption-2" aria-label="Дополнительные ссылки"><a href="/features/">Все руководства</a><a href="/features/telegram-tables/" aria-current="page">Таблицы в Telegram</a><a href="/features/telegram-markdown/">Markdown и предпросмотр</a><a href="/features/scheduled-posts/">Отложенные посты</a><a href="/features/ai-agents/">ИИ агенты и MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Открытый код ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Наш бот ↗</a><a href="__APP_URL__">Приложение ↗</a></nav></footer>
+</body>
+</html>

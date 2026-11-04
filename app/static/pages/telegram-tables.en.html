@@ -3,34 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>How to create a table in Telegram — RichPost</title>
-  <meta name="description" content="Create Telegram tables with Markdown or a visual editor. Try a timetable example, preview the result and check it before publishing with RichPost.">
-  <meta name="theme-color" content="#f8f9fc">
-  <meta property="og:title" content="How to create a table in Telegram — RichPost">
-  <meta property="og:description" content="Create Telegram tables with Markdown or a visual editor. Try a timetable example, preview the result and check it before publishing with RichPost.">
+  <title>Tables in Telegram: example and editor — RichPost</title>
+  <meta name="description" content="Create a table in a Telegram post with a Markdown example or the visual editor. Paste cells from Excel, preview the result and check it before publishing.">
+  <meta name="theme-color" content="#f6f7fb">
+  <meta property="og:title" content="Tables in Telegram: example and editor — RichPost">
+  <meta property="og:description" content="Create a table in a Telegram post with a Markdown example or the visual editor. Paste cells from Excel, preview the result and check it before publishing.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="__LANDING_URL__">
+  <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The RichPost editor with a Telegram post preview">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tables in Telegram: example and editor — RichPost">
+  <meta name="twitter:description" content="Create a table in a Telegram post with a Markdown example or the visual editor. Paste cells from Excel, preview the result and check it before publishing.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="The RichPost editor with a Telegram post preview">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
-  <meta property="og:locale" content="en_US">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a67ed'/%3E%3Ctext x='8' y='29' font-family='Arial' font-weight='700' font-size='28' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
-<body><a class="skip" href="#main">Skip to content</a>
-<header class="site-header wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><div class="header-actions"><a href="__RU_URL__" lang="ru" hreflang="ru">RU</a><a class="button quiet" href="__APP_URL__">Open the editor ↗</a></div></header>
-<main id="main" class="guide-content wrap"><a href="/en/">← All features</a><h1>How to create a table in Telegram</h1>
-<p class="lead">Use a table for a price list, timetable or comparison. RichPost lets you build one visually or paste Markdown and check the result beside the editor.</p>
-<h2>Example: a meeting timetable</h2><p>Two columns make the day and start time easy to find. The table is part of the message rather than a screenshot with tiny text.</p>
-<table><caption>Meeting timetable</caption><thead><tr><th>Day</th><th>Starts at</th></tr></thead><tbody><tr><td>Monday</td><td>10:00</td></tr><tr><td>Wednesday</td><td>18:30</td></tr></tbody></table>
-<h2>Paste Markdown into the editor</h2><pre><code>| Day | Starts at |
+<body>
+<a class="skip body-4" href="#main">Skip to content</a>
+<header class="site-header wrap">
+  <a class="logo" href="/en/" aria-label="RichPost home"><span class="logo-mark" aria-hidden="true">R</span><span>RichPost<span class="logo-dot">.</span></span></a>
+  <nav id="site-nav" aria-label="Main navigation">
+    <div class="nav-links guide-nav"><a class="title-4" href="/en/features/">Guides</a><a href="/en/features/telegram-tables/" aria-current="page">Tables</a><a href="/en/features/telegram-markdown/">Markdown</a><a href="/en/features/scheduled-posts/">Scheduling</a><a href="/en/features/ai-agents/">MCP</a></div>
+    <a class="button primary button-md nav-cta" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a>
+  </nav>
+  <div class="header-actions"><a class="language title-4" href="__RU_URL__" lang="ru" hreflang="ru" aria-label="Russian version">RU</a><a class="button quiet button-sm" href="__APP_URL__">Editor <span aria-hidden="true">↗</span></a></div>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span></button>
+</header>
+<main id="main" class="guide-content wrap">
+<nav class="breadcrumbs caption-2" aria-label="Breadcrumb"><ol><li><a href="/en/">RichPost</a></li><li><a href="__HUB_URL__">Guides</a></li><li aria-current="page">How to create a table in Telegram</li></ol></nav>
+<article>
+<h1 class="heading-2">How to create a table in Telegram</h1>
+<p class="lead body-2">A price list, meeting timetable or comparison is easier to scan in rows and columns. RichPost lets you add a table to a rich Telegram message using the visual editor or Markdown.</p>
+<h2>Choose the right format for your information</h2>
+<h3>A table inside a rich post</h3>
+<p>Use a table when readers need to compare labels and values in the message itself. You can edit rows, columns and cells, then preview the table with the rest of the post. This guide is about rich Telegram messages. Pasting the same Markdown into a regular message composer is not equivalent to publishing it with RichPost.</p>
+<h3>An image or a link to a spreadsheet</h3>
+<p>An image is useful when a fixed visual layout matters, but small text may require zooming and changing a number means editing the source image. For a large working spreadsheet with formulas and frequent changes, link to the document instead. Put a short summary or the most relevant rows in your Telegram post so readers can understand the point without opening another page.</p>
+<h2>Example: a meeting timetable</h2>
+<p>Start with two columns. Short day names and times are easier to fit on a phone. Add a heading or a sentence above the table explaining the schedule and its time zone. Replace the sample values before publishing.</p>
+<table><caption>Meeting timetable</caption><thead><tr><th scope="col">Day</th><th scope="col">Starts</th></tr></thead><tbody><tr><td>Monday</td><td>10:00</td></tr><tr><td>Wednesday</td><td>18:30</td></tr></tbody></table>
+<pre><code>| Day | Starts |
 |---|---|
 | Monday | 10:00 |
 | Wednesday | 18:30 |</code></pre>
-<ol><li>Open RichPost and create a draft. Choose the Markdown tab.</li><li>Paste the example and replace its values. Check columns and labels in the preview.</li><li>Select a connected channel. Send preview sends a test post only to your direct messages: start the bot first.</li><li>Publish now or choose a time from the Publish menu.</li></ol>
-<h2>When to use visual mode</h2><p>Add a Table block, then add rows and columns. Click a cell to change alignment, make it a header or merge it. You can paste a range from Google Sheets or Excel into a cell.</p>
-<aside><p>Markdown tables have borders and striped rows. Use visual mode or HTML for other options. Browser preview helps with layout; check important posts in Telegram before publishing. Rendering also depends on the Telegram client.</p></aside>
-<p>Keep the column count manageable and check readability on a phone. Split long comparisons into smaller tables.</p>
-<p><a class="button primary" href="__APP_URL__">Open the editor ↗</a></p><h2>Related guides</h2><ul><li><a href="/en/features/telegram-markdown/">Telegram Markdown editor with preview</a></li><li><a href="/en/features/scheduled-posts/">Schedule posts for Telegram channels</a></li></ul></main>
-<footer class="site-footer wrap"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><a href="https://t.me/__BOT_USERNAME__" rel="noopener" target="_blank">Our bot ↗</a><a href="__APP_URL__">App ↗</a></footer></body></html>
+<h2>Create and check the post</h2>
+<ol><li>Open RichPost, create a draft and select Markdown. Paste the whole example, including the separator row.</li><li>Replace the days and times. Add relevant context above the table, such as the time zone or meeting location. Readers should not have to infer units.</li><li>Check the preview beside the editor. On a phone, open the Preview tab. Make sure every value is in the right column.</li><li>Start the bot and send a preview to your private chat. Check the table in the Telegram client you use.</li><li>Select a connected channel. Publish now or choose a future time from the publication menu. Check the outcome in Posts after delivery.</li></ol>
+<h2>When the visual editor is easier</h2>
+<p>Add a Table block, then add rows and columns. Select a cell to change its text, alignment or header status. You can also merge cells and adjust table settings. The visual editor is useful when you need to reorganize the table rather than simply replace a few values in source text.</p>
+<p>You can copy a range from Excel or Google Sheets and paste it into a cell. Check the resulting rows and columns. RichPost copies the data into the post; it does not connect the post to the original spreadsheet. If the source figures change, update the post as well.</p>
+<h2>Keep the table readable on a phone</h2>
+<ul><li>Keep only the columns needed to make the comparison. Move supporting detail into a paragraph.</li><li>Use short headings and consistent number formats. State the currency, units and time zone explicitly.</li><li>Split a long comparison into smaller tables with clear topics. Readers can then keep track of the headings.</li><li>Check long words, links and merged cells separately. These are common reasons a table becomes difficult to read on a narrow screen.</li></ul>
+<aside><p>The browser preview helps catch layout mistakes, but the Telegram client also affects presentation. Send a private test before an important publication. A table in a post does not calculate spreadsheet formulas or automatically update values from an external file.</p></aside>
+<p>Use the <a href="/en/features/telegram-markdown/">Markdown guide</a> for the rest of your post. If the table needs to appear at a particular time, follow the <a href="/en/features/scheduled-posts/">scheduled publishing guide</a>.</p>
+<h2>Frequently asked questions</h2>
+<div class="questions guide-faq"><details><summary class="title-3">Can I create a table without Markdown?</summary><p class="body-3">Yes. Add a Table block in the visual editor and fill in its cells. Markdown is convenient for simple examples, but it is optional.</p></details><details><summary class="title-3">Can I paste cells from Excel?</summary><p class="body-3">Yes, you can paste a cell range into a table. Check the rows and columns afterwards. The post does not stay synchronized with the source file.</p></details><details><summary class="title-3">Why does the table look different on a phone?</summary><p class="body-3">The screen width and Telegram client affect presentation. Shorten long labels, reduce the number of columns and check a private test message.</p></details></div>
+<p class="guide-action"><a class="button primary button-md" href="__APP_URL__">Open editor <span aria-hidden="true">↗</span></a></p>
+</article>
+<section class="related-guides" aria-label="Related guides"><h2>More RichPost guides</h2><div class="related-links"><a href="/en/features/telegram-tables/" aria-current="page">Tables in Telegram</a><a href="/en/features/telegram-markdown/">Markdown and preview</a><a href="/en/features/scheduled-posts/">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a></div><p><a href="__HUB_URL__">All features and guides</a></p></section>
+</main>
+<footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Made for your Telegram channels.</span></div><nav class="footer-links caption-2" aria-label="Additional links"><a href="/en/features/">All guides</a><a href="/en/features/telegram-tables/" aria-current="page">Tables in Telegram</a><a href="/en/features/telegram-markdown/">Markdown and preview</a><a href="/en/features/scheduled-posts/">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Open source ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Our bot ↗</a><a href="__APP_URL__">App ↗</a></nav></footer>
+</body>
+</html>

@@ -14,8 +14,9 @@ export default async function ({ page, check, mockLog, setChat, applyJson }) {
   await page.waitForTimeout(400);
   const pollPreview = await page.evaluate(() => document.querySelector('#preview').shadowRoot.querySelector('.tg-poll')?.textContent || '');
   const before = (await mockLog()).length;
+  const sent = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/send' && response.request().method() === 'POST');
   await page.click('#btn-publish');
-  await page.waitForTimeout(900);
+  await (await sent).finished();
   const sends = (await mockLog()).slice(before).map((c) => c.method).filter((m) => /^send/.test(m));
   const poll = (await mockLog()).filter((c) => c.method === 'sendPoll').pop()?.body;
   // «Править» keeps the draft's name; the update shows up in the history as lines removed and added

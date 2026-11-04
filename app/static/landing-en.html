@@ -3,23 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rich Telegram posts with a clear preview — RichPost</title>
+  <title>Telegram post editor with preview and scheduling — RichPost</title>
   <meta name="description" content="Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.">
   <meta name="theme-color" content="#f6f7fb">
-  <meta property="og:title" content="Rich Telegram posts with a clear preview — RichPost">
-  <meta property="og:description" content="Text, tables, media and buttons in one editor. Check the result before publishing and send it to your channels at the right time.">
+  <meta property="og:title" content="Telegram post editor with preview and scheduling — RichPost">
+  <meta property="og:description" content="Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="en_US">
   <meta property="og:url" content="__LANDING_URL__">
   <meta property="og:image" content="__OG_IMAGE_URL__">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The RichPost editor with a Telegram post preview">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Telegram post editor with preview and scheduling — RichPost">
+  <meta name="twitter:description" content="Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.">
+  <meta name="twitter:image" content="__OG_IMAGE_URL__">
+  <meta name="twitter:image:alt" content="The RichPost editor with a Telegram post preview">
   <link rel="canonical" href="__LANDING_URL__">
   <link rel="alternate" hreflang="ru" href="__RU_URL__">
   <link rel="alternate" hreflang="en" href="__EN_URL__">
   <link rel="alternate" hreflang="x-default" href="__RU_URL__">
+  <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/manrope.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="icon" href="/static/icons/icon-120.png" type="image/png" sizes="120x120">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180">
+  <link rel="preload" href="/static/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/landing.css">
   <script src="/static/landing.js" defer></script>
+  __STRUCTURED_DATA__
 </head>
 <body>
   <a class="skip body-4" href="#main">Skip to content</a>
@@ -29,6 +41,7 @@
       <div class="nav-links">
         <a class="title-4" href="#features">Features</a>
         <a class="title-4" href="#how">How it works</a>
+        <a class="title-4" href="/en/features/">Guides</a>
         <a class="title-4" href="#faq">Questions</a>
       </div>
       <a class="button primary button-md nav-cta" href="__APP_URL__">Create your first post <span aria-hidden="true">↗</span></a>
@@ -44,7 +57,7 @@
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
         <p class="eyebrow caption-3"><span></span>Rich editor for Telegram</p>
-        <h1 class="heading-1" id="hero-title">Telegram posts<br>people want to read</h1>
+        <h1 class="heading-1" id="hero-title">A post editor<br>for Telegram</h1>
         <p class="lead body-1">Add tables, media, buttons and rich formatting. Check the preview and publish to one or several channels on schedule.</p>
         <div class="hero-actions"><a class="button primary button-md" href="__APP_URL__">Create your first post <span aria-hidden="true">↗</span></a></div>
         <p class="hero-note caption-2">Sign in with Telegram. No separate password needed.</p>
@@ -54,10 +67,10 @@
       <div class="product-stage" id="example" data-nosnippet>
         <div class="product-shot">
           <div class="browser-bar caption-5"><span class="browser-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>RichPost · Visual editor</span><span class="browser-status">Ready to publish</span></div>
-          <img src="/static/images/landing-editor.jpg" width="1280" height="800" alt="The real RichPost interface with a visual editor and post preview">
+          <picture><source srcset="/static/images/landing-editor.webp" type="image/webp"><img fetchpriority="high" decoding="async" src="/static/images/landing-editor.jpg" width="1280" height="800" alt="The real RichPost interface with a visual editor and post preview"></picture>
         </div>
         <div class="stage-preview">
-          <img src="/static/images/landing-preview.jpg" width="480" height="1161" alt="A rich post with headings, a table, lists and quotes">
+          <picture><source srcset="/static/images/landing-preview.webp" type="image/webp"><img decoding="async" loading="lazy" src="/static/images/landing-preview.jpg" width="480" height="1161" alt="A rich post with headings, a table, lists and quotes"></picture>
           <span class="preview-badge caption-3">What your readers will see</span>
         </div>
       </div>
@@ -93,8 +106,8 @@
 
     <section class="workspace section" aria-labelledby="workspace-title">
       <div class="wrap workspace-grid">
-        <div class="workspace-shot" data-reveal data-nosnippet><img src="/static/images/landing-schedule.jpg" width="1280" height="800" loading="lazy" alt="RichPost scheduling window with channel and publishing time selection"></div>
-        <div class="workspace-copy" data-reveal><p class="eyebrow caption-3">Your workflow under control</p><h2 class="heading-3" id="workspace-title">Publishing no longer lives between windows</h2><p class="body-2">Drafts, the queue, history and connected channels are all in one studio.</p><ul class="check-list body-3"><li>Choose one or several channels</li><li>Permissions checked before publishing</li><li>Delivery status and edit history</li></ul></div>
+        <div class="workspace-shot" data-reveal data-nosnippet><picture><source srcset="/static/images/landing-schedule.webp" type="image/webp"><img decoding="async" src="/static/images/landing-schedule.jpg" width="1280" height="800" loading="lazy" alt="RichPost scheduling window with channel and publishing time selection"></picture></div>
+        <div class="workspace-copy" data-reveal><p class="eyebrow caption-3">Your workflow under control</p><h2 class="heading-3" id="workspace-title">Drafts and your publication queue</h2><p class="body-2">Drafts, the queue, history and connected channels are all in one studio.</p><ul class="check-list body-3"><li>Choose one or several channels</li><li>Permissions checked before publishing</li><li>Delivery status and edit history</li></ul></div>
       </div>
     </section>
 
@@ -110,7 +123,7 @@
     </section>
 
     <section class="faq wrap section" id="faq" aria-labelledby="faq-title">
-      <div class="section-intro" data-reveal><p class="eyebrow caption-3">Before your first post</p><h2 class="heading-2" id="faq-title">Clear answers to common questions</h2><p class="body-2">What you need to get started and how the service handles your data.</p></div>
+      <div class="section-intro" data-reveal><p class="eyebrow caption-3">Before your first post</p><h2 class="heading-2" id="faq-title">Common questions about RichPost</h2><p class="body-2">What you need to get started and how the service handles your data.</p></div>
       <div class="questions" data-reveal>
         <details><summary class="title-3">How is RichPost different from a regular message?</summary><p class="body-3">You can build a rich post with headings, tables, lists, quotes, media and buttons, then check it in the preview.</p></details>
         <details><summary class="title-3">Do I need to create a password?</summary><p class="body-3">No. Sign in is confirmed with Telegram. Each account has its own drafts, files, connected channels and scheduled posts.</p></details>
@@ -127,7 +140,9 @@
         <a class="guide-card" href="/en/features/telegram-tables/" data-reveal><span class="guide-number caption-3">01</span><h3 class="heading-6">Tables in Telegram</h3><p class="body-3">Create a price list or timetable. A working example with Markdown source.</p><span class="guide-link body-4">Create a table <span aria-hidden="true">→</span></span></a>
         <a class="guide-card" href="/en/features/telegram-markdown/" data-reveal><span class="guide-number caption-3">02</span><h3 class="heading-6">Markdown and preview</h3><p class="body-3">Headings, quotes, links and line breaks in one example.</p><span class="guide-link body-4">Read the guide <span aria-hidden="true">→</span></span></a>
         <a class="guide-card" href="/en/features/scheduled-posts/" data-reveal><span class="guide-number caption-3">03</span><h3 class="heading-6">Scheduled posts</h3><p class="body-3">Select channels, choose a time and check the outcome in the queue.</p><span class="guide-link body-4">Schedule a post <span aria-hidden="true">→</span></span></a>
+        <a class="guide-card" href="/en/features/ai-agents/" data-reveal><span class="guide-number caption-3">04</span><h3 class="heading-6">AI agents and MCP</h3><p class="body-3">Connect an agent with a personal token to work with drafts and templates.</p><span class="guide-link body-4">Connect an agent <span aria-hidden="true">→</span></span></a>
       </div>
+      <p class="guide-action"><a class="text-link body-4" href="/en/features/">All RichPost guides <span aria-hidden="true">→</span></a></p>
     </section>
 
     <section class="closing wrap" aria-labelledby="closing-title" data-reveal>
@@ -135,6 +150,6 @@
     </section>
   </main>
 
-  <footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Made for your Telegram channels.</span></div><nav class="footer-links caption-2" aria-label="Additional links"><a href="/en/features/ai-agents/">For AI agents</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Open source ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Our bot ↗</a><a href="__APP_URL__">App ↗</a></nav></footer>
+  <footer class="site-footer wrap"><div class="footer-brand"><a class="logo" href="/en/">RichPost<span class="logo-dot">.</span></a><span class="caption-2">Made for your Telegram channels.</span></div><nav class="footer-links caption-2" aria-label="Additional links"><a href="/en/features/">All guides</a><a href="/en/features/telegram-tables/">Tables in Telegram</a><a href="/en/features/telegram-markdown/">Markdown and preview</a><a href="/en/features/scheduled-posts/">Scheduled posts</a><a href="/en/features/ai-agents/">AI agents and MCP</a><a href="https://github.com/xarleyn/Rich-Studio" target="_blank" rel="noopener">Open source ↗</a><a href="https://t.me/__BOT_USERNAME__" target="_blank" rel="noopener">Our bot ↗</a><a href="__APP_URL__">App ↗</a></nav></footer>
 </body>
 </html>

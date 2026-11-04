@@ -1,0 +1,33 @@
+{
+  "font": {
+    "source_sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+    "sha256": "8785aba02ded12070262df635a5de7fe4641de855999500834c6f8128efa3254"
+  },
+  "derived": {
+    "images/landing-editor.webp": {
+      "source": "images/landing-editor.jpg",
+      "source_sha256": "a52c3a37c31a85e0fe2dcdbeae6b7485319dcc16be35f991aad19b7943d51dc4",
+      "sha256": "9cb0955766978f74af4c4b43ea4069c5118d71c6460f39080989f700bdaf3fe6"
+    },
+    "images/landing-preview.webp": {
+      "source": "images/landing-preview.jpg",
+      "source_sha256": "da7d2bb9139bc51a354126173343a97749ece5fcaa2b29a625e3503ce65cd82e",
+      "sha256": "025dc8b699173e038a3059bc6efc4e06c7b85e698598bb01d38ce1df2a01e72e"
+    },
+    "images/landing-schedule.webp": {
+      "source": "images/landing-schedule.jpg",
+      "source_sha256": "d67f67cf190f5fcf226d9f429501dd82987e29c761dd2fb7daf5e1a6ba075823",
+      "sha256": "747c007f04204bf721d24850b25b3e9716d006ebf46f5e0fc945f037a4c902a1"
+    }
+  },
+  "compressed": {
+    "landing.css": {
+      "source_sha256": "11e10ce73304fba68f8c23fdfa4015cc7cf453e228988fcac61f2244356ba47c",
+      "brotli_sha256": "c49f3cc1bbd19c395a4ab9ce16dc11945941e99c4c69b32b93fad307018590fe"
+    },
+    "landing.js": {
+      "source_sha256": "13e4de38f5d4857d4e0d404be6808b1daf99cba546345af6b08c6f8e7079fc28",
+      "brotli_sha256": "d83acf6fb29590bb7e9894d000599985e09a09dc66e795bfcbcca38832aa54f5"
+    }
+  }
+}

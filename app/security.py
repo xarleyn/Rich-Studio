@@ -125,6 +125,9 @@ async def guard(request: Request, call_next):
     path = request.url.path
     if not host_ok(request.headers.get("host", "")):
         return JSONResponse({"detail": "неизвестный Host; добавьте его в ALLOWED_HOSTS"}, status_code=400)
+    if request.method in ("GET", "HEAD") and path + "/" in public_site.PAGE_PATHS | public_site.PREVIEW_PATHS:
+        query = "?" + request.url.query if request.url.query else ""
+        return RedirectResponse(path + "/" + query, status_code=308)
     if (
         settings.get().is_landing_host(request.headers.get("host", ""))
         and path not in PUBLIC_PATHS
@@ -191,7 +194,7 @@ async def guard(request: Request, call_next):
     finally:
         _current.reset(reset)
     if public_site.is_page(path) or path.startswith("/render/") or path == "/api/render":
-        csp = CSP
+        csp = response.headers.get("Content-Security-Policy", CSP)
         if (
             path == "/"
             and settings.get().public
