@@ -214,7 +214,7 @@ impl PostService {
             && let Some(post_id) = draft["post_id"].as_str()
         {
             return Err(ServiceError::Conflict(format!(
-                "черновик {draft_id} — правка поста {post_id}: замените пост или передайте as_new: true, чтобы опубликовать копию новым постом"
+                "черновик {draft_id} — правка поста {post_id}: замените пост (POST /api/posts/{post_id}/edit, MCP edit_post) или передайте as_new: true, чтобы опубликовать копию новым постом"
             )));
         }
         Ok(())

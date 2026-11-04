@@ -106,7 +106,19 @@ impl EditingService {
 
     async fn claim(&self, id: &str, expected: Option<i64>) -> Result<i64, ServiceError> {
         let id = id.to_owned();
-        blocking::run(&self.context,move |context| editing::claim_version(context,&id,expected)?.ok_or_else(|| ServiceError::Conflict(format!("пост {id} уже заменили: прочитайте его заново (get_post) и повторите правку поверх новой версии")))).await
+        blocking::run(&self.context, move |context| {
+            if let Some(taken) = editing::claim_version(context, &id, expected)? {
+                return Ok(taken);
+            }
+            let current = posts::get(context, &id)?
+                .and_then(|record| record["version"].as_i64())
+                .map_or_else(|| "None".to_owned(), |version| version.to_string());
+            let expected = expected.map_or_else(|| "None".to_owned(), |version| version.to_string());
+            Err(ServiceError::Conflict(format!(
+                "пост {id} уже заменили (версия {current}, а у вас {expected}): прочитайте его заново (get_post) и повторите правку поверх новой версии"
+            )))
+        })
+        .await
     }
 
     async fn release(&self, id: &str, taken: i64) -> Result<(), ServiceError> {
@@ -136,7 +148,7 @@ impl EditingService {
                 editing::replace_sent(context, &id, &new, &old, &actor, taken)?
             };
             if !changed {
-                return Err(ServiceError::Conflict(
+                return Err(ServiceError::BadRequest(
                     "пост уже отправляется или изменился: обновите список".to_owned(),
                 ));
             }
