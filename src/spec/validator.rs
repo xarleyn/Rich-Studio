@@ -161,7 +161,7 @@ impl<'a> Validator<'a> {
                 }
                 self.errors.push(format!(
                     "{path}: неизвестный type={} для {type_name}",
-                    value.get("type").unwrap_or(&Value::Null)
+                    python_repr(value.get("type").unwrap_or(&Value::Null))
                 ));
                 return;
             }
@@ -209,8 +209,11 @@ impl<'a> Validator<'a> {
                 && constant_name == *name
                 && item.as_str() != Some(constant.as_str())
             {
-                self.errors
-                    .push(format!("{path}.{name}: должно быть {constant:?}"));
+                self.errors.push(format!(
+                    "{path}.{name}: должно быть '{}', а не {}",
+                    constant,
+                    python_repr(item)
+                ));
                 continue;
             }
             if field
@@ -322,7 +325,7 @@ impl<'a> Validator<'a> {
             for found in references.captures_iter(source) {
                 if !media.contains(&found.get(2).map_or("", |id| id.as_str())) {
                     self.errors.push(format!(
-                        "в тексте есть {}, но в media нет элемента с id={:?}",
+                        "в тексте есть {}, но в media нет элемента с id='{}'",
                         found.get(0).map_or("", |found| found.as_str()),
                         found.get(2).map_or("", |id| id.as_str())
                     ));
@@ -364,13 +367,28 @@ fn url_error(value: &Value) -> Option<String> {
     if raw.trim().is_empty() {
         return Some("пустая ссылка".to_owned());
     }
-    let parsed = Url::parse(raw.trim()).ok();
-    if raw.trim_start().to_lowercase().starts_with("http")
-        && parsed.as_ref().and_then(Url::host_str).is_none()
-    {
-        return Some(format!("в ссылке {raw:?} нет адреса сайта"));
+    let trimmed = raw.trim();
+    let parsed = Url::parse(trimmed).ok();
+    if trimmed.to_lowercase().starts_with("http") {
+        let authority = trimmed
+            .split_once("://")
+            .map(|(_, rest)| rest)
+            .unwrap_or("");
+        if authority.is_empty()
+            || authority.starts_with('/')
+            || parsed.as_ref().and_then(Url::host_str).is_none()
+        {
+            return Some(format!("в ссылке {raw:?} нет адреса сайта"));
+        }
     }
     None
+}
+
+fn python_repr(value: &Value) -> String {
+    match value {
+        Value::String(text) => format!("'{text}'"),
+        other => other.to_string(),
+    }
 }
 
 pub fn keyboard_errors(markup: &Value) -> Vec<String> {
@@ -403,6 +421,13 @@ pub fn keyboard_errors(markup: &Value) -> Vec<String> {
                     "{where_}: не задано, что она делает (ссылка, ответ на нажатие, копирование…)"
                 ));
             } else if let Some(problem) = button.get("url").and_then(url_error) {
+                let problem = if problem == "пустая ссылка" {
+                    format!(
+                        "{problem}: впишите адрес или выберите кнопке другой тип (уберите поле url)"
+                    )
+                } else {
+                    problem
+                };
                 errors.push(format!("{where_}: {problem}"));
             }
         }

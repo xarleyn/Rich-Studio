@@ -155,3 +155,11 @@ path = "tests/rust/http_mcp_contract.rs"
 [[test]]
 name = "architecture"
 path = "tests/rust/architecture.rs"
+
+[[test]]
+name = "api_contract"
+path = "tests/rust/api_contract.rs"
+
+[[test]]
+name = "regressions"
+path = "tests/rust/regressions.rs"

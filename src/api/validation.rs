@@ -52,6 +52,7 @@ pub async fn validate(request: Request, next: Next) -> Response {
             ((state.settings.max_upload_mb * 1024.0 * 1024.0 * 1.4) as usize)
                 .saturating_add(2 * 1024 * 1024)
         });
+    let state = request.extensions().get::<AppState>().cloned();
     let (mut parts, body) = request.into_parts();
     let bytes = match to_bytes(body, limit).await {
         Ok(bytes) => bytes,
@@ -74,6 +75,25 @@ pub async fn validate(request: Request, next: Next) -> Response {
                 contracts::empty_body(document, schema)
             }
             Ok(value) => value,
+            Err(error)
+                if route == "/api/validate" && error.to_string().contains("recursion limit") =>
+            {
+                let version = match &state {
+                    Some(state) => state.spec.read().await.version().to_owned(),
+                    None => "?".to_owned(),
+                };
+                return (
+                    StatusCode::OK,
+                    Json(json!({
+                        "ok": false,
+                        "errors": ["вложенность больше 200 уровней"],
+                        "warnings": [],
+                        "stats": {},
+                        "spec_version": version,
+                    })),
+                )
+                    .into_response();
+            }
             Err(_) => return failure("body: invalid JSON".to_owned()),
         }
     };

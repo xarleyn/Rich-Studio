@@ -103,16 +103,26 @@ pub fn prepare(kind: &Kind, params: &Value) -> Result<Value, ServiceError> {
     if kind.name == POLL {
         let question = params["question"].as_str().unwrap_or_default().trim();
         if question.is_empty() {
-            return invalid("опрос: пустой вопрос".to_owned());
+            return Err(ServiceError::BadRequest("опрос: пустой вопрос".to_owned()));
         }
         if question.chars().count() > 300 {
             return invalid("опрос: вопрос длиннее 300 символов".to_owned());
         }
         let Some(options) = params["options"].as_array() else {
-            return invalid("опрос: нужно минимум два варианта".to_owned());
+            return Err(ServiceError::BadRequest(
+                "опрос: нужно минимум два варианта".to_owned(),
+            ));
         };
         if options.len() < 2 {
-            return invalid("опрос: нужно минимум два варианта".to_owned());
+            return Err(ServiceError::BadRequest(
+                "опрос: нужно минимум два варианта".to_owned(),
+            ));
+        }
+        if params
+            .get("is_anonymous")
+            .is_some_and(|value| !value.is_boolean())
+        {
+            return invalid("опрос: is_anonymous должно быть true/false".to_owned());
         }
         if options.len() > 12 {
             return invalid("опрос: больше 12 вариантов".to_owned());

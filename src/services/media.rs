@@ -48,7 +48,9 @@ impl fmt::Display for MediaError {
         match self {
             Self::NotFound => formatter.write_str("Not Found"),
             Self::BadRequest(message) | Self::Fetch(message) => formatter.write_str(message),
-            Self::TooLarge => formatter.write_str("файл больше разрешённого MAX_UPLOAD_MB"),
+            Self::TooLarge => {
+                formatter.write_str("файл больше разрешённого лимита в МБ (MAX_UPLOAD_MB)")
+            }
             Self::Capacity => {
                 formatter.write_str("Лимит файлов учётки исчерпан. Удалите ненужные файлы.")
             }

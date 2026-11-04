@@ -88,7 +88,18 @@ impl PostService {
             }
         }
         if !post["poll_after"].is_null() {
-            kinds::prepare(kinds::get(Some(kinds::POLL))?, &post["poll_after"])?;
+            let kind = kinds::get(Some(kinds::POLL))?;
+            if let Err(error) = kinds::prepare(kind, &post["poll_after"]) {
+                return Err(match error {
+                    ServiceError::BadRequest(message) => ServiceError::Invalid(json!({
+                        "message": "опрос после поста не прошёл проверку",
+                        "ok": false,
+                        "errors": [message],
+                        "warnings": [],
+                    })),
+                    other => other,
+                });
+            }
         }
         Ok(report)
     }
@@ -252,7 +263,7 @@ impl PostService {
         if let Some(report) = dry_report {
             return Ok(report);
         }
-        let (results, warnings) = self
+        let (mut results, warnings) = self
             .publisher()
             .publish(
                 &chats,
@@ -262,6 +273,7 @@ impl PostService {
                 actor,
             )
             .await?;
+        titled_results(&self.context, &mut results)?;
         let first = first_sent(&results)?;
         let mut all_warnings = report["warnings"].as_array().cloned().unwrap_or_default();
         all_warnings.extend(warnings.into_iter().map(Value::String));
@@ -447,13 +459,22 @@ impl PostService {
                 .await?;
             return Ok(json!({"scheduled":records}));
         }
-        let (results, warnings) = self
+        let (mut results, warnings) = self
             .publisher()
             .publish(&chats, &post, None, kind, actor)
             .await?;
+        titled_results(&self.context, &mut results)?;
         let _ = first_sent(&results)?;
         Ok(json!({"results":results,"warnings":warnings}))
     }
+}
+
+/// The reference `_first_sent` names the channel on every result before choosing the first one.
+fn titled_results(context: &AccountContext, results: &mut [Value]) -> Result<(), ServiceError> {
+    for result in results {
+        result["chat_title"] = crate::services::channels::title_of(context, &result["chat_id"])?;
+    }
+    Ok(())
 }
 
 fn first_sent(results: &[Value]) -> Result<Value, ServiceError> {

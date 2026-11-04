@@ -211,8 +211,21 @@ impl Publisher {
                         .await?;
                         return Err(ServiceError::Telegram(error));
                     }
-                    self.record_failure(id, detail.clone(), uncertain.then_some("uncertain"))
-                        .await?;
+                    let recorded = self
+                        .record_failure(id, detail.clone(), uncertain.then_some("uncertain"))
+                        .await;
+                    if let Err(store_error) = recorded {
+                        if chats.len() == 1 {
+                            // The refusal from Telegram is what the person needs to see; the
+                            // recovery marker still records the row on the next start.
+                            return Err(if uncertain {
+                                ServiceError::MayHaveGone(json!(detail))
+                            } else {
+                                ServiceError::Telegram(error)
+                            });
+                        }
+                        return Err(store_error);
+                    }
                     if chats.len() == 1 {
                         return Err(if uncertain {
                             ServiceError::MayHaveGone(json!(detail))

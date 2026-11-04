@@ -38,12 +38,20 @@ pub fn error_response(error: ServiceError) -> Response {
         ServiceError::Store(error) => (StatusCode::INTERNAL_SERVER_ERROR, json!(error.to_string())),
         ServiceError::Telegram(error) => {
             let status = super::channels::telegram_error(&error);
+            let retry_after = match &error {
+                TelegramError::RateLimited { retry_after, .. } => *retry_after,
+                _ => None,
+            };
             let detail = if matches!(error, TelegramError::Unreachable(_)) {
                 format!("Telegram недоступен, пост не отправлен: {error}")
             } else {
                 error.to_string()
             };
-            return (status, Json(json!({"detail":detail}))).into_response();
+            let mut body = json!({"detail":detail});
+            if let Some(wait) = retry_after {
+                body["retry_after"] = json!(wait);
+            }
+            return (status, Json(body)).into_response();
         }
     };
     (status, Json(json!({"detail":detail}))).into_response()
