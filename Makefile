@@ -5,7 +5,7 @@ PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 LINT_IMPORTS = $(firstword $(wildcard .venv/bin/lint-imports .venv/Scripts/lint-imports.exe) lint-imports)
 UV = $(firstword $(wildcard .venv/bin/uv .venv/Scripts/uv.exe) uv)
 
-.PHONY: check check-fast check-rust check-rust-fast check-py check-js fmt test openapi docs e2e e2e-rust mock dev dev-python spec-update token tokens token-revoke lock
+.PHONY: check check-fast check-rust check-rust-fast check-py check-js fmt test openapi docs e2e e2e-rust e2e-tgfake mock dev dev-python spec-update token tokens token-revoke lock
 
 check: check-rust check-py check-js
 
@@ -104,6 +104,11 @@ e2e:
 e2e-rust:
 	cargo build --locked --bin rich-studio
 	node scripts/check-rust-browser.mjs
+
+# Ресурсоёмкая проверка с внешним tgfake: не входит в make check.
+e2e-tgfake:
+	@test -n "$(TGFAKE_BIN)" || { echo "Set TGFAKE_BIN to the tgfake binary; see docs/TGFAKE.md"; exit 1; }
+	TGFAKE_BIN="$(TGFAKE_BIN)" cargo test --locked --test tgfake -- --ignored --test-threads=1
 
 # requirements.lock: pinned Python reference dependencies retained for migration checks. After a change in requirements.txt
 # (by hand or Dependabot) run it and commit the lock; tests/test_lock.py checks they agree.

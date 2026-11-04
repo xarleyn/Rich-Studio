@@ -145,6 +145,10 @@ name = "media_posts"
 path = "tests/rust/media_posts.rs"
 
 [[test]]
+name = "tgfake"
+path = "tests/rust/tgfake.rs"
+
+[[test]]
 name = "http_mcp_contract"
 path = "tests/rust/http_mcp_contract.rs"
 
