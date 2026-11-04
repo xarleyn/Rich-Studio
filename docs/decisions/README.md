@@ -31,3 +31,4 @@
 | [0021](0021-agent-onboarding-and-install-offer.md) | Подключение агента по ссылке и ненавязчивое предложение PWA |
 | [0022](0022-bot-dialog-notifications.md) | Личный диалог бота, изоляция получателей и очередь отчётов без повтора при неизвестном результате |
 | [0023](0023-owner-telegram-login.md) | Вход владельца по Telegram ID (TG_OWNER_ID) в корневое пространство без публичной учётки |
+| [0024](0024-rust-runtime.md) | Rust runtime без Python в production, сохранённые HTTP/MCP-контракты и явные области учёток |

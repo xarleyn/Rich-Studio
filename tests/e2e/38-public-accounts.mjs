@@ -14,21 +14,25 @@ export default async function ({ browser, check, MOCK }) {
   const port = socket.address().port;
   await new Promise((done) => socket.close(done));
   const base = 'http://127.0.0.1:' + port;
-  const server = spawn(existsSync('.venv/bin/python') ? '.venv/bin/python' : 'python3', [
+  const rust = process.env.RICH_STUDIO_BINARY;
+  const python = process.env.RICH_STUDIO_PYTHON || ['.venv/bin/python', '.venv/Scripts/python.exe'].find(existsSync) || 'python3';
+  const server = spawn(rust || python, rust ? ['serve'] : [
     '-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port), '--no-access-log',
-  ], { env: { ...process.env, PYTHONPATH: resolve('app'), DATA_DIR: data, STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server',
+  ], { windowsHide: true, env: { ...process.env, PYTHONPATH: resolve('app'), DATA_DIR: data, STUDIO_BIND: '127.0.0.1:' + port, STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server',
     STUDIO_URL: 'https://public.example', TG_BOT_USERNAME: 'YourBot', TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '',
     TG_OWNER_ID: '555000111',
     STUDIO_API_KEY: '', STUDIO_API_KEY_FILE: '', ALLOWED_HOSTS: '127.0.0.1', TG_API_BASE: MOCK, SPEC_PIN: 'on',
     STUDIO_BACKGROUND: 'off', TG_UPDATES: 'off', NO_PROXY: 'localhost,127.0.0.1' }, stdio: ['ignore', 'ignore', 'pipe'] });
   let log = '';
+  let startError;
+  server.on('error', (error) => { startError = error; });
   server.stderr.on('data', (chunk) => { log = (log + chunk).slice(-8000); });
   const contexts = [];
   try {
     const deadline = Date.now() + 15000;
     while (true) {
       try { if ((await fetch(base + '/healthz')).ok) break; } catch { /* not listening yet */ }
-      if (Date.now() > deadline || server.exitCode !== null) throw new Error('Public studio did not start: ' + log);
+      if (startError || Date.now() > deadline || server.exitCode !== null) throw new Error('Public studio did not start: ' + (startError?.message || log));
       await new Promise((done) => setTimeout(done, 50));
     }
     const first = await browser.newContext({ viewport: { width: 1400, height: 900 } });
@@ -102,6 +106,6 @@ export default async function ({ browser, check, MOCK }) {
   } finally {
     for (const context of contexts) await context.close();
     server.kill('SIGTERM');
-    await new Promise((done) => server.exitCode !== null ? done() : server.once('exit', done));
+    await new Promise((done) => startError || server.exitCode !== null ? done() : server.once('exit', done));
   }
 }
