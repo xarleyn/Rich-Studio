@@ -401,13 +401,13 @@ pyjwt==2.15.1 \
     --hash=sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193 \
     --hash=sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8
     # via mcp
-python-multipart==0.0.32 \
-    --hash=sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e \
-    --hash=sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23
+python-multipart==0.0.33 \
+    --hash=sha256:8f16c07b36add9da6b2ee87d3efcaf0a45a6de9c3d0a5dd94e9ccf7675a7bc45 \
+    --hash=sha256:b8112424a6abd162ec08d390565dd113ad699f2fe6fef3c987b8bbcbfe9e390d
     # via mcp, -r requirements.txt
-python-socks==2.8.2 \
-    --hash=sha256:7cf785d0631e0659384a773b3c402bc22cccdc23894ba1d65f8524748ace1193 \
-    --hash=sha256:ffc493951854fa3fc0551e0434a09a7b9f9047f9ad666dce42cb94a52e8a34b6
+python-socks==3.2.1 \
+    --hash=sha256:d21618ae6c6734d357be83263b3791666d12af59480ace8f48f2b5fcc8edc987 \
+    --hash=sha256:db2c37d4f7aeebfbba91d2d7670718b2d516061b34296fa8498c6f671e87c504
     # via -r requirements.txt
 pywin32==312 ; sys_platform == 'win32' \
     --hash=sha256:02ebca0f0242b75292e218065004310d6a477407c09fa449bfe4f6022bc0c0fc \
