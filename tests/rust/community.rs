@@ -39,6 +39,8 @@ struct Mock {
     release: Arc<tokio::sync::Notify>,
     links: Arc<Mutex<BTreeMap<String, Value>>>,
     link_ids: Arc<AtomicU64>,
+    /// A getUpdates update delivered while the named Bot API call is still on the wire, before it answers.
+    outcome_during: Arc<Mutex<Option<(String, AppState, Value)>>>,
 }
 impl Mock {
     fn calls(&self) -> Vec<(String, Value)> {
@@ -123,6 +125,8 @@ async fn mock() -> Result<(String, Mock, tokio::task::JoinHandle<()>), Box<dyn s
             if [1,4].contains(&mode){return(StatusCode::BAD_REQUEST,Json(json!({"ok":false,"error_code":400,"description":"not enough rights"})))}
             if mode==2{return(StatusCode::BAD_GATEWAY,Json(json!({"ok":false,"error_code":502,"description":"lost acknowledgement"})))}
         }
+        let outcome={let mut slot=mock.outcome_during.lock().unwrap_or_else(|e|panic!("lock {e}"));if slot.as_ref().is_some_and(|(target,_,_)|target==&method){slot.take()}else{None}};
+        if let Some((_,state,update))=outcome{let _=updates::handle_update(&state,&update).await;}
         let result=if method=="getChatMember"{json!({"status":if body["user_id"]==22{"member"}else{"creator"}})}else if method.contains("InviteLink"){
             mock.invite_call(&method,body)
         }else{json!(true)};
@@ -173,6 +177,32 @@ fn suggestion(context: &AccountContext, mid: i64) -> Result<String, Box<dyn std:
     )?;
     Ok(suggestions::key(-100500, mid))
 }
+fn direct_messages() -> Value {
+    json!({"id":-1009,"type":"supergroup","title":"Тест Direct Messages","is_direct_messages":true})
+}
+fn dm_suggestion_text(mid: i64, info: Value, text: &str) -> Value {
+    json!({"message":{
+        "message_id":mid,
+        "date":auth::now(),
+        "chat":direct_messages(),
+        "from":{"id":5,"first_name":"Аня","username":"anya"},
+        "direct_messages_topic":{"topic_id":77,"user":{"id":5,"first_name":"Аня"}},
+        "text":text,
+        "suggested_post_info":info
+    }})
+}
+fn dm_suggestion(mid: i64, info: Value) -> Value {
+    dm_suggestion_text(mid, info, "Мой пост для канала")
+}
+/// The service message Telegram sends about a suggestion's outcome.
+fn dm_service(mid: i64, event: &str, details: Value) -> Value {
+    let mut message = serde_json::Map::new();
+    message.insert("message_id".to_owned(), json!(mid));
+    message.insert("date".to_owned(), json!(1));
+    message.insert("chat".to_owned(), direct_messages());
+    message.insert(event.to_owned(), details);
+    json!({"message": Value::Object(message)})
+}
 async fn request(
     app: axum::Router,
     method: &str,
@@ -181,6 +211,19 @@ async fn request(
     credential: &str,
     session: bool,
     key: Option<&str>,
+) -> (StatusCode, Value) {
+    request_with(app, method, path, body, credential, session, key, None).await
+}
+#[allow(clippy::too_many_arguments)]
+async fn request_with(
+    app: axum::Router,
+    method: &str,
+    path: &str,
+    body: Value,
+    credential: &str,
+    session: bool,
+    key: Option<&str>,
+    client: Option<&str>,
 ) -> (StatusCode, Value) {
     let mut builder = Request::builder()
         .method(method)
@@ -196,6 +239,9 @@ async fn request(
     };
     if let Some(key) = key {
         builder = builder.header("idempotency-key", key)
+    }
+    if let Some(client) = client {
+        builder = builder.header("x-studio-client", client)
     }
     let response = app
         .oneshot(
@@ -1117,6 +1163,785 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         .clone();
     assert_eq!(revoked["is_revoked"], 1);
     assert_eq!(mock.count("revokeChatInviteLink"), 1);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    let paid = json!({"state":"pending","price":{"currency":"XTR","amount":100}});
+    assert_eq!(
+        updates::handle_update(&state, &dm_suggestion(10, paid.clone())).await?,
+        Some("suggested_post")
+    );
+    let listed = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts?state=pending",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    let listed = listed.as_array().ok_or("listing")?;
+    assert_eq!(listed.len(), 1);
+    let s = &listed[0];
+    assert_eq!(s["id"], "-1009:10");
+    assert_eq!(s["text"], "Мой пост для канала");
+    assert_eq!(s["price_amount"], 100);
+    assert_eq!(s["author"], "Аня (@anya)");
+    assert_eq!(s["channel_title"], "Тест");
+    assert_eq!(s["topic_id"], 77);
+    // the author edits it: the same row, new text
+    let edited = dm_suggestion_text(10, paid.clone(), "Исправленный пост");
+    assert_eq!(
+        updates::handle_update(&state, &json!({"edited_message":edited["message"]})).await?,
+        Some("suggested_post")
+    );
+    let all = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["text"], "Исправленный пост");
+    let far = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:10/approve",
+        json!({"send_date":auth::now() + 2_700_000}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(far.0, StatusCode::BAD_REQUEST);
+    assert!(
+        far.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("30 дней")
+    );
+    let at = auth::now() + 3600;
+    let approved = request_with(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:10/approve",
+        json!({"send_date":at}),
+        "owner-secret",
+        false,
+        None,
+        Some("ui"),
+    )
+    .await;
+    assert_eq!(approved.0, StatusCode::OK, "{}", approved.1);
+    assert_eq!(approved.1["state"], "approved");
+    assert_eq!(approved.1["actor"], "ui");
+    assert_eq!(
+        mock.last("approveSuggestedPost"),
+        json!({"chat_id":-1009,"message_id":10,"send_date":at})
+    );
+    // the same update delivered again (a restart before the offset was saved) does not undo the decision
+    updates::handle_update(&state, &dm_suggestion(10, paid)).await?;
+    let all = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["state"], "approved");
+    let again = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:10/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(again.0, StatusCode::BAD_REQUEST);
+    assert!(
+        again.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("решение")
+    );
+    // Telegram reports the payment afterwards
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &dm_service(
+                11,
+                "suggested_post_paid",
+                json!({
+                    "suggested_post_message":{"message_id":10,"date":1},
+                    "currency":"XTR",
+                    "star_amount":{"amount":85}
+                })
+            )
+        )
+        .await?,
+        Some("suggested_post_outcome")
+    );
+    let all = request(
+        app,
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["state"], "paid");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn decline_keeps_the_author_time_and_checks_the_comment()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    updates::handle_update(
+        &state,
+        &dm_suggestion(20, json!({"state":"pending","send_date":auth::now() + 600})),
+    )
+    .await?;
+    let early = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:20/approve",
+        json!({"send_date":auth::now() + 7200}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(early.0, StatusCode::BAD_REQUEST);
+    assert!(
+        early.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("автор")
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/suggested-posts/-1009:20/decline",
+            json!({"comment":"x".repeat(129)}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    let declined = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:20/decline",
+        json!({"comment":"Не по теме канала"}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(declined["state"], "declined");
+    assert_eq!(declined["comment"], "Не по теме канала");
+    assert_eq!(
+        mock.last("declineSuggestedPost")["comment"],
+        "Не по теме канала"
+    );
+    assert_eq!(
+        request(
+            app,
+            "POST",
+            "/api/suggested-posts/-1:1/decline",
+            json!({}),
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn outcome_of_a_suggestion_the_studio_did_not_see() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, _mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    let original = json!({
+        "message_id":30,
+        "date":1,
+        "chat":direct_messages(),
+        "text":"Старый пост",
+        "from":{"id":6,"first_name":"Боб"}
+    });
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &dm_service(
+                31,
+                "suggested_post_declined",
+                json!({"suggested_post_message":original})
+            )
+        )
+        .await?,
+        Some("suggested_post_outcome")
+    );
+    let declined = request(
+        app,
+        "GET",
+        "/api/suggested-posts?state=declined",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(declined[0]["text"], "Старый пост");
+    // an ordinary message in the same chat is not a suggestion
+    let plain =
+        json!({"message":{"message_id":32,"date":1,"chat":direct_messages(),"text":"привет"}});
+    assert_eq!(updates::handle_update(&state, &plain).await?, None);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn suggested_posts_need_publish_and_work_through_mcp()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    auth::add_token(&config, "d", "draft-secret", "draft")?;
+    let state = AppState::new(config);
+    let app = build_router(state.clone());
+    updates::handle_update(&state, &dm_suggestion(40, json!({"state":"pending"}))).await?;
+    let listed = mcp_list(
+        &mcp_call(
+            app.clone(),
+            "list_suggested_posts",
+            json!({}),
+            "owner-secret",
+        )
+        .await,
+    );
+    let ids = listed
+        .iter()
+        .map(|item| item["id"].as_str().unwrap_or_default().to_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["-1009:40"]);
+    let approved = mcp_call(
+        app.clone(),
+        "approve_suggested_post",
+        json!({"suggestion_id":"-1009:40"}),
+        "owner-secret",
+    )
+    .await;
+    assert_eq!(approved["isError"], false);
+    assert_eq!(approved["structuredContent"]["state"], "approved");
+    assert!(mock.last("approveSuggestedPost").get("send_date").is_none());
+    assert_eq!(
+        request(
+            app,
+            "POST",
+            "/api/suggested-posts/-1009:40/decline",
+            json!({}),
+            "draft-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn std::error::Error>>
+{
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    updates::handle_update(&state, &dm_suggestion(30, json!({"state":"pending"}))).await?;
+    // Telegram refused: nothing changed, the suggestion waits again
+    mock.mode.store(1, Ordering::SeqCst);
+    let refused = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:30/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(refused.0, StatusCode::UNPROCESSABLE_ENTITY);
+    let all = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["state"], "pending");
+    mock.mode.store(0, Ordering::SeqCst);
+    mock.calls
+        .lock()
+        .unwrap_or_else(|e| panic!("lock {e}"))
+        .clear();
+    // no answer: the decision may have gone, so it waits for Telegram's outcome
+    mock.mode.store(2, Ordering::SeqCst);
+    let uncertain = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:30/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(uncertain.0, StatusCode::BAD_GATEWAY);
+    assert!(
+        uncertain.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("могло дойти")
+    );
+    let open = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts?state=open",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(open[0]["state"], "approving");
+    // no repeat after "may have gone": not a retry, not a decline
+    for path in ["approve", "decline"] {
+        let again = request(
+            app.clone(),
+            "POST",
+            &format!("/api/suggested-posts/-1009:30/{path}"),
+            json!({}),
+            "owner-secret",
+            false,
+            None,
+        )
+        .await;
+        assert_eq!(again.0, StatusCode::BAD_REQUEST);
+        assert!(
+            again.1["detail"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("уже отправлено")
+        );
+    }
+    assert_eq!(mock.count("approveSuggestedPost"), 1);
+    // the outcome settles it
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &dm_service(
+                31,
+                "suggested_post_approved",
+                json!({"suggested_post_message":{"message_id":30,"date":1}})
+            )
+        )
+        .await?,
+        Some("suggested_post_outcome")
+    );
+    let all = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["state"], "approved");
+    // two clicks at once: only one takes the suggestion
+    updates::handle_update(&state, &dm_suggestion(40, json!({"state":"pending"}))).await?;
+    let id = "-1009:40";
+    assert!(suggestions::claim(
+        &state.account,
+        id,
+        &["pending", "failed"],
+        "approving"
+    )?);
+    assert!(!suggestions::claim(
+        &state.account,
+        id,
+        &["pending", "failed"],
+        "approving"
+    )?);
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn failed_approval_can_be_tried_again_and_late_copies_do_not_go_back()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, _mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    updates::handle_update(
+        &state,
+        &dm_suggestion(
+            50,
+            json!({"state":"pending","price":{"currency":"XTR","amount":5}}),
+        ),
+    )
+    .await?;
+    updates::handle_update(
+        &state,
+        &dm_service(
+            51,
+            "suggested_post_approval_failed",
+            json!({
+                "suggested_post_message":{"message_id":50,"date":1},
+                "price":{"currency":"XTR","amount":5}
+            }),
+        ),
+    )
+    .await?;
+    let open = request(
+        app.clone(),
+        "GET",
+        "/api/suggested-posts?state=open",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(open[0]["state"], "failed");
+    let approved = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:50/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(approved.0, StatusCode::OK, "{}", approved.1);
+    assert_eq!(approved.1["state"], "approved");
+    updates::handle_update(
+        &state,
+        &dm_service(
+            52,
+            "suggested_post_paid",
+            json!({
+                "suggested_post_message":{"message_id":50,"date":1},
+                "currency":"XTR",
+                "star_amount":{"amount":5}
+            }),
+        ),
+    )
+    .await?;
+    // an edit that still says approved comes late: the payment stays recorded
+    let late = dm_suggestion(50, json!({"state":"approved"}));
+    updates::handle_update(&state, &json!({"edited_message":late["message"]})).await?;
+    let all = request(
+        app,
+        "GET",
+        "/api/suggested-posts",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(all[0]["state"], "paid");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_outcome_that_comes_while_approving_is_not_overwritten()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    updates::handle_update(
+        &state,
+        &dm_suggestion(
+            60,
+            json!({"state":"pending","price":{"currency":"XTR","amount":5}}),
+        ),
+    )
+    .await?;
+    mock.outcome_during
+        .lock()
+        .unwrap_or_else(|e| panic!("lock {e}"))
+        .replace((
+            "approveSuggestedPost".to_owned(),
+            state.clone(),
+            dm_service(
+                61,
+                "suggested_post_paid",
+                json!({
+                    "suggested_post_message":{"message_id":60,"date":1},
+                    "currency":"XTR",
+                    "star_amount":{"amount":5}
+                }),
+            ),
+        ));
+    let approved = request_with(
+        app,
+        "POST",
+        "/api/suggested-posts/-1009:60/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+        Some("ui"),
+    )
+    .await;
+    assert_eq!(approved.0, StatusCode::OK, "{}", approved.1);
+    assert_eq!(approved.1["state"], "paid");
+    assert_eq!(approved.1["actor"], "ui");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let config = settings(&dir, &base);
+    auth::add_token(&config, "agent", "agent-secret", "publish")?;
+    let state = AppState::new(config);
+    let app = build_router(state.clone());
+    updates::handle_update(&state, &dm_suggestion(70, json!({"state":"pending"}))).await?;
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/suggested-posts/-1009:70/reopen",
+            Value::Null,
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    mock.mode.store(2, Ordering::SeqCst);
+    let key = Some("approve-70");
+    let uncertain = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:70/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        key,
+    )
+    .await;
+    assert_eq!(uncertain.0, StatusCode::BAD_GATEWAY);
+    assert!(
+        uncertain.1["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("могло дойти")
+    );
+    mock.mode.store(0, Ordering::SeqCst);
+    let sent_before = mock.count("approveSuggestedPost");
+    let reopened = request_with(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:70/reopen",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+        Some("ui"),
+    )
+    .await;
+    assert_eq!(reopened.0, StatusCode::OK, "{}", reopened.1);
+    assert_eq!(reopened.1["state"], "pending");
+    assert_eq!(reopened.1["actor"], "ui");
+    // the same key is still the decision that got no answer: nothing goes to Telegram
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/suggested-posts/-1009:70/approve",
+            json!({}),
+            "owner-secret",
+            false,
+            key
+        )
+        .await
+        .0,
+        StatusCode::BAD_GATEWAY
+    );
+    assert_eq!(mock.count("approveSuggestedPost"), sent_before);
+    let approved = request(
+        app.clone(),
+        "POST",
+        "/api/suggested-posts/-1009:70/approve",
+        json!({}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await;
+    assert_eq!(approved.0, StatusCode::OK, "{}", approved.1);
+    assert_eq!(approved.1["state"], "approved");
+    assert_eq!(mock.last("approveSuggestedPost")["message_id"], 70);
+    // decided now: no reopening
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/suggested-posts/-1009:70/reopen",
+            Value::Null,
+            "owner-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    // an agent cannot decide again by itself: the person checks the channel's direct messages first
+    suggestions::claim(&state.account, "-1009:70", &["approved"], "approving")?;
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            "/api/suggested-posts/-1009:70/reopen",
+            Value::Null,
+            "agent-secret",
+            false,
+            None
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let tools = request(
+        app,
+        "POST",
+        "/mcp",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+        "owner-secret",
+        false,
+        None,
+    )
+    .await
+    .1;
+    let tools = tools["result"]["tools"].as_array().ok_or("tools")?;
+    assert!(
+        !tools
+            .iter()
+            .any(|tool| tool["name"].as_str().unwrap_or_default().contains("reopen"))
+    );
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn reopened_suggestion_takes_the_late_outcome() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, _mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    let app = build_router(state.clone());
+    updates::handle_update(&state, &dm_suggestion(80, json!({"state":"pending"}))).await?;
+    assert!(suggestions::claim(
+        &state.account,
+        "-1009:80",
+        &["pending"],
+        "declining"
+    )?);
+    let reopened = request_with(
+        app,
+        "POST",
+        "/api/suggested-posts/-1009:80/reopen",
+        Value::Null,
+        "owner-secret",
+        false,
+        None,
+        Some("ui"),
+    )
+    .await;
+    assert_eq!(reopened.0, StatusCode::OK, "{}", reopened.1);
+    assert_eq!(reopened.1["state"], "pending");
+    assert_eq!(reopened.1["actor"], "ui");
+    assert_eq!(
+        updates::handle_update(
+            &state,
+            &dm_service(
+                81,
+                "suggested_post_declined",
+                json!({"suggested_post_message":{"message_id":80,"date":1}})
+            )
+        )
+        .await?,
+        Some("suggested_post_outcome")
+    );
+    assert_eq!(
+        suggestions::get(&state.account, "-1009:80")?.ok_or("suggestion")?["state"],
+        "declined"
+    );
     server.abort();
     Ok(())
 }
