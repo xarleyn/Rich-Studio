@@ -199,7 +199,23 @@ fn unsafe_markup_and_variable_positions_are_rejected() -> TestResult {
             json!([{ "key":"name","label":"Name","default":"cover" },{ "key":"prefix","label":"Prefix","default":"upload:" }])
         };
         // A complete upload reference is required for media cleanup to see every default.
-        assert!(service.save(None, input(json!({"rich_message":{"blocks":[{"type":"photo","photo":{"media":source}}]}}), fields)?).is_err());
+        let error = service
+            .save(
+                None,
+                input(
+                    json!({"rich_message":{"blocks":[{"type":"photo","photo":{"media":source}}]}}),
+                    fields,
+                )?,
+            )
+            .expect_err("a partial upload placeholder must be refused");
+        assert!(
+            matches!(&error, TemplateError::Invalid(_)),
+            "{source}: {error:?}"
+        );
+        assert!(
+            error.to_string().contains("всю ссылку"),
+            "{source}: {error}"
+        );
     }
     Ok(())
 }
@@ -230,19 +246,22 @@ fn markdown_code_and_math_preserve_existing_rejection_boundaries() -> TestResult
         "$$a $ {{name}}$$",
         "$a+{{name}}$$",
     ] {
+        let error = service
+            .save(
+                None,
+                input(
+                    json!({"rich_message":{"markdown":source}}),
+                    json!([field()]),
+                )?,
+            )
+            .expect_err("code or math variables must be refused");
         assert!(
-            matches!(
-                service.save(
-                    None,
-                    input(
-                        json!({"rich_message":{"markdown":source}}),
-                        json!([field()])
-                    )?
-                ),
-                Err(TemplateError::Invalid(_))
-            ),
-            "{source}"
+            matches!(&error, TemplateError::Invalid(_)),
+            "{source}: {error:?}"
         );
+        if source.contains('$') {
+            assert!(error.to_string().contains("tg-math"), "{source}: {error}");
+        }
     }
     for source in [
         r"\$a+{{name}}\$",
@@ -349,6 +368,11 @@ fn versions_guard_update_fill_delete_and_concurrent_writers() -> TestResult {
             .count(),
         1
     );
+    let updated = outcomes
+        .iter()
+        .find_map(|result| result.as_ref().ok())
+        .ok_or("missing successful update")?;
+    assert_eq!(updated["version"], 2);
     assert!(matches!(
         service.create_draft(&id, fill(1, json!({"name":"stale"}))?),
         Err(TemplateError::Conflict(_))
@@ -360,6 +384,10 @@ fn versions_guard_update_fill_delete_and_concurrent_writers() -> TestResult {
     let draft = service.create_draft(&id, fill(2, json!({"name":"current"}))?)?;
     service.delete(&id, 2)?;
     assert!(matches!(service.get(&id), Err(TemplateError::NotFound)));
+    assert!(matches!(
+        service.create_draft(&id, fill(2, json!({"name":"gone"}))?),
+        Err(TemplateError::NotFound)
+    ));
     assert!(store::drafts::get(&state.account, draft["id"].as_str().ok_or("draft id")?)?.is_some());
     Ok(())
 }
@@ -373,10 +401,10 @@ fn expansion_is_bounded_before_building_large_strings_and_size_count_limits_appl
         json!({"rich_message":{"html":"x".repeat(records::MAX_BYTES)}}),
         json!([]),
     )?;
-    assert!(matches!(
-        service.save(None, huge),
-        Err(TemplateError::TooLarge(_))
-    ));
+    let error = service
+        .save(None, huge)
+        .expect_err("a template larger than 1 MB must be refused");
+    assert!(matches!(&error, TemplateError::TooLarge(_)), "{error:?}");
     let repeated = service.save(
         None,
         input(
@@ -384,10 +412,11 @@ fn expansion_is_bounded_before_building_large_strings_and_size_count_limits_appl
             json!([field()]),
         )?,
     )?;
-    assert!(matches!(
-        service.create_draft(tid(&repeated)?, fill(1, json!({"name":"<&".repeat(5000)}))?),
-        Err(TemplateError::TooLarge(_))
-    ));
+    let error = service
+        .create_draft(tid(&repeated)?, fill(1, json!({"name":"<&".repeat(5000)}))?)
+        .expect_err("an expansion larger than 1 MB must be refused before it is built");
+    assert!(matches!(&error, TemplateError::TooLarge(_)), "{error:?}");
+    assert!(error.to_string().contains("больше 1 МБ"), "{error}");
     assert!(store::drafts::list(&state.account)?.is_empty());
     Store::connect(&state.account)?.execute(
         "with recursive ids(n) as (select 1 union all select n+1 from ids where n<199) insert into post_templates(id,title,payload,fields,created_at,updated_at) select 'filler-'||n,'filler','{}','[]',0,0 from ids", [],
@@ -397,6 +426,36 @@ fn expansion_is_bounded_before_building_large_strings_and_size_count_limits_appl
         service.save(None, input(post(), json!([field()]))?),
         Err(TemplateError::TooLarge(_))
     ));
+    Ok(())
+}
+
+#[test]
+fn expansion_limit_rejects_200_repetitions_and_keeps_a_small_template_usable() -> TestResult {
+    let dir = TempDir::new()?;
+    let state = state(&dir)?;
+    let service = TemplateService::new(state.account.clone());
+    let ordinary = service.save(None, input(post(), json!([field()]))?)?;
+    let repeated = service.save(
+        None,
+        input(
+            json!({"rich_message":{"html":"{{name}}".repeat(200)}}),
+            json!([field()]),
+        )?,
+    )?;
+    let error = service
+        .create_draft(
+            tid(&repeated)?,
+            fill(1, json!({"name":"x".repeat(10_000)}))?,
+        )
+        .expect_err("200 repetitions of a 10 kB value are larger than 1 MB");
+    assert!(matches!(&error, TemplateError::TooLarge(_)), "{error:?}");
+    assert!(error.to_string().contains("больше 1 МБ"), "{error}");
+    assert!(
+        service
+            .create_draft(tid(&ordinary)?, fill(1, json!({"name":"small"}))?)
+            .is_ok()
+    );
+    assert_eq!(store::drafts::list(&state.account)?.len(), 1);
     Ok(())
 }
 
@@ -428,6 +487,11 @@ fn old_template_rows_are_read_and_accounts_never_share_templates() -> TestResult
         two.save(Some(tid(&template)?), change),
         Err(TemplateError::NotFound)
     ));
+    assert_eq!(one.get(tid(&template)?)?, template);
+    assert!(
+        one.create_draft(tid(&template)?, fill(1, json!({"name":"back"}))?)
+            .is_ok()
+    );
     let connection = Store::connect(&one_context)?;
     connection.execute("insert into post_templates(id,title,payload,fields,version,created_at,updated_at) values('legacy','Старый','{\"rich_message\": {\"html\": \"{{name}}\"}}','[{\"key\": \"name\", \"label\": \"Name\", \"type\": \"text\", \"required\": true, \"default\": \"old\"}]',7,123,124)", [])?;
     assert_eq!(one.get("legacy")?["version"], 7);
@@ -471,7 +535,45 @@ fn media_cleanup_keeps_literal_and_default_template_uploads() -> TestResult {
     )?;
     let _ = media.upload("default.png", b"fake")?;
     assert!(!records::using(&state.account, "upload:default.png")?.is_empty());
+    assert!(
+        media
+            .used_by("default.png")?
+            .iter()
+            .any(|label| label.contains("шаблон"))
+    );
     assert!(media.delete_unused()?.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn http_media_delete_refuses_template_upload_and_field_default() -> TestResult {
+    let dir = TempDir::new()?;
+    let state = state(&dir)?;
+    let service = TemplateService::new(state.account.clone());
+    let media = MediaService::new(state.account.clone(), 50.0, 500.0);
+    let _ = service.save(None, input(post(), json!([field()]))?)?;
+    let _ = media.upload("cover.png", b"fake")?;
+    let _ = service.save(
+        None,
+        input(
+            json!({"rich_message":{"blocks":[{"type":"photo","photo":{"media":"{{file}}"}}]}}),
+            json!([{"key":"file","label":"Медиа","default":"upload:default.png"}]),
+        )?,
+    )?;
+    let _ = media.upload("default.png", b"fake")?;
+    let app = router(state);
+    assert_eq!(
+        request(app.clone(), "DELETE", "/api/media/cover.png", Value::Null)
+            .await?
+            .0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        request(app, "DELETE", "/api/media/default.png", Value::Null)
+            .await?
+            .0,
+        StatusCode::CONFLICT
+    );
     Ok(())
 }
 
@@ -526,12 +628,22 @@ async fn http_contract_has_created_status_version_guards_and_typed_requests() ->
     );
     let mut changed = body;
     changed["version"] = json!(1);
-    assert_eq!(
-        request(app.clone(), "PUT", &path, changed.clone()).await?.0,
-        StatusCode::OK
-    );
+    let (status, updated) = request(app.clone(), "PUT", &path, changed.clone()).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(updated["version"], 2);
     assert_eq!(
         request(app.clone(), "PUT", &path, changed).await?.0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "POST",
+            &format!("{path}/drafts"),
+            json!({"version":1,"values":{"name":"stale"}})
+        )
+        .await?
+        .0,
         StatusCode::CONFLICT
     );
     let (status, draft) = request(
@@ -545,6 +657,18 @@ async fn http_contract_has_created_status_version_guards_and_typed_requests() ->
     assert_eq!(
         draft["payload"]["rich_message"]["blocks"][0]["text"],
         "from HTTP"
+    );
+    let draft_id = draft["id"].as_str().ok_or("draft id")?.to_owned();
+    assert_eq!(
+        request(
+            app.clone(),
+            "DELETE",
+            &format!("{path}?version=1"),
+            Value::Null
+        )
+        .await?
+        .0,
+        StatusCode::CONFLICT
     );
     assert_eq!(
         request(
@@ -563,7 +687,29 @@ async fn http_contract_has_created_status_version_guards_and_typed_requests() ->
     );
     assert_eq!(
         request(
-            app,
+            app.clone(),
+            "POST",
+            &format!("{path}/drafts"),
+            json!({"version":2,"values":{"name":"gone"}})
+        )
+        .await?
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        request(
+            app.clone(),
+            "GET",
+            &format!("/api/drafts/{draft_id}"),
+            Value::Null
+        )
+        .await?
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        request(
+            app.clone(),
             "POST",
             "/api/templates",
             json!({"title":"invalid","post":{},"fields":[{"key":"x","label":42}]})
@@ -571,6 +717,37 @@ async fn http_contract_has_created_status_version_guards_and_typed_requests() ->
         .await?
         .0,
         StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let huge =
+        json!({"title":"Huge","post":{"rich_message":{"html":"x".repeat(records::MAX_BYTES)}}});
+    assert_eq!(
+        request(app, "POST", "/api/templates", huge).await?.0,
+        StatusCode::PAYLOAD_TOO_LARGE
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn http_template_count_limit_returns_413() -> TestResult {
+    let dir = TempDir::new()?;
+    let state = state(&dir)?;
+    let service = TemplateService::new(state.account.clone());
+    assert!(service.list()?.is_empty());
+    Store::connect(&state.account)?.execute(
+        "with recursive ids(n) as (select 1 union all select n+1 from ids where n<200) insert into post_templates(id,title,payload,fields,created_at,updated_at) select 'filler-'||n,'filler','{}','[]',0,0 from ids", [],
+    )?;
+    assert_eq!(service.list()?.len(), 200);
+    let app = router(state);
+    assert_eq!(
+        request(
+            app,
+            "POST",
+            "/api/templates",
+            json!({"title":"Another","post":post(),"fields":[field()]})
+        )
+        .await?
+        .0,
+        StatusCode::PAYLOAD_TOO_LARGE
     );
     Ok(())
 }
@@ -610,6 +787,12 @@ async fn mcp_tools_share_services_and_return_editor_links_without_publication() 
             ))
     );
     assert_eq!(draft["payload"]["rich_message"]["blocks"][0]["text"], "MCP");
+    let draft_id = draft["id"].as_str().ok_or("draft id")?;
+    let stored = store::drafts::get(&state.account, draft_id)?.ok_or("stored draft")?;
+    assert_eq!(
+        stored["payload"]["rich_message"]["blocks"][0]["text"],
+        "MCP"
+    );
     assert_eq!(mcp::definitions().len(), 4);
     for tool in mcp::definitions() {
         assert_eq!(tool["annotations"]["openWorldHint"], false);
