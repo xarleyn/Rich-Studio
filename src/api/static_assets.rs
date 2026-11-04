@@ -41,7 +41,7 @@ async fn file_path(directory: &Path, url: &str) -> Option<PathBuf> {
 pub async fn fingerprint(directory: &Path, url: &str) -> Option<String> {
     let file = file_path(directory, url).await?;
     let bytes = tokio::fs::read(file).await.ok()?;
-    Some(format!("{:x}", Sha256::digest(bytes))[..12].to_owned())
+    Some(crate::hex::encode(&Sha256::digest(bytes))[..12].to_owned())
 }
 
 /// Templates and generated JSON-LD share the same asset URLs. Fingerprint the

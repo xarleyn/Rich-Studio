@@ -7,7 +7,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const LAYERS: &[&str] = &["api", "mcp_tools", "services", "store", "telegram", "spec"];
-const SHARED: &[&str] = &["settings", "account_context", "errors", "logs", "metrics"];
+const SHARED: &[&str] = &[
+    "settings",
+    "account_context",
+    "errors",
+    "hex",
+    "logs",
+    "metrics",
+];
 
 #[derive(Debug)]
 struct Token {

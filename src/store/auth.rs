@@ -15,7 +15,7 @@ pub fn now() -> i64 {
 }
 
 pub fn hash_secret(secret: &str) -> String {
-    format!("{:x}", Sha256::digest(secret.as_bytes()))
+    crate::hex::encode(&Sha256::digest(secret.as_bytes()))
 }
 
 pub fn database(settings: &Settings) -> Result<Connection, StoreError> {

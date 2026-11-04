@@ -20,7 +20,7 @@ pub fn publisher_may_have_gone() -> String {
 pub fn fingerprint(scope: &str, body: &Value) -> String {
     let mut raw = String::new();
     write_python_json(&json!([scope, body]), &mut raw);
-    format!("{:x}", Sha256::digest(raw.as_bytes()))
+    crate::hex::encode(&Sha256::digest(raw.as_bytes()))
 }
 
 fn write_python_json(value: &Value, output: &mut String) {

@@ -377,7 +377,7 @@ async fn static_cache_requires_actual_file_fingerprint_and_respects_brotli_quali
     let directory = TempDir::new()?;
     let app = app(&directory)?;
     let css = std::fs::read("app/static/landing.css")?;
-    let fingerprint = format!("{:x}", Sha256::digest(&css))[..12].to_owned();
+    let fingerprint = rich_studio::hex::encode(&Sha256::digest(&css))[..12].to_owned();
     for (query, immutable) in [
         (String::new(), false),
         ("?v=000000000000".to_owned(), false),

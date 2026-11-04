@@ -247,7 +247,10 @@ fn token_cli_preserves_legacy_hashes_and_revokes_sessions() -> TestResult {
         |row| row.get(0),
     )?;
     use sha2::{Digest as _, Sha256};
-    assert_eq!(hash, format!("{:x}", Sha256::digest(secret.as_bytes())));
+    assert_eq!(
+        hash,
+        rich_studio::hex::encode(&Sha256::digest(secret.as_bytes()))
+    );
     database.execute("insert into sessions(hash, token_name, created_at, expires_at) values ('session','portable-agent',0,9999999999)", [])?;
     let listed = run(&["token", "list"])?;
     assert!(listed.status.success());

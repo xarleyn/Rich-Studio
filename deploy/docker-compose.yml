@@ -29,7 +29,7 @@ services:
     # no ports: only Caddy reaches it
 
   caddy:
-    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+    image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
     environment:
       STUDIO_DOMAIN: ${STUDIO_DOMAIN}
       STUDIO_DOMAINS: ${STUDIO_DOMAINS:-${STUDIO_DOMAIN}}
@@ -49,7 +49,7 @@ services:
     logging: *logging
 
   litestream:
-    image: litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd7957cba322bbeee38b0e27b9656a
+    image: litestream/litestream:0.5.18@sha256:513bff62a88fc0c86c73d27333c41c54c89fe890a7c32a551600adff9309b11b
     command: replicate
     user: "10001:10001"                           # the studio's user: Litestream writes next to studio.db
     env_file: litestream.env                      # LITESTREAM_REPLICA_URL and the S3 keys: only here, not in the studio

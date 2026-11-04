@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 pub mod account_context;
 pub mod api;
 pub mod errors;
+pub mod hex;
 pub mod logs;
 pub mod mcp_tools;
 pub mod metrics;

@@ -451,7 +451,7 @@ async fn account_sessions_tokens_and_drafts_are_isolated_over_http()
 }
 
 fn signed_callback(state: &str, uid: i64, token: &str) -> String {
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::{Digest, Sha256};
     let mut fields = BTreeMap::from([
         ("id", uid.to_string()),
