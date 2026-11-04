@@ -295,7 +295,7 @@
 - **Step 1: Write failing public-content tests.** Unknown slug cannot become file path; no private content/secrets/account caching; URLs from settings; offline screen only; CSP and static assets match existing editor.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked public_seo agent_docs pwa`; Expected: FAIL.
 - **Step 3: Implement fixed public routes and asset serving.** Не добавлять offline editing или write retries; сохранить SEARCH domain boundaries.
-- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_ && pytest -q tests/test_public_seo.py tests/test_agent_docs.py tests/test_pwa.py`; Expected: PASS.
+- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_ && pytest -q tests/test_public_seo.py tests/test_agent_docs.py`; Expected: PASS.
 
 ### Task 17: Полная сверка HTTP/MCP и критических сценариев
 

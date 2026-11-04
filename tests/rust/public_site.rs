@@ -529,3 +529,125 @@ async fn fingerprints_cannot_read_parent_paths_encoded_traversal_or_missing_asse
     assert!(html.contains("/static/missing.png\""));
     Ok(())
 }
+
+#[tokio::test]
+async fn pwa_assets_are_public_and_linked_from_editor() -> TestResult {
+    let directory = TempDir::new()?;
+    let app = app(&directory)?;
+    for path in ["/api/drafts", "/media/private.png"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("host", "app.example.com")
+                    .body(Body::empty())?,
+            )
+            .await?;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
+    }
+
+    let worker = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/sw.js")
+                .header("host", "app.example.com")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(worker.status(), StatusCode::OK);
+    assert_eq!(worker.headers()["cache-control"], "no-cache");
+    assert_eq!(worker.headers()["service-worker-allowed"], "/");
+    assert!(
+        worker.headers()["content-type"]
+            .to_str()?
+            .contains("javascript")
+    );
+    assert!(!to_bytes(worker.into_body(), 1_000_000).await?.is_empty());
+
+    let manifest = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/static/manifest.webmanifest")
+                .header("host", "app.example.com")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(manifest.status(), StatusCode::OK);
+    let manifest: Value =
+        serde_json::from_slice(&to_bytes(manifest.into_body(), 1_000_000).await?)?;
+    assert_eq!(manifest["id"], "/");
+    assert_eq!(manifest["start_url"], "/");
+    assert_eq!(manifest["scope"], "/");
+    assert_eq!(manifest["display"], "standalone");
+    let icons = manifest["icons"].as_array().ok_or("icons")?;
+    assert!(
+        icons
+            .iter()
+            .filter(|icon| icon["purpose"] == "any")
+            .filter_map(|icon| icon["sizes"].as_str())
+            .any(|size| size == "192x192")
+    );
+    assert!(icons.iter().any(|icon| icon["purpose"] == "maskable"));
+    for icon in icons {
+        let src = icon["src"].as_str().ok_or("icon src")?;
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(src)
+                    .header("host", "app.example.com")
+                    .body(Body::empty())?,
+            )
+            .await?;
+        assert_eq!(response.status(), StatusCode::OK, "{src}");
+        let bytes = to_bytes(response.into_body(), 1_000_000).await?;
+        assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"), "{src}");
+        let width = u32::from_be_bytes(bytes[16..20].try_into()?);
+        let height = u32::from_be_bytes(bytes[20..24].try_into()?);
+        assert_eq!(format!("{width}x{height}"), icon["sizes"], "{src}");
+    }
+    let apple = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/static/icons/apple-touch-icon.png")
+                .header("host", "app.example.com")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(apple.status(), StatusCode::OK);
+
+    let offline = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/static/offline.html")
+                .header("host", "app.example.com")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(offline.status(), StatusCode::OK);
+    let offline = String::from_utf8(to_bytes(offline.into_body(), 1_000_000).await?.to_vec())?;
+    assert!(offline.contains("Нет подключения"));
+    assert!(offline.contains("You're offline"));
+    assert!(!offline.contains("<script"));
+
+    let editor = app
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .header("host", "app.example.com")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(editor.status(), StatusCode::OK);
+    let editor = String::from_utf8(to_bytes(editor.into_body(), 1_000_000).await?.to_vec())?;
+    assert!(editor.contains("rel=\"manifest\" href=\"/static/manifest.webmanifest\""));
+    assert!(editor.contains("rel=\"apple-touch-icon\""));
+    assert!(!editor.contains("<rs-install"));
+    assert!(editor.contains("rel=\"describedby\" href=\"/llms.txt\" type=\"text/markdown\""));
+    Ok(())
+}
