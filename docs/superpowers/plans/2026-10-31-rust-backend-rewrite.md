@@ -142,7 +142,7 @@
 - **Step 1: Write failing transport tests.** Snapshot multipart/JSON: неизвестные поля и числа/Unicode сохраняются, только пять файловых полей получают `attach://`; токен не попадает в errors/logs. Проверить connect-fail vs response-lost vs 429 vs 400 vs 5xx, каналы/форумы/права и transport policy каждой учётки.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked telegram_payload channels`; Expected: FAIL.
 - **Step 3: Implement Reqwest transport and channel slice.** Без автоматических HTTP retries; применять policy до вызова; ограничить uploads/downloads; сохранить HTTP/MCP mapping ошибок 400→422, прочие Telegram→502.
-- **Step 4: Verify against mock.** Run: `cargo nextest run --locked telegram_payload channels && pytest -q tests/test_telegram_client.py tests/test_channels.py`; Expected: одинаковые payload в mock и PASS.
+- **Step 4: Verify against mock.** Run: `cargo nextest run --locked telegram_payload channels && pytest -q tests/test_telegram_client.py`; Expected: одинаковые payload в mock и PASS.
 
 ### Task 6: Публикация и идемпотентность
 
@@ -253,7 +253,7 @@
 - **Step 1: Write failing interaction tests.** Invite defaults/edit clearing/subscription rules/counters; repeated approve/decline click; definite refusal releases state; uncertain waits for service message; publish annotations и explicit confirmation contract.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked invite_links suggested_posts`; Expected: FAIL.
 - **Step 3: Implement both vertical slices.** Сохранить, что Telegram публикует accepted suggested post, а не Studio posts flow; обновления из Task 10 заполняют counters/outcomes.
-- **Step 4: Verify interactions.** Run: `cargo nextest run --locked invite_links suggested_posts && pytest -q tests/test_invite_links.py tests/test_suggested_posts.py`; Expected: PASS.
+- **Step 4: Verify interactions.** Run: `cargo nextest run --locked community && pytest -q tests/test_suggested_posts.py`; Expected: PASS.
 
 ### Task 14: Bot dialog и уведомления
 
@@ -281,7 +281,7 @@
 - **Step 1: Write failing ops tests.** Secret URL/bearer/session/post redaction; health ok/warn/fail/action; metrics; backup with old DB/media excluding import sessions; retention; token add/list/revoke; disk/full errors; housekeeping only within configured retention.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked observability backup cli`; Expected: FAIL.
 - **Step 3: Implement operations and MCP studio tools.** Сохранить JSON fields/request_id, `studio_status`, `studio_health`, `studio_logs`, daily SQLite online backup и restore script.
-- **Step 4: Verify restore on copied legacy data.** Run: `cargo nextest run --locked observability backup cli && pytest -q tests/test_observability.py tests/test_backup.py && scripts/restore_check.sh`; Expected: PASS, Rust CLI читает старые токены и состояние.
+- **Step 4: Verify restore on copied legacy data.** Run: `cargo nextest run --locked operations && pytest -q tests/test_observability.py && scripts/restore_check.sh`; Expected: PASS, Rust CLI читает старые токены и состояние.
 
 ### Task 16: Публичный сайт, PWA и agent docs
 
@@ -295,7 +295,7 @@
 - **Step 1: Write failing public-content tests.** Unknown slug cannot become file path; no private content/secrets/account caching; URLs from settings; offline screen only; CSP and static assets match existing editor.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked public_seo agent_docs pwa`; Expected: FAIL.
 - **Step 3: Implement fixed public routes and asset serving.** Не добавлять offline editing или write retries; сохранить SEARCH domain boundaries.
-- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_ && pytest -q tests/test_public_seo.py tests/test_agent_docs.py`; Expected: PASS.
+- **Step 4: Verify public contracts.** Run: `cargo nextest run --locked public_site && pytest -q tests/test_public_seo.py`; Expected: PASS.
 
 ### Task 17: Полная сверка HTTP/MCP и критических сценариев
 

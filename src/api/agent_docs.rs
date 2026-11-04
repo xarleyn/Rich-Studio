@@ -40,6 +40,7 @@ fn document(settings: &Settings, template: &str) -> String {
         "Ask the operator of this private installation for a separate named token with the draft role (or read for read-only work). Only the operator manages these tokens with the studio CLI. Keep the token in your client's secret setting or the RICHPOST_TOKEN environment variable.".to_owned()
     };
     template
+        .replace("\r\n", "\n")
         .replace("__SITE_URL__", public(settings))
         .replace("__APP_URL__", &settings.public_url)
         .replace("__TOKEN_STEPS__", &instructions)
