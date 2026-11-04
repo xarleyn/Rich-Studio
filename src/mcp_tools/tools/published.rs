@@ -160,9 +160,10 @@ async fn source(state: &AppState, id: &str, args: &Value) -> Result<Value, Servi
             ));
         }
         if !draft["post_id"].is_null() && draft["post_id"] != id {
-            return Err(ServiceError::BadRequest(
-                "черновик — правка другого поста".to_owned(),
-            ));
+            let expected = draft["post_id"].as_str().unwrap_or_default();
+            return Err(ServiceError::BadRequest(format!(
+                "черновик {draft_id} — правка поста {expected}: замените его через edit_post с post_id {expected}, draft_id и version, а не публикуйте новый пост"
+            )));
         }
         crate::services::contracts::parse_post(&draft["payload"]).map_err(ServiceError::BadRequest)
     })
