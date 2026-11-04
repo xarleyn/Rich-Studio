@@ -85,7 +85,7 @@ token-revoke:
 
 # Студия на подставном Telegram: http://localhost:7424, без токена и сети.
 mock:
-	$(PY) -m uvicorn mock_telegram:app --app-dir tests --port 8081
+	dotnet run --file tests/mock_telegram.cs -- --urls http://127.0.0.1:8081
 
 dev:
 	mkdir -p work/dev-data
@@ -107,8 +107,7 @@ e2e:
 # Браузерные проверки на своём стенде (Rust + C# mock): свои порты, пустой DATA_DIR.
 # Одна проверка: make e2e-local ONLY=poll
 e2e-local:
-	cargo build --locked --bin rich-studio
-	E2E_ONLY="$(ONLY)" node scripts/check-rust-browser.mjs
+	scripts/e2e_local.sh $(ONLY)
 
 # Изолированный запуск тех же сценариев: временные данные, свободные порты, только подставной Telegram.
 e2e-rust:
@@ -128,4 +127,4 @@ lock:
 
 # newer Bot API spec into app/bundled/api.json; exit 10 = updated, then make the Rust spec-gaps test green
 spec-update:
-	$(PY) scripts/update_spec.py
+	dotnet run --file scripts/update_spec.cs

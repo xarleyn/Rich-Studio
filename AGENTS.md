@@ -8,6 +8,7 @@
 
 ```
 pip install -r requirements-dev.txt && npm ci   # один раз
+dotnet --version                                # нужен .NET 10 SDK: C#-скрипты и хуки
 make check                                      # Rust quality gates + Python-эталон + JS, санитайзер, сверка с Telegram, скриншоты предпросмотра
 make fmt                                        # автоисправление формата и линтеров
 ```
@@ -67,7 +68,7 @@ make fmt                                        # автоисправление
 - Не менять старые файлы в `app/store/migrations/`, только добавлять новые.
 - Не править `requirements.lock` руками: после изменения `requirements.txt` (и в PR Dependabot) `make lock`, `npm run test:lock` сверяет их.
 - Не добавлять сборщик, фреймворк или новую рантайм-зависимость без обсуждения: редактор специально работает без сборки.
-- Не отправлять ничего в настоящий Telegram из тестов. Для Rust-тестов есть in-process mock и опциональный tgfake, для браузерных сценариев — `tests/mock_telegram.py`.
+- Не отправлять ничего в настоящий Telegram из тестов. Для Rust-тестов есть in-process mock и опциональный tgfake, для браузерных сценариев — `tests/mock_telegram.cs`.
 
 ## Где что
 

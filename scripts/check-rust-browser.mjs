@@ -1,7 +1,7 @@
 // Run the unchanged browser suite against an isolated Rust process and mock Telegram.
 // Python is a development fixture only; no inherited studio credentials reach either process.
-import { spawn } from 'node:child_process';
-import { createWriteStream, existsSync } from 'node:fs';
+import { spawn, execFile } from 'node:child_process';
+import { createWriteStream, existsSync, writeFileSync } from 'node:fs';
 import { copyFile, mkdtemp, readFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -54,7 +54,21 @@ try {
   const studioPort = await unusedPort();
   const mockOrigin = `http://127.0.0.1:${mockPort}`;
   const studioOrigin = `http://127.0.0.1:${studioPort}`;
-  const mock = launch('mock', python, ['-m', 'uvicorn', 'mock_telegram:app', '--app-dir', 'tests', '--host', '127.0.0.1', '--port', String(mockPort)], { ...environment, PYTHONUTF8: '1' });
+  // File-based .NET apps build into the SDK's runfile cache; the build line names the DLL. Run that DLL
+  // directly so the child is the server itself (dotnet run would leave the app behind on Windows when
+  // only the wrapper is killed).
+  const mockDll = await new Promise((resolve, reject) => {
+    execFile('dotnet', ['build', 'tests/mock_telegram.cs', '--nologo', '-v', 'm'], {
+      cwd: root, env: { ...process.env, ...environment }, windowsHide: true,
+    }, (error, stdout, stderr) => {
+      writeFileSync(join(work, 'mock-build.log'), `${stdout}${stderr}`);
+      if (error) { reject(new Error(`mock build exited with ${error.code ?? error.signal}`)); return; }
+      const match = stdout.match(/mock_telegram\.cs -> (.+mock_telegram\.dll)/);
+      if (!match) { reject(new Error('mock build did not report mock_telegram.dll')); return; }
+      resolve(match[1].trim());
+    });
+  });
+  const mock = launch('mock', 'dotnet', [mockDll, '--urls', mockOrigin], { ...environment });
   await ready(mock, `${mockOrigin}/log`);
   // Windows cannot replace a running executable. Keep Cargo's output free for concurrent checks.
   const installed = join(work, process.platform === 'win32' ? 'rich-studio.exe' : 'rich-studio');
@@ -71,7 +85,7 @@ try {
   const suite = launch('browser', process.execPath, ['tests/e2e_ui.mjs'], {
     ...environment, BASE: studioOrigin, MOCK: mockOrigin, RICH_STUDIO_BINARY: installed,
     RICH_STUDIO_PYTHON: python, STUDIO_STATIC_DIR: join(root, 'app', 'static'),
-    E2E_ONLY: process.env.E2E_ONLY || '',
+    E2E_ONLY: process.env.E2E_ONLY || '', E2E_SLOW: process.env.E2E_SLOW || '',
   }, true);
   const result = await suite.completed;
   if (result.code !== 0) throw new Error(`browser suite exited with ${result.code ?? result.signal}`);
@@ -92,7 +106,7 @@ try {
   passed = true;
 } catch (error) {
   console.error(error.message);
-  for (const name of ['studio', 'mock', 'documentation']) {
+  for (const name of ['studio', 'mock', 'mock-build', 'documentation']) {
     const log = await readFile(join(work, `${name}.log`), 'utf8').catch(() => '');
     if (log) console.error(`${name} log (tail):\n${log.slice(-8000)}`);
   }

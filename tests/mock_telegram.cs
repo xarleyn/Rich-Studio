@@ -20,6 +20,7 @@
 
 using System.Globalization;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 
 var capturedPath = FindCaptured();
 if (capturedPath is null)
@@ -31,6 +32,7 @@ if (capturedPath is null)
 
 var mock = new FakeTelegram(capturedPath);
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.SetMinimumLevel(LogLevel.Warning);
 var app = builder.Build();
 
 app.MapPost("/bot{token}/{method}", async Task<IResult> (HttpContext context, string method) =>
@@ -48,6 +50,13 @@ app.MapPost("/fail", async Task<IResult> (HttpContext context) =>
     return Results.Json(new JsonObject { ["ok"] = true });
 });
 app.MapGet("/log", () => Results.Json(mock.Log()));
+app.MapGet("/file/bot{token}/{**path}", (string path) =>
+{
+    var file = mock.EmojiFile(path);
+    return file is null
+        ? Results.NotFound("not found")
+        : Results.File(file.Value.Bytes, file.Value.FilePath.EndsWith(".webp", StringComparison.Ordinal) ? "image/webp" : "application/octet-stream");
+});
 
 app.Run();
 return 0;
@@ -133,6 +142,66 @@ sealed class FakeTelegram
     private const string NotModifiedDescription =
         "Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message";
 
+    // a valid 1x1 webp so <img> in the editor really decodes the cached emoji picture
+    private static readonly byte[] Webp1Px = Convert.FromBase64String("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==");
+    private static readonly JsonObject EmojiSet = JsonNode.Parse("""
+        {
+          "name": "richpost_test_emoji",
+          "title": "RichPost Test",
+          "sticker_type": "custom_emoji",
+          "stickers": [
+            {
+              "file_id": "emoji-file-1",
+              "file_unique_id": "f1",
+              "type": "custom_emoji",
+              "width": 100,
+              "height": 100,
+              "is_animated": false,
+              "is_video": false,
+              "emoji": "🚀",
+              "set_name": "richpost_test_emoji",
+              "custom_emoji_id": "1111111111111111111"
+            },
+            {
+              "file_id": "emoji-file-2",
+              "file_unique_id": "f2",
+              "type": "custom_emoji",
+              "width": 100,
+              "height": 100,
+              "is_animated": false,
+              "is_video": true,
+              "emoji": "🔥",
+              "set_name": "richpost_test_emoji",
+              "thumbnail": {"file_id": "emoji-thumb-2", "file_unique_id": "t2", "width": 100, "height": 100},
+              "custom_emoji_id": "2222222222222222222"
+            },
+            {
+              "file_id": "emoji-file-3",
+              "file_unique_id": "f3",
+              "type": "custom_emoji",
+              "width": 100,
+              "height": 100,
+              "is_animated": true,
+              "is_video": false,
+              "emoji": "🎉",
+              "set_name": "richpost_test_emoji",
+              "thumbnail": {"file_id": "emoji-thumb-3", "file_unique_id": "t3", "width": 100, "height": 100},
+              "custom_emoji_id": "3333333333333333333"
+            }
+          ]
+        }
+        """)!.AsObject();
+
+    // file_id -> (file_path as getFile reports it, bytes as /file/bot<token>/ serves them)
+    private static readonly Dictionary<string, (string FilePath, byte[] Bytes)> EmojiFiles = new(StringComparer.Ordinal)
+    {
+        ["emoji-file-1"] = ("emojis/1111111111111111111.webp", Webp1Px),
+        ["emoji-file-2"] = ("emojis/2222222222222222222.webm", "fake webm"u8.ToArray()),
+        ["emoji-file-3"] = ("emojis/3333333333333333333.tgs", "fake tgs"u8.ToArray()),
+        ["emoji-thumb-2"] = ("emojis/thumb-2.webp", Webp1Px),
+        ["emoji-thumb-3"] = ("emojis/thumb-3.webp", Webp1Px),
+    };
+
     private readonly object gate = new();
     private readonly List<Call> calls = [];
     private readonly List<JsonObject> updates = [];
@@ -146,7 +215,7 @@ sealed class FakeTelegram
 
     public FakeTelegram(string capturedPath)
     {
-        // real answers of Telegram to known HTML/Markdown sources (scripts/capture_telegram_parse.py)
+        // real answers of Telegram to known HTML/Markdown sources (scripts/capture_telegram_parse.cs)
         var captured = JsonNode.Parse(File.ReadAllText(capturedPath)) as JsonObject
             ?? throw new InvalidOperationException($"{capturedPath}: ожидался JSON-объект с ответами Telegram");
         foreach (var entry in captured)
@@ -177,6 +246,13 @@ sealed class FakeTelegram
                 result.Add(new JsonObject { ["method"] = call.Method, ["body"] = call.Body.DeepClone() });
             return result;
         }
+    }
+
+    public (string FilePath, byte[] Bytes)? EmojiFile(string path)
+    {
+        foreach (var file in EmojiFiles.Values)
+            if (file.FilePath == path) return file;
+        return null;
     }
 
     public JsonObject Push(JsonObject update)
@@ -246,6 +322,40 @@ sealed class FakeTelegram
                     ["first_name"] = "Bot",
                     ["username"] = "studio_test_bot",
                 });
+            case "getStickerSet":
+            {
+                var name = body["name"]?.GetValue<string>();
+                return name == "richpost_test_emoji"
+                    ? Ok(EmojiSet.DeepClone())
+                    : Error(400, "Bad Request: STICKER_SET_INVALID");
+            }
+            case "getCustomEmojiStickers":
+            {
+                var ids = new HashSet<string>(StringComparer.Ordinal);
+                if (body["custom_emoji_ids"] is JsonArray requested)
+                    foreach (var id in requested)
+                        if (id is JsonValue value && value.TryGetValue<string>(out var text)) ids.Add(text);
+                var found = new JsonArray();
+                foreach (var sticker in EmojiSet["stickers"]!.AsArray())
+                    if (sticker?["custom_emoji_id"] is JsonValue id
+                        && id.TryGetValue<string>(out var text)
+                        && ids.Contains(text))
+                        found.Add(sticker.DeepClone());
+                return Ok(found);
+            }
+            case "getFile":
+            {
+                var fileId = body["file_id"]?.GetValue<string>() ?? "";
+                if (!EmojiFiles.TryGetValue(fileId, out var file))
+                    return Error(400, "Bad Request: invalid file_id");
+                return Ok(new JsonObject
+                {
+                    ["file_id"] = fileId,
+                    ["file_unique_id"] = fileId,
+                    ["file_size"] = file.Bytes.Length,
+                    ["file_path"] = file.FilePath,
+                });
+            }
             case "setMyCommands":
                 return Ok(true);
             case "sendMessage":

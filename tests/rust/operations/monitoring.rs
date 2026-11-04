@@ -243,13 +243,13 @@ fn session_health_hook_is_registered_next_to_the_format_hook() -> TestResult {
         .filter_map(|hook| hook["command"].as_str())
         .collect::<Vec<_>>()
         .join(" ");
-    assert!(start.contains("studio_health.py"), "{start}");
+    assert!(start.contains("studio_health.cs"), "{start}");
     assert!(start.contains("session-start.sh"), "{start}");
     assert!(
         settings["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
             .as_str()
             .unwrap_or_default()
-            .contains("format.py")
+            .contains("format.cs")
     );
     Ok(())
 }

@@ -5,14 +5,14 @@
         "matcher": "startup|resume",
         "hooks": [
           { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"", "timeout": 600 },
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/studio_health.py\"", "timeout": 5 }
+          { "type": "command", "command": "DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 dotnet run --file \"$CLAUDE_PROJECT_DIR/.claude/hooks/studio_health.cs\"", "timeout": 10 }
         ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
-        "hooks": [{ "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.py\"" }]
+        "hooks": [{ "type": "command", "command": "DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 dotnet run --file \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.cs\"", "timeout": 150 }]
       }
     ]
   }
