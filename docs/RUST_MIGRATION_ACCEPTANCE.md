@@ -37,7 +37,7 @@
 | Сценарий | Проверки Rust |
 |---|---|
 | Повтор ключа и потерянный ответ после принятия Telegram | `publication_safety`, `idempotency_compat` |
-| Настоящий SQLITE_FULL после принятия Telegram | `publication_safety::sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker` |
+| Настоящий SQLITE_FULL после принятия Telegram | `publication_safety::keys::sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker` |
 | Частичная рассылка без дублей в успешных каналах | `publication_safety` |
 | Одновременные правки одной версии | `editing` |
 | Разделение учёток, медиа, токенов и прав | `account_isolation`, `auth_security`, `media_security`, `community`, `events` |

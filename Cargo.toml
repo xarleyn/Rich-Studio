@@ -66,7 +66,7 @@ path = "tests/rust/migrations.rs"
 
 [[test]]
 name = "account_isolation"
-path = "tests/rust/account_isolation.rs"
+path = "tests/rust/account_isolation/main.rs"
 
 [[test]]
 name = "drafts_contract"
@@ -86,7 +86,7 @@ path = "tests/rust/telegram_payload.rs"
 
 [[test]]
 name = "channels"
-path = "tests/rust/channels.rs"
+path = "tests/rust/channels/main.rs"
 
 [[test]]
 name = "idempotency_compat"
@@ -94,11 +94,11 @@ path = "tests/rust/idempotency_compat.rs"
 
 [[test]]
 name = "publication_safety"
-path = "tests/rust/publication_safety.rs"
+path = "tests/rust/publication_safety/main.rs"
 
 [[test]]
 name = "auth_security"
-path = "tests/rust/auth_security.rs"
+path = "tests/rust/auth_security/main.rs"
 
 [[test]]
 name = "templates"
@@ -122,19 +122,19 @@ path = "tests/rust/scheduler_recovery.rs"
 
 [[test]]
 name = "operations"
-path = "tests/rust/operations.rs"
+path = "tests/rust/operations/main.rs"
 
 [[test]]
 name = "events"
-path = "tests/rust/events.rs"
+path = "tests/rust/events/main.rs"
 
 [[test]]
 name = "import_contract"
-path = "tests/rust/import_contract.rs"
+path = "tests/rust/import_contract/main.rs"
 
 [[test]]
 name = "community"
-path = "tests/rust/community.rs"
+path = "tests/rust/community/main.rs"
 
 [[test]]
 name = "post_service"
