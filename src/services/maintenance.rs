@@ -47,6 +47,7 @@ async fn housekeeping_loop(state: &AppState, stop: Arc<AtomicBool>) {
     while !stop.load(Ordering::Acquire) {
         let spec = state.spec.read().await.clone();
         let loops = state.loop_status.read().await.clone();
+        let updates = state.updates_status.read().await.clone();
         let copy = state.clone();
         let now = housekeeping::now();
         let cleanup = now.saturating_sub(cleanup_at) >= 3600;
@@ -71,6 +72,7 @@ async fn housekeeping_loop(state: &AppState, stop: Arc<AtomicBool>) {
                 &copy.logs,
                 &copy.metrics,
                 &loops,
+                &updates,
             ))
         })
         .await;

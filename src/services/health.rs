@@ -10,7 +10,7 @@ use crate::store::db;
 use crate::{
     logs::{self, Logger},
     metrics::Metrics,
-    services::loops::LoopStatus,
+    services::{loops::LoopStatus, updates::Status as UpdatesStatus},
 };
 
 #[derive(Debug, Default)]
@@ -33,13 +33,14 @@ pub fn report(
     logger: &Logger,
     metrics: &Metrics,
     loop_status: &LoopStatus,
+    updates_status: &UpdatesStatus,
 ) -> Value {
     let mut checks = if context.root {
         vec![database(context)]
     } else {
         vec![]
     };
-    checks.extend(queue_checks(context));
+    checks.extend(queue_checks(context, settings));
     checks.push(spec_source(settings, spec));
     if context.root {
         checks.push(
@@ -54,7 +55,7 @@ pub fn report(
                 )
             },
         );
-        checks.push(telegram(settings, metrics));
+        checks.push(telegram(settings, metrics, updates_status));
         checks.push(loops(settings, metrics, loop_status));
         checks.push(disk(settings));
         checks.push(backups(settings, context, metrics));
@@ -144,7 +145,7 @@ fn open(context: &AccountContext) -> Result<Connection, rusqlite::Error> {
     Ok(connection)
 }
 
-fn queue_checks(context: &AccountContext) -> Vec<Value> {
+fn queue_checks(context: &AccountContext, settings: &Settings) -> Vec<Value> {
     let inspect = || -> Result<Vec<Value>, rusqlite::Error> {
         let connection = open(context)?;
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
@@ -194,10 +195,17 @@ fn queue_checks(context: &AccountContext) -> Vec<Value> {
                         )
                 })
                 .collect::<Vec<_>>();
+            let summary = if rows.is_empty() {
+                good.to_owned()
+            } else if name == "scheduler" && !settings.background {
+                format!("{bad} (фоновые циклы выключены)")
+            } else {
+                bad.to_owned()
+            };
             let mut result = check(
                 name,
                 if rows.is_empty() { "ok" } else { "warn" },
-                if rows.is_empty() { good } else { bad },
+                &summary,
                 (!rows.is_empty()).then_some(action),
             );
             if !rows.is_empty() {
@@ -222,7 +230,7 @@ fn queue_checks(context: &AccountContext) -> Vec<Value> {
     })
 }
 
-fn telegram(settings: &Settings, metrics: &Metrics) -> Value {
+fn telegram(settings: &Settings, metrics: &Metrics, updates: &UpdatesStatus) -> Value {
     if settings.bot_token.is_empty() {
         return check(
             "telegram",
@@ -232,42 +240,85 @@ fn telegram(settings: &Settings, metrics: &Metrics) -> Value {
         );
     }
     let last = metrics.telegram_last();
-    if !last["error"].is_null() {
+    let error = &last["error"];
+    let details = json!({"updates":updates,"last_error":error});
+    if updates.state == "conflict" {
         let mut result = check(
             "telegram",
-            if last["error"]["code"] == 409 {
-                "fail"
-            } else {
-                "warn"
-            },
-            "последний вызов Telegram не удался",
-            Some("проверьте подключение и права бота; при 409 остановите второй getUpdates"),
+            "fail",
+            &format!(
+                "приём событий остановлен: {}",
+                updates.error.as_deref().unwrap_or_default()
+            ),
+            Some(
+                "этого бота читает другой процесс или стоит вебхук: остановите его или задайте TG_UPDATES=off",
+            ),
         );
-        result["details"] = json!({"last_error":last["error"]});
+        result["details"] = details;
+        return result;
+    }
+    if !error.is_null() {
+        let mut result = check(
+            "telegram",
+            if error["code"] == 409 { "fail" } else { "warn" },
+            &format!(
+                "последний вызов {} не удался: {}",
+                error["method"].as_str().unwrap_or("Telegram"),
+                error["error"].as_str().unwrap_or_default()
+            ),
+            Some("проверьте связь с api.telegram.org и права бота (GET /api/check)"),
+        );
+        result["details"] = details;
+        return result;
+    }
+    if updates.state == "error" {
+        let mut result = check(
+            "telegram",
+            "warn",
+            &format!(
+                "приём событий: {}",
+                updates.error.as_deref().unwrap_or_default()
+            ),
+            Some("проверьте связь с Telegram"),
+        );
+        result["details"] = details;
         return result;
     }
     if !settings.updates_on {
-        return check(
+        let mut result = check(
             "telegram",
             "ok",
             "приём событий выключен (TG_UPDATES=off)",
             None,
         );
+        result["details"] = details;
+        return result;
     }
     if settings.background && !metrics.loops().contains_key("updates") {
-        return check(
+        let mut result = check(
             "telegram",
             "warn",
             "приём событий ещё не подтвердил работу",
             Some("проверьте фоновые циклы и журнал"),
         );
+        result["details"] = details;
+        return result;
     }
-    check(
+    let mut result = check(
         "telegram",
         "ok",
-        "сбоев подключения не зарегистрировано",
+        &format!(
+            "приём событий: {}",
+            if updates.state.is_empty() {
+                "ok"
+            } else {
+                &updates.state
+            }
+        ),
         None,
-    )
+    );
+    result["details"] = details;
+    result
 }
 
 fn loops(settings: &Settings, metrics: &Metrics, state: &LoopStatus) -> Value {
@@ -537,15 +588,26 @@ fn log_problems(logger: &Logger, metrics: &Metrics) -> Value {
                 >= time::OffsetDateTime::now_utc().unix_timestamp() - 3600
         })
         .collect::<Vec<_>>();
+    let summary = if let Some(last) = errors.last() {
+        format!(
+            "ошибок в журнале за час: {}; последняя: {}",
+            errors.len(),
+            last["message"].as_str().unwrap_or_default()
+        )
+    } else if logger.dropped() > 0 || logger.write_errors() > 0 {
+        "журнал не успевает записывать строки".to_owned()
+    } else {
+        "ошибок за час нет".to_owned()
+    };
     let mut result = if !errors.is_empty() || logger.dropped() > 0 || logger.write_errors() > 0 {
         check(
             "log",
             "warn",
-            "в журнале есть ошибки или очередь переполнена",
+            &summary,
             Some("GET /api/logs?level=ERROR покажет подробности"),
         )
     } else {
-        check("log", "ok", "ошибок за час нет", None)
+        check("log", "ok", &summary, None)
     };
     result["details"] = json!({"errors":errors.into_iter().rev().take(5).collect::<Vec<_>>(),"dropped":logger.dropped(),"write_errors":logger.write_errors(),"file":logger.current_file().map(|_|"studio.log")});
     result
@@ -631,6 +693,7 @@ mod tests {
             &logger,
             &metrics,
             &LoopStatus::default(),
+            &UpdatesStatus::new(&settings),
         );
         assert_eq!(report["status"], "fail");
         assert!(

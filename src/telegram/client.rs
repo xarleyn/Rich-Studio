@@ -151,6 +151,7 @@ impl TelegramTransport {
         uploads: Uploads,
     ) -> Result<Value, TelegramError> {
         let started = Instant::now();
+        let chat = loggable_chat(payload.get("chat_id"));
         let result = self.call_inner(method, payload, uploads).await;
         let quiet = matches!(method, "getUpdates" | "getMe" | "answerCallbackQuery");
         let error = result.as_ref().err().map(ToString::to_string);
@@ -163,15 +164,22 @@ impl TelegramTransport {
         if let Some(metrics) = &self.metrics {
             metrics.telegram_call(method, result.is_ok(), error.as_deref(), ms, code, quiet);
         }
-        if let Some(logs) = &self.logs
-            && let Some(error) = error
-        {
-            logs.event(
-                "WARNING",
-                "rich-studio.telegram",
-                &error,
-                json!({"event":"telegram.error","method":method,"code":code,"ms":ms}),
-            );
+        if let Some(logs) = &self.logs {
+            match &error {
+                Some(error) => logs.event(
+                    "WARNING",
+                    "rich-studio.telegram",
+                    error,
+                    json!({"event":"telegram.error","method":method,"code":code,"ms":ms,"chat_id":chat}),
+                ),
+                None if !quiet => logs.event(
+                    "INFO",
+                    "rich-studio.telegram",
+                    &format!("{method} ok"),
+                    json!({"event":"telegram.call","method":method,"ms":ms,"chat_id":chat}),
+                ),
+                None => {}
+            }
         }
         result
     }
@@ -486,6 +494,16 @@ impl TelegramTransport {
             )));
         }
         Ok(())
+    }
+}
+
+/// A raw call may put post text into chat_id: only an id or a short name may reach the log.
+fn loggable_chat(chat: Option<&Value>) -> Value {
+    match chat {
+        Some(Value::String(text)) if text.chars().count() <= 64 => json!(text),
+        Some(Value::Number(_)) => chat.cloned().unwrap_or(Value::Null),
+        Some(Value::Null) | None => Value::Null,
+        Some(_) => json!("?"),
     }
 }
 

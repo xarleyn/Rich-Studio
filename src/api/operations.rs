@@ -99,12 +99,17 @@ pub async fn observe(State(state): State<AppState>, request: Request, next: Next
                 .collect::<String>(),
         )
     };
-    let path = request
-        .uri()
-        .path()
+    let raw_path = request.uri().path().to_owned();
+    let path = raw_path
         .chars()
         .take(200)
-        .map(|c| if c.is_control() { '�' } else { c })
+        .map(|character| {
+            if character.is_control() {
+                format!("\\x{:02x}", character as u32)
+            } else {
+                character.to_string()
+            }
+        })
         .collect::<String>();
     let route = request
         .extensions()
@@ -116,8 +121,9 @@ pub async fn observe(State(state): State<AppState>, request: Request, next: Next
     logs::scope(id.clone(),async move{
         let mut response=next.run(request).await;
         let status=response.status().as_u16();let ms=started.elapsed().as_millis().min(u64::MAX as u128)as u64;
-        if !path.starts_with("/static/")&&!path.starts_with("/media/"){state.metrics.http_observe(&method,&route,status,ms);}
-        if !path.starts_with("/static/")&&!path.starts_with("/media/") && !["/healthz","/readyz"].contains(&path.as_str()) {
+        if !raw_path.starts_with("/static/")&&!raw_path.starts_with("/media/"){state.metrics.http_observe(&method,&route,status,ms);}
+        // Docker and agents poll these; a line per call would bury everything else.
+        if !raw_path.starts_with("/static/")&&!raw_path.starts_with("/media/")&&!["/healthz","/readyz","/api/health","/api/logs","/favicon.ico"].contains(&raw_path.as_str()) {
             state.logs.event(if status>=500{"WARNING"}else{"INFO"},"rich-studio.http",&format!("{method} {path} {status}"),json!({"event":"http","method":method,"path":path,"route":route,"status":status,"ms":ms,"client":actor}));
         }
         if let Ok(value)=HeaderValue::from_str(&id){response.headers_mut().insert("x-request-id",value);}

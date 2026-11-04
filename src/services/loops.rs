@@ -159,10 +159,13 @@ pub(crate) async fn pause(stopping: &AtomicBool, seconds: u64) {
 
 async fn scheduler_loop(state: &AppState, stopping: Arc<AtomicBool>) {
     while !stopping.load(Ordering::Acquire) {
-        let error = scheduler::run_all(state, stopping.clone())
-            .await
-            .err()
-            .map(|error| error.to_string());
+        let error = crate::logs::scope(
+            crate::logs::new_id("scheduler-"),
+            scheduler::run_all(state, stopping.clone()),
+        )
+        .await
+        .err()
+        .map(|error| error.to_string());
         if let Some(error) = &error {
             state.loop_status.write().await.error = Some(error.clone());
             state.logs.event(

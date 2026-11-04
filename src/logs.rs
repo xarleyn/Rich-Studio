@@ -245,7 +245,12 @@ impl Logger {
     pub fn new(settings: &Settings, metrics: Arc<Metrics>) -> Self {
         let file = (settings.log_max_mb > 0.0)
             .then(|| settings.data_dir.join("logs/studio.log"))
-            .filter(|path| prepare(path).is_ok());
+            .filter(|path| {
+                prepare(path).is_ok() && {
+                    let _ = prune_copies(path, settings.log_files);
+                    true
+                }
+            });
         let (sender, receiver) = mpsc::sync_channel(1024);
         let worker_settings = settings.clone();
         let worker_file = file.clone();
@@ -431,6 +436,29 @@ fn prepare(path: &Path) -> io::Result<()> {
         }
     }
     open(path).map(|_| ())
+}
+/// LOG_FILES was lowered: numeric copies beyond the configured count would stay forever.
+fn prune_copies(path: &Path, log_files: u64) -> io::Result<()> {
+    let keep = log_files.max(1);
+    let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+        return Ok(());
+    };
+    let prefix = format!("{}.", name.to_string_lossy());
+    for entry in fs::read_dir(parent)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let Some(suffix) = file_name
+            .to_string_lossy()
+            .strip_prefix(&prefix)
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        if suffix.parse::<u64>().is_ok_and(|index| index > keep) {
+            fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(())
 }
 fn open(path: &Path) -> io::Result<fs::File> {
     if fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()) {

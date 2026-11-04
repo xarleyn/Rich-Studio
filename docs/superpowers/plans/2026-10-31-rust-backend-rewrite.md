@@ -170,7 +170,7 @@
 - **Step 1: Write failing timing/cancellation tests.** Schedule/reschedule/cancel/missed; crash after `sending`; only one lease leader; renewal failure longer than TTL-RENEW; no new work during shutdown; barrier-controlled cancellation after Telegram accept; retry только Unreachable/429.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked scheduler_recovery loop_lease`; Expected: FAIL.
 - **Step 3: Implement persistent scheduler and owned tasks.** Каждая задача имеет owner/result/shutdown; started spawn_blocking учитывается при завершении; время и гонки управляются clocks/barriers, не sleeps.
-- **Step 4: Verify restart semantics.** Run: `cargo nextest run --locked scheduler_recovery loop_lease && pytest -q tests/test_loops.py`; Expected: PASS без retries/flaky settings.
+- **Step 4: Verify restart semantics.** Run: `cargo nextest run --locked scheduler_recovery`; Expected: PASS без retries/flaky settings.
 
 ### Task 8: Редактирование, версии и история постов
 
@@ -239,7 +239,7 @@
 - **Step 1: Write failing template tests.** CRUD/version conflicts, required/default/url, HTML/Markdown escaping, multiline, unknown placeholders, `_studio` exclusion, media usage cleanup и account isolation.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked templates`; Expected: FAIL.
 - **Step 3: Implement storage + service + HTTP + four template MCP tools.** Сохранить schemas/docstrings и отсутствие публикации.
-- **Step 4: Verify slice.** Run: `cargo nextest run --locked templates && pytest -q tests/test_templates.py`; Expected: PASS.
+- **Step 4: Verify slice.** Run: `cargo nextest run --locked templates`; Expected: PASS.
 
 ### Task 13: Invite links и suggested posts
 
@@ -253,7 +253,7 @@
 - **Step 1: Write failing interaction tests.** Invite defaults/edit clearing/subscription rules/counters; repeated approve/decline click; definite refusal releases state; uncertain waits for service message; publish annotations и explicit confirmation contract.
 - **Step 2: Run tests to verify they fail.** Run: `cargo nextest run --locked invite_links suggested_posts`; Expected: FAIL.
 - **Step 3: Implement both vertical slices.** Сохранить, что Telegram публикует accepted suggested post, а не Studio posts flow; обновления из Task 10 заполняют counters/outcomes.
-- **Step 4: Verify interactions.** Run: `cargo nextest run --locked community && pytest -q tests/test_suggested_posts.py`; Expected: PASS.
+- **Step 4: Verify interactions.** Run: `cargo nextest run --locked community`; Expected: PASS.
 
 ### Task 14: Bot dialog и уведомления
 

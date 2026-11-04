@@ -5,7 +5,6 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 
-use crate::telegram::client::TelegramTransport;
 use crate::telegram::uploads::{Uploads, collect_uploads};
 
 const SAFE_PREFIXES: &[&str] = &["get", "send", "edit", "answer", "copy", "forward"];
@@ -69,10 +68,7 @@ pub async fn call(
                 .into_response();
         }
     };
-    let transport = TelegramTransport::new(
-        state.settings.api_base.clone(),
-        state.settings.bot_token.clone(),
-    );
+    let transport = state.transport();
     match transport
         .call(&state.account, &method, payload, uploads)
         .await

@@ -11,6 +11,7 @@ use crate::AppState;
 async fn inspect(state: AppState) -> Result<Value, String> {
     let spec = state.spec.read().await.clone();
     let loops = state.loop_status.read().await.clone();
+    let updates = state.updates_status.read().await.clone();
     tokio::task::spawn_blocking(move || {
         crate::services::health::report(
             &state.settings,
@@ -19,6 +20,7 @@ async fn inspect(state: AppState) -> Result<Value, String> {
             &state.logs,
             &state.metrics,
             &loops,
+            &updates,
         )
     })
     .await

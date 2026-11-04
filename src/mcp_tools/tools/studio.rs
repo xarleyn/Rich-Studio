@@ -47,6 +47,7 @@ pub async fn call(state: AppState, name: &str, arguments: Value) -> Result<Value
         "studio_health" => {
             let spec = state.spec.read().await.clone();
             let loops = state.loop_status.read().await.clone();
+            let updates = state.updates_status.read().await.clone();
             tokio::task::spawn_blocking(move || {
                 health::report(
                     &state.settings,
@@ -55,6 +56,7 @@ pub async fn call(state: AppState, name: &str, arguments: Value) -> Result<Value
                     &state.logs,
                     &state.metrics,
                     &loops,
+                    &updates,
                 )
             })
             .await
