@@ -1,6 +1,6 @@
 @font-face {
   font-family: "Manrope";
-  src: url("/static/fonts/manrope.woff2?v=8785aba02ded") format("woff2");
+  src: url("/static/fonts/manrope.ttf") format("truetype");
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
@@ -211,7 +211,7 @@ h1 { max-width: 680px; margin: 24px 0; background: linear-gradient(90deg, #00000
 .questions details[open] summary::after { transform: rotate(45deg); }
 .questions details p { padding: 0 24px 24px; margin-bottom: 0; color: var(--muted); }
 .guides { padding-top: 0; }
-.guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 48px; }
+.guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 48px; }
 .guide-card { display: flex; flex-direction: column; min-height: 256px; padding: 24px; border: 1px solid var(--line); border-radius: 24px; background: var(--white); transition: border-color 300ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1); }
 .guide-card:hover { border-color: #b8caf4; transform: translateY(-4px); box-shadow: 0 16px 32px rgba(32, 52, 90, 0.08); }
 .guide-card:active { transform: translateY(1px) scale(0.98); }

@@ -146,7 +146,7 @@ async fn public_metadata_is_parseable_hashed_and_not_authorized_by_request_heade
     let pages = seo_pages()?;
     let placeholders = regex::Regex::new(r"__[A-Z_]+__")?;
     let social_preview = regex::Regex::new(
-        r#"<meta property="og:image" content="https://example\.com/static/images/social-preview\.png\?v=[a-f0-9]{12}">"#,
+        r#"<meta property="og:image" content="https://example\.com/static/images/landing-editor\.jpg\?v=[a-f0-9]{12}">"#,
     )?;
     for path in public_site::page_paths() {
         let entry = pages.get(&path).ok_or("SEO entry")?;
@@ -203,7 +203,7 @@ async fn public_metadata_is_parseable_hashed_and_not_authorized_by_request_heade
         assert!(!html.contains("__STRUCTURED_DATA__") && !html.contains("__SITE_URL__"));
         assert!(html.contains("property=\"og:image\""));
         assert!(html.contains("name=\"twitter:card\" content=\"summary_large_image\""));
-        assert!(html.contains("/static/images/social-preview.png?v="));
+        assert!(html.contains("/static/images/landing-editor.jpg?v="));
         if path.contains("/features/") {
             assert!(
                 graph.iter().any(|item| item["@type"] == "BreadcrumbList"),
