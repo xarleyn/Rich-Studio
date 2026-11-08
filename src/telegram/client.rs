@@ -415,6 +415,8 @@ impl TelegramTransport {
                 "sendPoll",
                 "sendLivePhoto",
                 "sendPaidMedia",
+                "sendWidget",
+                "editMessageWidgetData",
             ]
             .contains(&method)
             {

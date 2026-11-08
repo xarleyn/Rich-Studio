@@ -17,7 +17,18 @@ use crate::store::auth as store_auth;
 pub use crate::services::auth::{AuthError, Principal};
 
 pub const SESSION_COOKIE: &str = "rs_session";
-pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+/// `form-action 'self'`, а не `'none'`: форма предпросмотра виджета (`app/static/js/widget.js`)
+/// отправляет исходник в `/render/widget`; на чужие origin формы по-прежнему не уходят.
+/// `worker-src 'self' blob:` — окна-предпросмотры виджетов создают QuickJS-worker из blob
+/// (`scripts/widget-vendor-build.ts`); Chromium в части окружений проверяет это создание
+/// по политике открывшего окна.
+pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+/// Документ предпросмотра виджета (`/render/widget`): сеть только внутри нашего
+/// origin ('self' — worker забирает wasm с того же сервера), скрипты — вендоренный
+/// host ('self') и QuickJS ('wasm-unsafe-eval'); 'unsafe-inline' нужен srcdoc-iframe
+/// рендера, но его собственный nonce-CSP всё равно доминирует (пересечение политик).
+/// JS виджета исполняется в worker'е QuickJS, до DOM страницы не доходит.
+pub const WIDGET_PREVIEW_CSP: &str = "default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'";
 
 #[derive(Clone)]
 pub struct ScopedState(pub AppState);
@@ -227,7 +238,7 @@ fn route_role(path: &str, method: &Method) -> Role {
     {
         return Role::Admin;
     }
-    if safe(method) || path == "/mcp" {
+    if safe(method) || path == "/mcp" || path == "/api/widget/validate" {
         return Role::Read;
     }
     if [
@@ -236,6 +247,7 @@ fn route_role(path: &str, method: &Method) -> Role {
         "/api/schedule",
         "/api/poll",
         "/api/media-post",
+        "/api/widget",
     ]
     .contains(&path)
         || path.starts_with("/api/posts/")
@@ -297,7 +309,10 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
                 .into_response();
         }
     }
-    if !safe(&method) {
+    // /render/widget — чистый расчёт предпросмотра без побочных эффектов, а Chromium шлёт
+    // `Origin: null` у form-submit в новое окно. Чужой сайт не может прочитать ответ
+    // top-level навигации, поэтому carve-out безопасен; роль и сессия проверяются как раньше.
+    if !safe(&method) && path != "/render/widget" {
         let origin = text(request.headers(), "origin");
         if ["cross-site", "same-site"].contains(&text(request.headers(), "sec-fetch-site"))
             || origin == "null"
@@ -394,16 +409,19 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
         || path.starts_with("/render/")
         || ["/api/render", "/docs", "/redoc"].contains(&path.as_str())
     {
-        let mut csp = CSP.to_owned();
+        let mut csp = if path == "/render/widget" {
+            WIDGET_PREVIEW_CSP.to_owned()
+        } else {
+            CSP.to_owned()
+        };
         if let Some(hash) = public_html.and_then(|html| html.structured_data_hash.as_ref()) {
             csp = csp.replace(
                 "script-src 'self'",
                 &format!("script-src 'self' 'sha256-{hash}'"),
             );
         }
-        if path == "/redoc" {
-            csp.push_str("; worker-src 'self' blob:");
-        }
+        // worker-src уже в CSP: раньше /redoc добавлял его отдельной директивой,
+        // но после виджетов он есть в базовой политике, и дубль Chromium отбрасывает с предупреждением.
         if path == "/" && state.settings.public && !landing {
             csp = csp.replace(
                 "script-src 'self'",
@@ -452,6 +470,8 @@ fn tool_role(name: &str) -> Role {
         "revoke_invite_link",
         "approve_suggested_post",
         "decline_suggested_post",
+        "send_widget",
+        "edit_widget_data",
     ]
     .contains(&name)
     {

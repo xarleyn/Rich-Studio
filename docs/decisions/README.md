@@ -32,3 +32,4 @@
 | [0022](0022-bot-dialog-notifications.md) | Личный диалог бота, изоляция получателей и очередь отчётов без повтора при неизвестном результате |
 | [0023](0023-owner-telegram-login.md) | Вход владельца по Telegram ID (TG_OWNER_ID) в корневое пространство без публичной учётки |
 | [0024](0024-rust-runtime.md) | Rust runtime без Python в production, сохранённые HTTP/MCP-контракты и явные области учёток |
+| [0025](0025-widgets.md) | HTML-виджеты (sendWidget) как отдельный kind, предпросмотр на вендоренном runtime WidgetSandbox |

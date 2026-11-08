@@ -16,6 +16,7 @@
 |---|---|
 | `GET /render/draft/{did}` | Страница предпросмотра черновика (preview_path из save_draft) |
 | `POST /api/render` | Отрисовать пост как в Telegram: отдельная HTML-страница |
+| `POST /render/widget` | Предпросмотр виджета: страница с runtime WidgetSandbox. Принимает форму с полями `html`, `chat_data`, `public_data` и отдаёт страницу предпросмотра (открывается отдельным окном: рантайму нужен SharedArrayBuffer, а он требует COOP/COEP). Ничего не отправляется и не сохраняется. |
 
 ## Черновики
 
@@ -45,10 +46,13 @@
 | `POST /api/posts/{pid}/pin` | Закрепить пост в канале |
 | `POST /api/posts/{pid}/reschedule` | Перенести отложенный пост или вернуть пропущенный в очередь на новое время |
 | `POST /api/posts/{pid}/stop-poll` | Закрыть опрос и сохранить итоги |
+| `POST /api/posts/{pid}/widget-data` | Изменить данные виджета (editMessageWidgetData): HTML неизменяем. `chat_data`/`public_data` — до 1 024 байт; присутствующий ключ задаёт значение, пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`. |
 | `POST /api/preview-send` | Отправить пост себе в личку (TG_PREVIEW_CHAT). В ответе `parsed`: блоки, на которые Telegram разобрал пост, и они же для повторной отправки (`input_blocks`). `chat_id`, отличный от `TG_PREVIEW_CHAT`, требует права `publish`: это уже отправка в чужой чат. |
 | `POST /api/raw/{method}` | Любой метод Bot API как есть (для функций, которых ещё нет в студии). Только для уровня admin; `RAW_API=off` выключает маршрут совсем. |
 | `POST /api/schedule` | Отложить публикацию |
 | `POST /api/send` | Опубликовать пост (sendRichMessage) |
+| `POST /api/widget/validate` | Проверить виджет до отправки: размеры и запрещённые возможности. В ответе `ok`, `errors`, `warnings`, `size_raw` (байт UTF-8) и `size_compressed` (после zlib level 9). Ничего не отправляется и не сохраняется. |
+| `POST /api/widget` | HTML-виджет в чат (sendWidget), сразу или отложенно. Отдельное сообщение: HTML со встроенными CSS и JS. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Лимиты: исходник 32 768 байт, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — по 1 024 байта. |
 
 ## Каналы
 

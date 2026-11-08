@@ -176,6 +176,21 @@ pub async fn buttons(
     )
 }
 
+#[utoipa::path(post, path = "/api/posts/{pid}/widget-data", operation_id = "widget_data_api_posts__pid__widget_data_post", summary = "Изменить данные виджета (editMessageWidgetData): HTML неизменяем", description = "`chat_data`/`public_data` — до 1 024 байт; присутствующий ключ задаёт значение, пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+pub async fn widget_data(
+    ScopedState(state): ScopedState,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    response(
+        service(&state)
+            .await
+            .widget_data(&id, &body, &actor(&state, &headers))
+            .await,
+    )
+}
+
 #[utoipa::path(post, path = "/api/posts/{pid}/stop-poll", operation_id = "stop_poll_api_posts__pid__stop_poll_post", summary = "Закрыть опрос и сохранить итоги", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn stop_poll(ScopedState(state): ScopedState, Path(id): Path<String>) -> Response {
     response(service(&state).await.stop_poll(&id).await)

@@ -223,6 +223,9 @@ pub async fn dispatch(state: AppState, name: &str, mut arguments: Value) -> Resu
             tools::publishing::call(state, name, arguments).await
         }
         "send_media_post" => tools::media_posts::call(state, arguments).await,
+        "widget_validate" | "send_widget" | "edit_widget_data" => {
+            tools::widgets::call(state, name, arguments).await
+        }
         "preview_post" => preview(state, arguments).await,
         _ => Err(format!("unknown tool {name}")),
     }

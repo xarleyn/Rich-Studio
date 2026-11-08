@@ -452,6 +452,103 @@ impl EditingService {
         self.get(id).await
     }
 
+    /// Данные виджета (`editMessageWidgetData`): HTML неизменяем, меняются только
+    /// `chat_data`/`public_data`. Присутствующий ключ задаёт значение, пустая строка
+    /// стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные
+    /// записываются в payload без вызова Telegram: они уйдут вместе с `sendWidget`.
+    pub async fn widget_data(
+        &self,
+        id: &str,
+        body: &Value,
+        actor: &str,
+    ) -> Result<Value, ServiceError> {
+        let record = self.get(id).await?;
+        if kinds::get(record["kind"].as_str())?.name != kinds::WIDGET {
+            return Err(ServiceError::BadRequest("это не виджет".to_owned()));
+        }
+        let status = record["status"].as_str().unwrap_or_default();
+        if !["sent", "scheduled", "missed"].contains(&status) {
+            return Err(ServiceError::BadRequest(format!(
+                "пост в статусе {status}: данные виджета меняются у отправленного или отложенного"
+            )));
+        }
+        if status == "sent" && record["message_id"].as_i64().is_none_or(|id| id == 0) {
+            return Err(ServiceError::BadRequest("редактировать нечего".to_owned()));
+        }
+        let mut payload = record["payload"].clone();
+        let mut holder = payload[kinds::WIDGET]
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        let mut params = serde_json::Map::new();
+        for key in ["chat_data", "public_data"] {
+            if body.get(key).is_none() {
+                continue;
+            }
+            let value = body[key].as_str().unwrap_or_default();
+            let size = value.len();
+            if size > crate::services::widgets::MAX_DATA_BYTES {
+                return Err(ServiceError::Invalid(json!({
+                    "message":"виджет не прошёл проверку","ok":false,
+                    "errors":[format!("виджет: {key} {size} байт, лимит {}", crate::services::widgets::MAX_DATA_BYTES)],
+                    "warnings":[],
+                })));
+            }
+            if value.contains('\0') {
+                return Err(ServiceError::Invalid(json!({
+                    "message":"виджет не прошёл проверку","ok":false,
+                    "errors":[format!("виджет: {key} содержит NUL")],
+                    "warnings":[],
+                })));
+            }
+            if value.is_empty() {
+                holder.remove(key);
+            } else {
+                holder.insert(key.to_owned(), json!(value));
+            }
+            params.insert(key.to_owned(), json!(value));
+        }
+        if params.is_empty() {
+            return Ok(record);
+        }
+        payload[kinds::WIDGET] = Value::Object(holder);
+        let taken = self.claim(id, record["version"].as_i64()).await?;
+        if WAITING.contains(&status) {
+            if let Err(error) = self.replace(&record, &payload, actor, taken, true).await {
+                self.release(id, taken).await?;
+                return Err(error);
+            }
+        } else {
+            let chat = match self.resolve(&record["chat_id"]).await {
+                Ok(chat) => chat,
+                Err(error) => {
+                    self.release(id, taken).await?;
+                    return Err(error);
+                }
+            };
+            let mut message = json!({"chat_id":chat,"message_id":record["message_id"]});
+            for (key, value) in &params {
+                message[key.clone()] = value.clone();
+            }
+            match self.call("editMessageWidgetData", message).await {
+                Ok(_) => {}
+                Err(TelegramError::Refused { description, .. })
+                    if description.contains(NOT_MODIFIED) => {}
+                Err(TelegramError::NoAnswer(error)) => {
+                    return Err(uncertain(&error, "Данные виджета могли смениться"));
+                }
+                Err(error) => {
+                    self.release(id, taken).await?;
+                    return Err(error.into());
+                }
+            }
+            self.replace(&record, &payload, actor, taken, false)
+                .await
+                .map_err(|error| uncertain(&error.to_string(), "Данные виджета могли смениться"))?;
+        }
+        self.get(id).await
+    }
+
     pub async fn stop_poll(&self, id: &str) -> Result<Value, ServiceError> {
         let record = self.sent(id).await?;
         if !kinds::get(record["kind"].as_str())?.stoppable {

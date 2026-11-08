@@ -30,6 +30,7 @@ pub mod scheduler;
 pub mod suggested_posts;
 pub mod templates;
 pub mod updates;
+pub mod widgets;
 
 pub mod community;
 pub mod specs;

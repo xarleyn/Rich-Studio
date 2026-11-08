@@ -1,0 +1,10 @@
+WidgetSandbox runtime, vendored from https://github.com/TelegramMessenger/widget-sandbox at tag v0.6.1.
+
+ВНИМАНИЕ: у upstream-репозитория нет файла LICENSE (на 2026-11-08), поле license
+в packages/core/package.json отсутствует; packages/quickjs-wasm (движок QuickJS)
+помечен MIT. Бандл закоммичен по решению владельца репозитория от 2026-11-08
+(docs/decisions/0025-widgets.md). Если правообладатель попросит удалить код —
+удалить app/static/vendor/widget/ и отпустить пин.
+
+Не редактируйте файлы в этой папке руками: они пересобираются
+npm run vendor:widget из пиннутого checkout.

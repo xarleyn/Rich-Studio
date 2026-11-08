@@ -216,16 +216,30 @@ pub async fn media(
     send_kind(state, headers, body, &kind).await
 }
 
+#[utoipa::path(post, path = "/api/widget", operation_id = "send_widget_api_widget_post", summary = "HTML-виджет в чат (sendWidget), сразу или отложенно", description = "Отдельное сообщение: HTML со встроенными CSS и JS. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Лимиты: исходник 32 768 байт, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — по 1 024 байта.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+pub async fn widget(
+    ScopedState(state): ScopedState,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    send_kind(state, headers, body, kinds::WIDGET).await
+}
+
+#[utoipa::path(post, path = "/api/widget/validate", operation_id = "widget_validate_api_widget_validate_post", summary = "Проверить виджет до отправки: размеры и запрещённые возможности", description = "В ответе `ok`, `errors`, `warnings`, `size_raw` (байт UTF-8) и `size_compressed` (после zlib level 9). Ничего не отправляется и не сохраняется.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+pub async fn widget_validate(Json(body): Json<Value>) -> Response {
+    Json(crate::services::widgets::report(&body["widget"])).into_response()
+}
+
 async fn send_kind(state: AppState, headers: HeaderMap, body: Value, kind_name: &str) -> Response {
     let service = service(&state).await;
     let kind = match kinds::get(Some(kind_name)) {
         Ok(kind) => kind,
         Err(error) => return error_response(error),
     };
-    let params_key = if kind_name == kinds::POLL {
-        "poll"
-    } else {
-        "params"
+    let params_key = match kind_name {
+        kinds::POLL => "poll",
+        kinds::WIDGET => "widget",
+        _ => "params",
     };
     let mut normalized = json!({
         params_key:body[params_key],"chat_id":body["chat_id"],"chat_ids":body["chat_ids"],"at":body["at"],
@@ -234,10 +248,10 @@ async fn send_kind(state: AppState, headers: HeaderMap, body: Value, kind_name: 
     if kind_name != kinds::POLL {
         normalized["kind"] = body["kind"].clone();
     }
-    let scope = if kind_name == kinds::POLL {
-        "poll"
-    } else {
-        "media-post"
+    let scope = match kind_name {
+        kinds::POLL => "poll",
+        kinds::WIDGET => "widget",
+        _ => "media-post",
     };
     let actor = actor(&state, &headers);
     let action_actor = actor.clone();

@@ -20,7 +20,7 @@ async fn all_legacy_http_operations_and_mcp_schemas_survive_the_sdk_adapter() ->
             .values()
             .map(|methods| methods.as_object().map_or(0, serde_json::Map::len))
             .sum::<usize>(),
-        76
+        80
     );
     let init=rpc(app.clone(),"initialize",json!({"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"contract","version":"1"}})).await;
     assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
@@ -37,7 +37,7 @@ async fn all_legacy_http_operations_and_mcp_schemas_survive_the_sdk_adapter() ->
     assert_eq!(listed["result"]["tools"], original["tools"]);
     assert_eq!(
         listed["result"]["tools"].as_array().ok_or("tools")?.len(),
-        39
+        42
     );
     let tools = listed["result"]["tools"]
         .as_array()

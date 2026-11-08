@@ -15,3 +15,4 @@ mod spec;
 mod support;
 mod updates;
 mod validation;
+mod widget;

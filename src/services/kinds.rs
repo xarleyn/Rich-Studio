@@ -6,6 +6,7 @@ pub const RICH: &str = "rich";
 pub const POLL: &str = "poll";
 pub const LIVE_PHOTO: &str = "live_photo";
 pub const PAID_MEDIA: &str = "paid_media";
+pub const WIDGET: &str = "widget";
 pub const STARS_MAX: i64 = 25000;
 
 #[derive(Clone, Copy, Debug)]
@@ -60,6 +61,16 @@ pub const KINDS: &[Kind] = &[
         editable: false,
         stoppable: false,
         media: true,
+    },
+    Kind {
+        name: WIDGET,
+        method: "sendWidget",
+        label: "виджет",
+        key: Some(WIDGET),
+        badge: Some("виджет"),
+        editable: false,
+        stoppable: false,
+        media: false,
     },
 ];
 
@@ -171,6 +182,14 @@ pub fn prepare(kind: &Kind, params: &Value) -> Result<Value, ServiceError> {
         if !(1..=STARS_MAX).contains(&stars) {
             return invalid(format!(
                 "платный контент: star_count от 1 до {STARS_MAX} звёзд"
+            ));
+        }
+    }
+    if kind.name == WIDGET {
+        let report = crate::services::widgets::report(&params);
+        if !report["errors"].as_array().is_some_and(Vec::is_empty) {
+            return Err(ServiceError::Invalid(
+                json!({"message":"виджет не прошёл проверку","ok":false,"errors":report["errors"],"warnings":report["warnings"]}),
             ));
         }
     }

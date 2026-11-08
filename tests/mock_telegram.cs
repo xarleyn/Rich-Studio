@@ -116,6 +116,7 @@ sealed class FakeTelegram
         "pinChatMessage",
         "unpinChatMessage",
         "answerCallbackQuery",
+        "answerWidgetQuery",
         "approveSuggestedPost",
         "declineSuggestedPost",
     };
@@ -431,6 +432,36 @@ sealed class FakeTelegram
                 if (stored is not null && JsonNode.DeepEquals(stored["reply_markup"], body["reply_markup"]))
                     return NotModified();
                 if (stored is not null) stored["reply_markup"] = body["reply_markup"]?.DeepClone();
+                return Ok(Message(body["message_id"], ("edit_date", JsonValue.Create(UnixTime()))));
+            }
+            case "sendWidget":
+            {
+                nextId += 1;
+                var message = Message(nextId);
+                messages[MessageKey(body["chat_id"], nextId)] = new JsonObject
+                {
+                    ["widget"] = body.DeepClone(),
+                };
+                // a Widget as Telegram answers it: is_shared=false, the html not echoed back
+                message["widget"] = new JsonObject { ["is_shared"] = false, ["allow_queries"] = body["allow_queries"]?.DeepClone() ?? false };
+                return Ok(message);
+            }
+            case "editMessageWidgetData":
+            {
+                // like editMessageText: only chat_data/public_data change, the same "not modified" when nothing would change
+                var key = MessageKey(body["chat_id"], body["message_id"]);
+                messages.TryGetValue(key, out var stored);
+                var data = new JsonObject { ["chat_data"] = body["chat_data"]?.DeepClone(), ["public_data"] = body["public_data"]?.DeepClone() };
+                var widget = stored?["widget"] as JsonObject;
+                if (widget is not null
+                    && JsonNode.DeepEquals(widget["chat_data"], data["chat_data"])
+                    && JsonNode.DeepEquals(widget["public_data"], data["public_data"]))
+                    return NotModified();
+                if (widget is not null)
+                {
+                    if (data["chat_data"] is not null) widget["chat_data"] = data["chat_data"]?.DeepClone();
+                    if (data["public_data"] is not null) widget["public_data"] = data["public_data"]?.DeepClone();
+                }
                 return Ok(Message(body["message_id"], ("edit_date", JsonValue.Create(UnixTime()))));
             }
             case "stopPoll":

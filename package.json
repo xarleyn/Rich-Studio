@@ -16,7 +16,8 @@
     "test:lock": "node scripts/check-python-lock.mjs",
     "test:e2e": "node tests/e2e_ui.mjs",
     "vendor:editor": "node scripts/vendor-code-editor.mjs",
-    "test:source": "node scripts/vendor-code-editor.mjs --check && node tests/source_completion.mjs"
+    "vendor:widget": "node scripts/vendor-widget-runtime.mjs",
+    "test:source": "node scripts/vendor-code-editor.mjs --check && node tests/source_completion.mjs && node scripts/vendor-widget-runtime.mjs --check"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "6.20.4",

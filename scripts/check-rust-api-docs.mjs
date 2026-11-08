@@ -13,7 +13,7 @@ for (const path of ['/docs', '/redoc', '/openapi.json']) {
 }
 const schema = await (await fetch(base + '/openapi.json', { headers: { Authorization: `Bearer ${key}` } })).json();
 const operations = Object.values(schema.paths).flatMap((methods) => Object.values(methods).map((operation) => operation.operationId));
-assert.equal(operations.length, 76);
+assert.equal(operations.length, 80);
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${key}` }, viewport: { width: 1400, height: 900 } });
@@ -35,7 +35,7 @@ try {
     assert.ok(response.headers()['content-security-policy'].includes("script-src 'self'"));
     if (name === 'swagger') {
       await page.waitForFunction((count) => document.querySelectorAll('.opblock').length === count, operations.length);
-      assert.equal(await page.locator('.opblock').count(), 76);
+      assert.equal(await page.locator('.opblock').count(), 80);
     } else {
       await page.waitForFunction((ids) => {
         const sections = [...document.querySelectorAll('[data-section-id]')].map((element) => element.getAttribute('data-section-id'));
@@ -47,7 +47,7 @@ try {
       await page.screenshot({ path: `test-results/ui/api-${name}-${width}.png` });
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${name} must fit ${width}px`);
     }
-    console.log(`PASS ${name}: all 76 operations render locally with the configured credential at 1400px and 390px.`);
+    console.log(`PASS ${name}: all 80 operations render locally with the configured credential at 1400px and 390px.`);
   }
   assert.deepEqual(errors, [], 'API documentation must have no external requests, JavaScript or CSP errors');
   console.log('PASS API documentation: anonymous/invalid credentials rejected; no external requests, JavaScript or CSP errors.');

@@ -22,6 +22,9 @@ export default async function ({ page, check }) {
   await poll(); await settle('warn', '2');
   const warn = await read();
   await page.unroute('**/api/health');
+  // a poll already in flight would answer with the previous routed body after the
+  // reroute below; let it settle first, then go down
+  await page.waitForTimeout(400);
   await page.route('**/api/health', (route) => route.abort());
   await poll(); await settle('down');
   const down = await read();

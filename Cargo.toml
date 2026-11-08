@@ -23,6 +23,7 @@ unimplemented = "deny"
 [dependencies]
 axum = { version = "0.8", features = ["multipart"] }
 base64 = "0.23"
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
 hmac = "0.13"
 html-escape = "0.3"
 grammers-client = { version = "0.11.0", features = ["proxy"] }

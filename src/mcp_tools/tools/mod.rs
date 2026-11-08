@@ -9,6 +9,7 @@ pub mod published;
 pub mod publishing;
 pub mod studio;
 pub mod templates;
+pub mod widgets;
 
 use serde_json::{Value, json};
 

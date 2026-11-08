@@ -69,6 +69,8 @@ async fn mcp_publish_off_hides_and_rejects_publishing_tools() -> TestResult {
         "send_media_post",
         "approve_suggested_post",
         "decline_suggested_post",
+        "send_widget",
+        "edit_widget_data",
     ]);
     let expected = contract["tools"]
         .as_array()

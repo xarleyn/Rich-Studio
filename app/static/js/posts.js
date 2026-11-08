@@ -9,6 +9,7 @@ import { editPost, refreshEditing, reschedulePost } from './editing.js';
 import { STATUS_LABELS } from './labels.js';
 import { chatLabel, dirty, editing, kindOf, S, saveState } from './state.js';
 import { loadSuggested } from './suggested.js';
+import { showWidgetData } from './widget.js';
 
 // ---------- posts ----------
 export async function loadPosts() {
@@ -59,6 +60,7 @@ export async function loadPosts() {
         } }) : null,
         sent ? h('button', { class: 'ghost small-btn', text: p.pinned ? tr('Открепить') : tr('Закрепить'), onclick: () => p.pinned ? call('DELETE', `/api/posts/${p.id}/pin`, undefined, tr('Откреплено')) : call('POST', `/api/posts/${p.id}/pin`, { disable_notification: true }, tr('Закреплено без уведомления')) }) : null,
         kind.stoppable && sent && !(pr && pr.is_closed) ? h('button', { class: 'ghost small-btn', text: tr('Закрыть опрос'), onclick: () => { if (confirm(tr('Закрыть опрос? Голосовать больше будет нельзя.'))) call('POST', `/api/posts/${p.id}/stop-poll`, undefined, tr('Опрос закрыт')); } }) : null,
+        p.kind === 'widget' && ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'ghost small-btn', text: tr('Данные'), title: tr('Изменить данные виджета (chat_data, public_data); HTML после отправки неизменяем'), onclick: () => showWidgetData(p) }) : null,
         p.status === 'failed' ? h('button', { class: 'ghost small-btn', text: tr('Убрать'), title: tr('Убрать запись из списка; в канале этого поста нет'), onclick: () => call('DELETE', '/api/posts/' + p.id, undefined, tr('Убрано из списка')) }) : null,
         ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'danger small-btn', text: p.status === 'sent' ? tr('Удалить') : tr('Отменить'), onclick: async () => {
           if (!confirm(p.status === 'sent' ? tr('Удалить пост из канала? Это нельзя отменить.') : tr('Отменить отложенную публикацию?'))) return;

@@ -438,6 +438,9 @@ impl PostService {
         let chats = self
             .run(move |service| service.targets(&local_chat, &local_chats, None))
             .await?;
+        if kind.name == kinds::WIDGET {
+            reject_channels(&self.context, &chats)?;
+        }
         if !at.is_null() {
             let when = parse_at(at)?;
             let chats = chats.clone();
@@ -467,6 +470,24 @@ impl PostService {
         let _ = first_sent(&results)?;
         Ok(json!({"results":results,"warnings":warnings}))
     }
+}
+
+/// Каналы не входят в прямую отправку нового виджета (Bot API 10.4): только личный чат,
+/// обычные группы и супергруппы. Пересылка в канал разрешена, но это делает Telegram.
+/// Неизвестные чаты пропускаем — ограничение дублируется на сервере Telegram.
+fn reject_channels(context: &AccountContext, chats: &[Value]) -> Result<(), ServiceError> {
+    for chat in chats {
+        if let Some(channel) = crate::store::channels::get(context, chat)?
+            && channel["type"].as_str() == Some("channel")
+        {
+            return Err(ServiceError::BadRequest(format!(
+                "{}: виджеты в канал напрямую не отправляются (ограничение Bot API 10.4), \
+                 только личный чат или группа",
+                channel["title"].as_str().unwrap_or_default()
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// The reference `_first_sent` names the channel on every result before choosing the first one.

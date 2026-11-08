@@ -23,6 +23,7 @@ pub mod telegram_auth;
 pub mod templates;
 pub mod validation;
 pub mod webhook;
+pub mod widgets;
 
 use axum::{
     Json, Router,
@@ -79,6 +80,7 @@ pub fn router(state: AppState) -> Router {
             post(editing::pin).delete(editing::unpin),
         )
         .route("/api/posts/{id}/buttons", post(editing::buttons))
+        .route("/api/posts/{id}/widget-data", post(editing::widget_data))
         .route("/api/posts/{id}/stop-poll", post(editing::stop_poll))
         .route("/readyz", get(health::ready))
         .route("/api/health", get(health::report))
@@ -146,6 +148,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/schedule", post(posts::schedule))
         .route("/api/poll", post(posts::poll))
         .route("/api/media-post", post(posts::media))
+        .route("/api/widget", post(posts::widget))
+        .route("/api/widget/validate", post(posts::widget_validate))
         .route("/api/raw/{method}", post(raw::call))
         .route("/api/media", get(media::list).post(media::upload))
         .route("/api/media/fetch", post(media::fetch))
@@ -154,6 +158,7 @@ pub fn router(state: AppState) -> Router {
         .route("/media/{name}", get(media::file))
         .route("/api/render", post(preview::render))
         .route("/render/draft/{id}", get(preview::draft))
+        .route("/render/widget", post(widgets::preview))
         .route("/sw.js", get(pwa::service_worker))
         .route("/", get(landing::index))
         .nest_service(

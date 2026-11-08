@@ -1280,6 +1280,195 @@
       }
     },
     {
+      "name": "widget_validate",
+      "description": "Проверить HTML-виджет до отправки: размер исходника (лимит 32 768 байт) и после сжатия zlib (лимит 4 096, иначе сервер отклонит), лимиты chat_data/public_data и предупреждения о возможностях, которые клиенты Telegram вырезают (сеть, ввод, видео, WebGL). Ничего не отправляет и не сохраняет.",
+      "inputSchema": {
+        "properties": {
+          "html": {
+            "description": "Исходник виджета: HTML со встроенными CSS и JS",
+            "title": "Html",
+            "type": "string"
+          },
+          "chat_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Необязательно: данные виджета для чата",
+            "title": "Chat Data"
+          },
+          "public_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Необязательно: общие данные виджета",
+            "title": "Public Data"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "title": "widget_validateArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "send_widget",
+      "description": "Отправить HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. HTML после отправки неизменяем — меняются только данные (edit_widget_data). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Виджет проверяется перед отправкой widget_validate; лимит сжатия часто решает раньше лимита исходника.",
+      "inputSchema": {
+        "properties": {
+          "widget": {
+            "additionalProperties": true,
+            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?, allow_queries?}",
+            "title": "Widget",
+            "type": "object"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Личный чат, обычная группа или супергруппа (@имя или числовой id); пусто — канал по умолчанию (если это канал, будет отказ)",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько чатов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Отложить: ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "pin": {
+            "default": false,
+            "description": "Закрепить после отправки",
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на виджет. При повторе после ошибки передайте тот же ключ: второй виджет не уйдёт",
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "widget"
+        ],
+        "title": "send_widgetArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "edit_widget_data",
+      "description": "Изменить данные отправленного виджета (editMessageWidgetData). HTML неизменяем: присутствующий ключ задаёт chat_data/public_data (до 1 024 байт), пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с sendWidget.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "Пост-виджет из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          },
+          "chat_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "До 1 024 байт UTF-8",
+            "title": "Chat Data"
+          },
+          "public_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "До 1 024 байт UTF-8",
+            "title": "Public Data"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "edit_widget_dataArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
       "name": "studio_status",
       "description": "Что сейчас работает: токен, канал по умолчанию, приём событий (без него не будет ответов на кнопки,\n        первых комментариев и реакций), предел опоздания отложенных постов, можно ли агентам публиковать.",
       "inputSchema": {

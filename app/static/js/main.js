@@ -32,6 +32,7 @@ import { STATUS_LABELS } from './labels.js';
 import { addMediaEntry, loadUploads, upload } from './media.js';
 import { showMediaPost } from './media-post.js';
 import { showPoll } from './poll.js';
+import { showWidget } from './widget.js';
 import { loadPosts, replacePost } from './posts.js';
 import { refreshSpec, showSpec, updateBadge } from './spec-dialog.js';
 import { chat, chatLabel, chats, dark, dirty, editing, parsed, S, saveState, showParsed, target, targetLabel } from './state.js';
@@ -193,6 +194,7 @@ function bindActions() {
   };
   $('#btn-poll').onclick = showPoll;
   $('#btn-media-post').onclick = showMediaPost;
+  $('#btn-widget').onclick = showWidget;
 }
 
 // ---------- boot ----------
