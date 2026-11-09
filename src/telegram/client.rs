@@ -256,6 +256,19 @@ impl TelegramTransport {
         }
         for attempt in 0..=MAX_RETRIES {
             match self.post(method, &payload, &uploads).await {
+                Err(TelegramError::Refused {
+                    description,
+                    code: Some(404),
+                    raw,
+                }) if ["sendWidget", "editMessageWidgetData"].contains(&method) => {
+                    return Err(TelegramError::Refused {
+                        description: format!(
+                            "{description}. Для виджетов нужен Bot API 10.4 с поддержкой {method}: проверьте токен и TG_API_BASE. Студия не переключает сервер Telegram автоматически"
+                        ),
+                        code: Some(404),
+                        raw,
+                    });
+                }
                 Err(TelegramError::RateLimited {
                     retry_after: Some(wait),
                     ..

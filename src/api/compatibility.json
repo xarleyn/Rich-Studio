@@ -1154,26 +1154,12 @@
       "WidgetDataReq": {
         "properties": {
           "chat_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "description": "Данные виджета для этого чата, до 1 024 байт UTF-8; пустая строка стирает",
             "title": "Chat Data"
           },
           "public_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "description": "Общие данные виджета, до 1 024 байт UTF-8; пустая строка стирает",
             "title": "Public Data"
           }
@@ -1261,7 +1247,7 @@
           },
           "widget": {
             "additionalProperties": true,
-            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?, allow_queries?}. HTML после отправки неизменяем; лимиты: исходник 32 768 байт, после zlib level 9 — 4 096",
+            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?}. Только автономные виджеты; allow_queries=true недоступно. HTML после отправки неизменяем; лимиты: исходник 32 768 байт, после zlib level 9 — 4 096",
             "title": "Widget",
             "type": "object"
           }
@@ -3074,6 +3060,13 @@
         "description": "`chat_data`/`public_data` — до 1 024 байт; присутствующий ключ задаёт значение, пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.",
         "operationId": "widget_data_api_posts__pid__widget_data_post",
         "parameters": [
+          {
+            "in": "query",
+            "name": "post_version",
+            "required": false,
+            "description": "version прочитанного поста; устаревшая версия получает 409",
+            "schema": {"type": "integer", "minimum": 0}
+          },
           {
             "in": "path",
             "name": "pid",

@@ -10,6 +10,322 @@ use crate::support::{TestResult, call, call_raw, context, state, telegram};
 
 const DEMO: &str = "<div style=\"background:#123\">виджет<button>ОК</button></div>";
 
+#[tokio::test]
+async fn widget_mcp_partial_edit_preserves_omitted_data() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, telegram) = telegram().await;
+    let app = build_router(state(&dir, &base, &[("MCP_PUBLISH", "on")]));
+    let scheduled = call(
+        app.clone(),
+        "POST",
+        "/api/widget",
+        Some(json!({
+            "widget":{"html":DEMO,"chat_data":"old","public_data":"keep"},
+            "chat_id":777,"at":4_500_000_000i64
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(scheduled.status, StatusCode::OK, "{}", scheduled.text);
+    let id = scheduled.value["scheduled"][0]["id"].as_str().ok_or("id")?;
+    let edit = call(
+        app.clone(),
+        "POST",
+        "/mcp",
+        Some(json!({
+            "jsonrpc":"2.0","id":1,"method":"tools/call",
+            "params":{"name":"edit_widget_data","arguments":{"post_id":id,"chat_data":"new"}}
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(edit.status, StatusCode::OK, "{}", edit.text);
+    assert_ne!(edit.value["result"]["isError"], true, "{}", edit.text);
+    let row = call(app, "GET", &format!("/api/posts/{id}"), None, &[]).await;
+    assert_eq!(row.value["payload"]["widget"]["chat_data"], "new");
+    assert_eq!(telegram.count("editMessageWidgetData"), 0);
+    assert_eq!(
+        row.value["payload"]["widget"]["public_data"], "keep",
+        "omitted public_data must survive: {}",
+        row.text
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_rejects_nul_html() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, _) = telegram().await;
+    let app = build_router(state(&dir, &base, &[]));
+    let report = call(
+        app,
+        "POST",
+        "/api/widget/validate",
+        Some(json!({
+            "widget":{"html":"<div>bad\0html</div>"}
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(
+        report.value["ok"], false,
+        "NUL source must fail validation: {}",
+        report.text
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_rejects_non_string_data() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, _) = telegram().await;
+    let app = build_router(state(&dir, &base, &[]));
+    let report = call(
+        app,
+        "POST",
+        "/api/widget/validate",
+        Some(json!({
+            "widget":{"html":DEMO,"chat_data":{"n":1}}
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(
+        report.value["ok"], false,
+        "chat_data must be UTF-8 text: {}",
+        report.text
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_invalid_payloads_never_reach_telegram() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, telegram) = telegram().await;
+    let app = build_router(state(&dir, &base, &[("MCP_PUBLISH", "on")]));
+    for widget in [
+        json!({"html":"<div>bad\0html</div>"}),
+        json!({"html":DEMO,"chat_data":null}),
+        json!({"html":DEMO,"public_data":{"n":1}}),
+        json!({"html":DEMO,"chat_data":"я".repeat(513)}),
+        json!({"html":DEMO,"public_data":"bad\0data"}),
+        json!({"html":DEMO,"allow_queries":true}),
+        json!({"html":DEMO,"allow_queries":"true"}),
+    ] {
+        let reply = call(
+            app.clone(),
+            "POST",
+            "/api/widget",
+            Some(json!({
+                "widget":widget,"chat_id":777
+            })),
+            &[],
+        )
+        .await;
+        assert_eq!(
+            reply.status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{}",
+            reply.text
+        );
+    }
+    let mcp = call(app.clone(), "POST", "/mcp", Some(json!({
+        "jsonrpc":"2.0","id":2,"method":"tools/call",
+        "params":{"name":"send_widget","arguments":{"widget":{"html":DEMO,"allow_queries":true},"chat_id":777}}
+    })), &[]).await;
+    assert_eq!(mcp.value["result"]["isError"], true, "{}", mcp.text);
+    assert_eq!(telegram.count("sendWidget"), 0);
+    let rows = call(app, "GET", "/api/posts", None, &[]).await;
+    assert_eq!(rows.value, json!([]));
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_unsupported_endpoint_is_explained_without_retry() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, telegram) = telegram().await;
+    let app = build_router(state(&dir, &base, &[]));
+    telegram.queue(
+        "sendWidget",
+        vec![json!({"ok":false,"error_code":404,"description":"Not Found"})],
+    );
+    let reply = call(
+        app.clone(),
+        "POST",
+        "/api/widget",
+        Some(json!({"widget":{"html":DEMO},"chat_id":777})),
+        &[],
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::BAD_GATEWAY, "{}", reply.text);
+    assert!(reply.text.contains("Bot API 10.4"), "{}", reply.text);
+    assert!(reply.text.contains("TG_API_BASE"), "{}", reply.text);
+    assert_eq!(telegram.count("sendWidget"), 1);
+    let rows = call(app, "GET", "/api/posts", None, &[]).await;
+    assert_eq!(rows.value[0]["status"], "failed");
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_scheduler_sends_updated_data_and_refuses_legacy_queries() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, telegram) = telegram().await;
+    let app_state = state(&dir, &base, &[]);
+    let app = build_router(app_state.clone());
+    let at = 4_500_000_000i64;
+    let scheduled = call(
+        app.clone(),
+        "POST",
+        "/api/widget",
+        Some(json!({
+            "widget":{"html":DEMO,"public_data":"keep"},"chat_id":777,"at":at
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(scheduled.status, StatusCode::OK, "{}", scheduled.text);
+    let id = scheduled.value["scheduled"][0]["id"].as_str().ok_or("id")?;
+    let edit = call(
+        app.clone(),
+        "POST",
+        &format!("/api/posts/{id}/widget-data?post_version=0"),
+        Some(json!({"chat_data":"latest"})),
+        &[],
+    )
+    .await;
+    assert_eq!(edit.status, StatusCode::OK, "{}", edit.text);
+    let legacy = rich_studio::store::posts::add_scheduled(
+        &context(&app_state),
+        &[json!(777)],
+        &json!({
+            "widget":{"html":DEMO,"allow_queries":true}
+        }),
+        at,
+        None,
+        "widget",
+        "legacy",
+    )?;
+    telegram.queue(
+        "sendWidget",
+        vec![json!({"ok":true,"result":{"message_id":780,"chat":{"id":777}}})],
+    );
+    assert_eq!(crate::support::run_due(&app_state, at).await, 2);
+    assert_eq!(telegram.count("sendWidget"), 1);
+    let params = telegram.last("sendWidget").ok_or("send")?.body;
+    assert_eq!(params["chat_data"], "latest");
+    assert_eq!(params["public_data"], "keep");
+    let sent = call(app.clone(), "GET", &format!("/api/posts/{id}"), None, &[]).await;
+    assert_eq!(sent.value["status"], "sent");
+    let legacy_id = legacy[0]["id"].as_str().ok_or("legacy id")?;
+    let refused = call(app, "GET", &format!("/api/posts/{legacy_id}"), None, &[]).await;
+    assert_eq!(refused.value["status"], "failed");
+    assert!(
+        refused.value["error"]
+            .as_str()
+            .is_some_and(|text| text.contains("allow_queries=true"))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn widget_sent_mcp_patch_clear_noop_and_versions_are_safe() -> TestResult {
+    let dir = TempDir::new()?;
+    let (base, telegram) = telegram().await;
+    let app = build_router(state(&dir, &base, &[("MCP_PUBLISH", "on")]));
+    telegram.queue(
+        "sendWidget",
+        vec![json!({"ok":true,"result":{"message_id":779,"chat":{"id":777}}})],
+    );
+    let sent = call(
+        app.clone(),
+        "POST",
+        "/api/widget",
+        Some(json!({
+            "widget":{"html":DEMO,"chat_data":"old","public_data":"keep"},"chat_id":777
+        })),
+        &[],
+    )
+    .await;
+    assert_eq!(sent.status, StatusCode::OK, "{}", sent.text);
+    let id = sent.value["results"][0]["post"]["id"]
+        .as_str()
+        .ok_or("id")?;
+    for arguments in [
+        json!({"post_id":id}),
+        json!({"post_id":id,"chat_data":null}),
+    ] {
+        let reply = call(
+            app.clone(),
+            "POST",
+            "/mcp",
+            Some(json!({
+                "jsonrpc":"2.0","id":3,"method":"tools/call",
+                "params":{"name":"edit_widget_data","arguments":arguments}
+            })),
+            &[],
+        )
+        .await;
+        assert_eq!(reply.status, StatusCode::OK, "{}", reply.text);
+    }
+    assert_eq!(telegram.count("editMessageWidgetData"), 0);
+    let edit = call(app.clone(), "POST", "/mcp", Some(json!({
+        "jsonrpc":"2.0","id":4,"method":"tools/call",
+        "params":{"name":"edit_widget_data","arguments":{"post_id":id,"post_version":0,"chat_data":""}}
+    })), &[]).await;
+    assert_ne!(edit.value["result"]["isError"], true, "{}", edit.text);
+    let params = telegram.last("editMessageWidgetData").ok_or("edit")?.body;
+    assert_eq!(params["chat_data"], "");
+    assert!(params.get("public_data").is_none(), "{params}");
+    let row = call(app.clone(), "GET", &format!("/api/posts/{id}"), None, &[]).await;
+    assert!(row.value["payload"]["widget"].get("chat_data").is_none());
+    assert_eq!(row.value["payload"]["widget"]["public_data"], "keep");
+    assert_eq!(row.value["version"], 1);
+    let stale = call(
+        app.clone(),
+        "POST",
+        &format!("/api/posts/{id}/widget-data?post_version=0"),
+        Some(json!({"public_data":"lost"})),
+        &[],
+    )
+    .await;
+    assert_eq!(stale.status, StatusCode::CONFLICT, "{}", stale.text);
+    let stale_mcp = call(app.clone(), "POST", "/mcp", Some(json!({
+        "jsonrpc":"2.0","id":5,"method":"tools/call",
+        "params":{"name":"edit_widget_data","arguments":{"post_id":id,"post_version":0,"public_data":"lost"}}
+    })), &[]).await;
+    assert_eq!(
+        stale_mcp.value["result"]["isError"], true,
+        "{}",
+        stale_mcp.text
+    );
+    for value in [
+        json!(null),
+        json!(23),
+        json!({"bad":true}),
+        json!("bad\0data"),
+    ] {
+        let invalid = call(
+            app.clone(),
+            "POST",
+            &format!("/api/posts/{id}/widget-data"),
+            Some(json!({"public_data":value})),
+            &[],
+        )
+        .await;
+        assert_eq!(
+            invalid.status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{}",
+            invalid.text
+        );
+    }
+    assert_eq!(telegram.count("editMessageWidgetData"), 1);
+    let row = call(app, "GET", &format!("/api/posts/{id}"), None, &[]).await;
+    assert_eq!(row.value["payload"]["widget"]["public_data"], "keep");
+    assert_eq!(row.value["version"], 1);
+    Ok(())
+}
+
 /// Высокая энтропия: 6000 символов из широкого алфавита сжимаются хуже лимита 4096 байт.
 fn incompressible() -> String {
     const ALPHABET: &[char] = &[
@@ -140,7 +456,7 @@ async fn widget_sends_and_is_idempotent() -> TestResult {
         vec![json!({"ok":true,"result":{"message_id":777,"chat":{"id":-1001},"widget":{"is_shared":false}}})],
     );
     let body = json!({
-        "widget":{"html":DEMO,"caption":"счёт","chat_data":"{}","allow_queries":true},
+        "widget":{"html":DEMO,"caption":"счёт","chat_data":"{}","allow_queries":false,"future_field":{"keep":true}},
         "chat_id":"@test_channel",
     });
     let headers = [
@@ -160,7 +476,8 @@ async fn widget_sends_and_is_idempotent() -> TestResult {
     assert_eq!(sent["html"], DEMO);
     assert_eq!(sent["caption"], "счёт");
     assert_eq!(sent["chat_data"], "{}");
-    assert_eq!(sent["allow_queries"], true);
+    assert_eq!(sent["allow_queries"], false);
+    assert_eq!(sent["future_field"], json!({"keep":true}));
     assert_eq!(sent["chat_id"], json!("@test_channel"));
     assert!(sent.get("pin").is_none());
 
@@ -186,7 +503,7 @@ async fn widget_sends_and_is_idempotent() -> TestResult {
     .await
     .value;
     assert_eq!(full["payload"]["widget"]["html"], DEMO);
-    assert_eq!(full["payload"]["widget"]["allow_queries"], json!(true));
+    assert_eq!(full["payload"]["widget"]["allow_queries"], json!(false));
 
     // Повтор с тем же ключом не отправляет второй виджет.
     let replay = call(app.clone(), "POST", "/api/widget", Some(body), &headers).await;

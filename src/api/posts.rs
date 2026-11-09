@@ -216,7 +216,7 @@ pub async fn media(
     send_kind(state, headers, body, &kind).await
 }
 
-#[utoipa::path(post, path = "/api/widget", operation_id = "send_widget_api_widget_post", summary = "HTML-виджет в чат (sendWidget), сразу или отложенно", description = "Отдельное сообщение: HTML со встроенными CSS и JS. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Лимиты: исходник 32 768 байт, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — по 1 024 байта.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+#[utoipa::path(post, path = "/api/widget", operation_id = "send_widget_api_widget_post", summary = "Автономный HTML-виджет в чат (sendWidget), сразу или отложенно", description = "Отдельное сообщение: HTML со встроенными CSS и JS. Только автономные виджеты: allow_queries=true отклоняется. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint студия автоматически не меняет. Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Лимиты: исходник 32 768 байт без NUL, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — строки по 1 024 байта UTF-8 без NUL.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn widget(
     ScopedState(state): ScopedState,
     headers: HeaderMap,

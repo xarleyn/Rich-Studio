@@ -105,6 +105,12 @@ impl Publisher {
         post: &Value,
         kind: &Kind,
     ) -> Result<Value, TelegramError> {
+        // Queued records may predate the current widget policy or have been restored
+        // from a backup. Apply the same validation at delivery, before any network call.
+        if kind.name == kinds::WIDGET {
+            kinds::prepare(kind, &post[kinds::WIDGET])
+                .map_err(|error| TelegramError::Policy(error.to_string()))?;
+        }
         let (method, params) = Self::request(chat_id, post, kind)
             .map_err(|error| TelegramError::Policy(error.to_string()))?;
         let media_dir = self.context.media_dir.clone();

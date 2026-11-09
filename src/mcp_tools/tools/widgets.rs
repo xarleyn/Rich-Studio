@@ -28,7 +28,7 @@ pub fn definitions() -> Vec<Value> {
             true,
             true,
             json!({
-                "widget":{"type":"object","description":"{html, caption?, chat_data?, public_data?, allow_queries?}"},
+                "widget":{"type":"object","description":"Автономный виджет: {html, caption?, chat_data?, public_data?}; allow_queries=true недоступно"},
                 "chat_id":{"type":["string","integer"]},
                 "chat_ids":{"type":"array"},
                 "at":{"type":["string","integer"]},
@@ -44,6 +44,7 @@ pub fn definitions() -> Vec<Value> {
             true,
             json!({
                 "post_id":{"type":"string","description":"Пост-виджет из list_posts"},
+                "post_version":{"type":"integer","description":"version из get_post: устаревшая версия отклоняется"},
                 "chat_data":{"type":"string","description":"До 1 024 байт"},
                 "public_data":{"type":"string","description":"До 1 024 байт"}
             }),
@@ -67,8 +68,8 @@ pub async fn call(state: AppState, name: &str, arguments: Value) -> Result<Value
 fn validate(arguments: &Value) -> Value {
     let mut widget = json!({"html":arguments["html"]});
     for key in ["chat_data", "public_data"] {
-        if !arguments[key].is_null() {
-            widget[key] = arguments[key].clone();
+        if let Some(value) = arguments.get(key) {
+            widget[key] = value.clone();
         }
     }
     crate::services::widgets::report(&widget)
@@ -112,7 +113,12 @@ async fn edit(state: AppState, arguments: Value) -> Result<Value, ServiceError> 
         .as_str()
         .ok_or_else(|| ServiceError::BadRequest("post_id: обязательная строка".to_owned()))?
         .to_owned();
-    let body = json!({"chat_data":arguments["chat_data"],"public_data":arguments["public_data"]});
+    let mut body = json!({});
+    for key in ["chat_data", "public_data"] {
+        if let Some(value) = arguments.get(key) {
+            body[key] = value.clone();
+        }
+    }
     let actor = state.principal.actor("mcp");
     let service = crate::services::editing::EditingService::new(
         state.account.clone(),
@@ -120,5 +126,7 @@ async fn edit(state: AppState, arguments: Value) -> Result<Value, ServiceError> 
         &state.settings,
         state.spec.read().await.clone(),
     );
-    service.widget_data(&id, &body, &actor).await
+    service
+        .widget_data(&id, &body, &actor, arguments["post_version"].as_i64())
+        .await
 }

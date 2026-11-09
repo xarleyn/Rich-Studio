@@ -94,8 +94,27 @@ pub fn report(widget: &Value) -> Value {
     if html.trim().is_empty() {
         errors.push("виджет: пустой HTML".to_owned());
     }
+    if html.contains('\0') {
+        errors.push("виджет: html содержит NUL".to_owned());
+    }
+    if let Some(value) = widget.get("allow_queries") {
+        if !value.is_boolean() {
+            errors.push("виджет: allow_queries должно быть true/false".to_owned());
+        } else if value == true {
+            errors.push(
+                "студия поддерживает автономные виджеты: allow_queries=true пока недоступно"
+                    .to_owned(),
+            );
+        }
+    }
     let size_raw = html.len();
-    let size_compressed = compress_zlib9(html).unwrap_or_default().len();
+    let size_compressed = match compress_zlib9(html) {
+        Ok(compressed) => compressed.len(),
+        Err(error) => {
+            errors.push(format!("виджет: не удалось проверить сжатие zlib: {error}"));
+            0
+        }
+    };
     if size_raw > MAX_SOURCE_BYTES {
         errors.push(format!(
             "виджет: исходник {size_raw} байт, лимит {MAX_SOURCE_BYTES}"
@@ -106,8 +125,27 @@ pub fn report(widget: &Value) -> Value {
             "виджет: после сжатия zlib {size_compressed} байт, лимит {MAX_COMPRESSED_BYTES} (сервер отклонит: INPUT_MEDIA_WIDGET_TOO_LARGE)"
         ));
     }
+    errors.extend(data_errors(widget));
+    scan(html, &mut warnings);
+    json!({
+        "ok": errors.is_empty(),
+        "errors": errors,
+        "warnings": warnings,
+        "size_raw": size_raw,
+        "size_compressed": size_compressed,
+    })
+}
+
+/// Общие правила данных для создания и частичной правки. Только отсутствие ключа
+/// оставляет поле неизменным; null, числа и объекты не являются командой очистки.
+pub fn data_errors(value: &Value) -> Vec<String> {
+    let mut errors = Vec::new();
     for key in ["chat_data", "public_data"] {
-        let Some(data) = widget[key].as_str() else {
+        let Some(value) = value.get(key) else {
+            continue;
+        };
+        let Some(data) = value.as_str() else {
+            errors.push(format!("виджет: {key} должно быть строкой"));
             continue;
         };
         let size = data.len();
@@ -118,14 +156,7 @@ pub fn report(widget: &Value) -> Value {
             errors.push(format!("виджет: {key} содержит NUL"));
         }
     }
-    scan(html, &mut warnings);
-    json!({
-        "ok": errors.is_empty(),
-        "errors": errors,
-        "warnings": warnings,
-        "size_raw": size_raw,
-        "size_compressed": size_compressed,
-    })
+    errors
 }
 
 fn scan(html: &str, warnings: &mut Vec<String>) {

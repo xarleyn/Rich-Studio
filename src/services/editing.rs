@@ -461,6 +461,7 @@ impl EditingService {
         id: &str,
         body: &Value,
         actor: &str,
+        expected: Option<i64>,
     ) -> Result<Value, ServiceError> {
         let record = self.get(id).await?;
         if kinds::get(record["kind"].as_str())?.name != kinds::WIDGET {
@@ -475,6 +476,13 @@ impl EditingService {
         if status == "sent" && record["message_id"].as_i64().is_none_or(|id| id == 0) {
             return Err(ServiceError::BadRequest("редактировать нечего".to_owned()));
         }
+        let errors = crate::services::widgets::data_errors(body);
+        if !errors.is_empty() {
+            return Err(ServiceError::Invalid(json!({
+                "message":"виджет не прошёл проверку","ok":false,
+                "errors":errors,"warnings":[],
+            })));
+        }
         let mut payload = record["payload"].clone();
         let mut holder = payload[kinds::WIDGET]
             .as_object()
@@ -482,25 +490,9 @@ impl EditingService {
             .unwrap_or_default();
         let mut params = serde_json::Map::new();
         for key in ["chat_data", "public_data"] {
-            if body.get(key).is_none() {
+            let Some(value) = body.get(key).and_then(Value::as_str) else {
                 continue;
-            }
-            let value = body[key].as_str().unwrap_or_default();
-            let size = value.len();
-            if size > crate::services::widgets::MAX_DATA_BYTES {
-                return Err(ServiceError::Invalid(json!({
-                    "message":"виджет не прошёл проверку","ok":false,
-                    "errors":[format!("виджет: {key} {size} байт, лимит {}", crate::services::widgets::MAX_DATA_BYTES)],
-                    "warnings":[],
-                })));
-            }
-            if value.contains('\0') {
-                return Err(ServiceError::Invalid(json!({
-                    "message":"виджет не прошёл проверку","ok":false,
-                    "errors":[format!("виджет: {key} содержит NUL")],
-                    "warnings":[],
-                })));
-            }
+            };
             if value.is_empty() {
                 holder.remove(key);
             } else {
@@ -512,7 +504,9 @@ impl EditingService {
             return Ok(record);
         }
         payload[kinds::WIDGET] = Value::Object(holder);
-        let taken = self.claim(id, record["version"].as_i64()).await?;
+        let taken = self
+            .claim(id, expected.or_else(|| record["version"].as_i64()))
+            .await?;
         if WAITING.contains(&status) {
             if let Err(error) = self.replace(&record, &payload, actor, taken, true).await {
                 self.release(id, taken).await?;

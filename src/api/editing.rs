@@ -176,17 +176,18 @@ pub async fn buttons(
     )
 }
 
-#[utoipa::path(post, path = "/api/posts/{pid}/widget-data", operation_id = "widget_data_api_posts__pid__widget_data_post", summary = "Изменить данные виджета (editMessageWidgetData): HTML неизменяем", description = "`chat_data`/`public_data` — до 1 024 байт; присутствующий ключ задаёт значение, пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+#[utoipa::path(post, path = "/api/posts/{pid}/widget-data", operation_id = "widget_data_api_posts__pid__widget_data_post", summary = "Изменить данные виджета (editMessageWidgetData): HTML неизменяем", description = "`chat_data`/`public_data` — строки до 1 024 байт UTF-8 без NUL; пустая строка стирает, отсутствующий ключ поле не трогает, null отклоняется. `?post_version=` из GET поста защищает от потери параллельной правки (409). Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn widget_data(
     ScopedState(state): ScopedState,
     Path(id): Path<String>,
+    Query(query): Query<VersionQuery>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
     response(
         service(&state)
             .await
-            .widget_data(&id, &body, &actor(&state, &headers))
+            .widget_data(&id, &body, &actor(&state, &headers), query.post_version)
             .await,
     )
 }

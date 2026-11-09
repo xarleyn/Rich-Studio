@@ -1290,28 +1290,12 @@
             "type": "string"
           },
           "chat_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
+            "type": "string",
             "description": "Необязательно: данные виджета для чата",
             "title": "Chat Data"
           },
           "public_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
+            "type": "string",
             "description": "Необязательно: общие данные виджета",
             "title": "Public Data"
           }
@@ -1330,12 +1314,12 @@
     },
     {
       "name": "send_widget",
-      "description": "Отправить HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. HTML после отправки неизменяем — меняются только данные (edit_widget_data). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Виджет проверяется перед отправкой widget_validate; лимит сжатия часто решает раньше лимита исходника.",
+      "description": "Отправить автономный HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. allow_queries=true отклоняется. Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint автоматически не меняется. HTML после отправки неизменяем — меняются только данные (edit_widget_data). Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Сначала widget_validate.",
       "inputSchema": {
         "properties": {
           "widget": {
             "additionalProperties": true,
-            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?, allow_queries?}",
+            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?}. Только автономные виджеты; allow_queries=true недоступно",
             "title": "Widget",
             "type": "object"
           },
@@ -1421,7 +1405,7 @@
     },
     {
       "name": "edit_widget_data",
-      "description": "Изменить данные отправленного виджета (editMessageWidgetData). HTML неизменяем: присутствующий ключ задаёт chat_data/public_data (до 1 024 байт), пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с sendWidget.",
+      "description": "Изменить данные отправленного или отложенного виджета. HTML неизменяем. chat_data/public_data — строки до 1 024 байт UTF-8 без NUL: пустая строка стирает, отсутствующий ключ поле не трогает, null отклоняется. Сначала get_post, затем post_version из его version: устаревшая версия отклоняется без правки. Отложенному виджету данные пишутся в payload без вызова Telegram.",
       "inputSchema": {
         "properties": {
           "post_id": {
@@ -1429,29 +1413,18 @@
             "title": "Post Id",
             "type": "string"
           },
+          "post_version": {
+            "description": "version из get_post; устаревшая версия отклоняется без правки",
+            "type": "integer",
+            "minimum": 0
+          },
           "chat_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
+            "type": "string",
             "description": "До 1 024 байт UTF-8",
             "title": "Chat Data"
           },
           "public_data": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
+            "type": "string",
             "description": "До 1 024 байт UTF-8",
             "title": "Public Data"
           }
