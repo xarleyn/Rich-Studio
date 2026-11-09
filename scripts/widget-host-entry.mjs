@@ -24,15 +24,9 @@ const host = new WidgetHost(document.getElementById('host'), String(source.html 
   features: ['webAnimations'],
   theme: 'light',
   locale: navigator.language || 'ru',
-  // Личный чат с ботом: у оригинала запросы к боту разрешены; в предпросмотре они
-  // отвечаются пустым результатом, чтобы поток запроса был виден без сервера.
-  context: WIDGET_MESSAGE_KINDS.private,
+  // Автономный виджет: те же ограничения на запросы, что при отправке студией.
+  context: { ...WIDGET_MESSAGE_KINDS.private, canQuery: false, backgroundQuery: false },
   data: { chatData: source.chat_data ?? null, publicData: source.public_data ?? null },
-  onRequest: (request) => {
-    console.log('запрос виджета к боту (предпросмотр):', request.data);
-    show('запрос к боту — в Telegram ответит бот');
-    return { result: '' };
-  },
   onLog: (level, text) => log(level, text),
   onDiag: (kind, detail) => log('warn', `diag ${kind}: ${detail}`),
   onStats: (stats) => log('info', `stats: tasks=${stats.tasks} ops=${stats.ops ?? '?'} nodes=${stats.nodes}`),

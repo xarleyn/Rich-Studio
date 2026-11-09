@@ -940,7 +940,8 @@ export default {
   "Виджет не прошёл проверку — посмотрите список под исходником": "The widget failed validation — see the list under the source",
   "Пустой HTML виджета": "The widget HTML is empty",
   "Отправить виджет в {0}? HTML после отправки изменить нельзя.": "Send the widget to {0}? The HTML cannot be changed after sending.",
-  "Разрешить запросы к боту (allow_queries)": "Allow requests to the bot (allow_queries)",
+  "Автономный виджет: интерактивность работает внутри сообщения, без запросов к боту.": "Standalone widget: interaction works within the message, without requests to the bot.",
+  "{0} байт": "{0} bytes",
   "chat_data — данные для этого чата (до 1024 байт)": "chat_data — data for this chat (up to 1024 bytes)",
   "chat_data": "chat_data",
   "chat_data больше 1024 байт": "chat_data is over 1024 bytes",
@@ -953,6 +954,7 @@ export default {
   "HTML виджета неизменяем: меняются только chat_data и public_data (до 1024 байт). Изменение не помечает сообщение как «изменённое».": "The widget HTML is immutable: only chat_data and public_data change (up to 1024 bytes). The edit does not mark the message as edited.",
   "chat_data — данные для этого чата": "chat_data — data for this chat",
   "public_data — общие данные": "public_data — shared data",
-  "пусто — поле не меняется; одна пробел или пустая строка — стереть": "empty — the field is left as is; empty text clears it",
+  "Загружены текущие данные. Очистите поле, чтобы стереть его; неизменённые поля сохранятся.": "Current data loaded. Empty a field to clear it; unchanged fields are preserved.",
+  "Данные виджета больше 1024 байт": "Widget data exceeds 1024 bytes",
   "Данные обновлены": "Data updated"
 };
