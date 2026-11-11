@@ -46,7 +46,7 @@ jobs:
       - run: npm ci
       - run: npx eslint .
       - run: npx tsc -p .
-      - run: npx playwright install --with-deps chromium
+      - run: bash scripts/ci-chromium.sh
       - run: npm run test:render
       - run: npm run test:source
       - run: npm run test:i18n
@@ -70,7 +70,8 @@ jobs:
         with:
           node-version: "22"
       - run: pip install -r requirements.txt
-      - run: npm ci && npx playwright install --with-deps chromium
+      - run: npm ci
+      - run: bash scripts/ci-chromium.sh
       # the stand of make e2e-local: mock Telegram and a studio with an empty DATA_DIR; their log tails on a failure
       - run: scripts/e2e_local.sh
       - uses: actions/upload-artifact@v7
