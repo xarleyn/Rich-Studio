@@ -1,0 +1,718 @@
+{
+  "pages": {
+    "/features/telegram-tables/": {
+      "lastmod": "2026-11-02",
+      "title": "Таблица в Telegram: пример и редактор — RichPost",
+      "description": "Как сделать таблицу в посте Telegram: готовый пример Markdown, визуальный редактор, вставка ячеек из Excel и проверка перед публикацией в RichPost.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Руководства",
+              "item": "__SITE_URL__/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Как сделать таблицу в Telegram",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Как сделать таблицу в Telegram",
+          "description": "Как сделать таблицу в посте Telegram: готовый пример Markdown, визуальный редактор, вставка ячеек из Excel и проверка перед публикацией в RichPost.",
+          "inLanguage": "ru",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/en/features/telegram-tables/": {
+      "lastmod": "2026-11-02",
+      "title": "Tables in Telegram: example and editor — RichPost",
+      "description": "Create a table in a Telegram post with a Markdown example or the visual editor. Paste cells from Excel, preview the result and check it before publishing.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/en/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Guides",
+              "item": "__SITE_URL__/en/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "How to create a table in Telegram",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "How to create a table in Telegram",
+          "description": "Create a table in a Telegram post with a Markdown example or the visual editor. Paste cells from Excel, preview the result and check it before publishing.",
+          "inLanguage": "en",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/features/telegram-markdown/": {
+      "lastmod": "2026-11-02",
+      "title": "Markdown для Telegram: редактор и пример — RichPost",
+      "description": "Пишите посты Telegram в Rich Markdown: заголовки, ссылки, цитаты, таблицы и переносы строк. Пример текста, предпросмотр и проверка публикации в RichPost.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Руководства",
+              "item": "__SITE_URL__/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Markdown для Telegram с предпросмотром",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Markdown для Telegram с предпросмотром",
+          "description": "Пишите посты Telegram в Rich Markdown: заголовки, ссылки, цитаты, таблицы и переносы строк. Пример текста, предпросмотр и проверка публикации в RichPost.",
+          "inLanguage": "ru",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/en/features/telegram-markdown/": {
+      "lastmod": "2026-11-02",
+      "title": "Telegram Markdown editor and example — RichPost",
+      "description": "Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try the example, preview it and check the result in RichPost.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/en/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Guides",
+              "item": "__SITE_URL__/en/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Telegram Markdown with a live preview",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Telegram Markdown with a live preview",
+          "description": "Write Telegram posts in Rich Markdown with headings, links, quotes, tables and line breaks. Try the example, preview it and check the result in RichPost.",
+          "inLanguage": "en",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/features/scheduled-posts/": {
+      "lastmod": "2026-11-02",
+      "title": "Отложенные посты в Telegram: как настроить — RichPost",
+      "description": "Как отложить пост в Telegram через RichPost: выбор каналов и часового пояса, очередь, перенос времени, отмена и проверка результата публикации.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Руководства",
+              "item": "__SITE_URL__/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Отложенная публикация постов в Telegram",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Отложенная публикация постов в Telegram",
+          "description": "Как отложить пост в Telegram через RichPost: выбор каналов и часового пояса, очередь, перенос времени, отмена и проверка результата публикации.",
+          "inLanguage": "ru",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/en/features/scheduled-posts/": {
+      "lastmod": "2026-11-02",
+      "title": "Schedule Telegram posts: a practical guide — RichPost",
+      "description": "Schedule Telegram posts with RichPost. Choose channels and a time zone, inspect the queue, reschedule or cancel a post, and check each publication result.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/en/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Guides",
+              "item": "__SITE_URL__/en/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Schedule posts for Telegram channels",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Schedule posts for Telegram channels",
+          "description": "Schedule Telegram posts with RichPost. Choose channels and a time zone, inspect the queue, reschedule or cancel a post, and check each publication result.",
+          "inLanguage": "en",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/features/ai-agents/": {
+      "lastmod": "2026-11-02",
+      "title": "ИИ агент для Telegram через MCP — RichPost",
+      "description": "Подключите ИИ агента к RichPost через MCP: персональный токен, права на черновики и публикацию, настройка клиента и проверка соединения без отправки поста.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Руководства",
+              "item": "__SITE_URL__/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Подключение ИИ агента к Telegram через MCP",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Подключение ИИ агента к Telegram через MCP",
+          "description": "Подключите ИИ агента к RichPost через MCP: персональный токен, права на черновики и публикацию, настройка клиента и проверка соединения без отправки поста.",
+          "inLanguage": "ru",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/en/features/ai-agents/": {
+      "lastmod": "2026-11-02",
+      "title": "An AI agent for Telegram through MCP — RichPost",
+      "description": "Connect an AI agent to RichPost through MCP. Create a personal token, choose draft or publishing permissions and verify the connection without sending a post.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/en/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Guides",
+              "item": "__SITE_URL__/en/features/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Connect an AI agent to Telegram through MCP",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "TechArticle",
+          "headline": "Connect an AI agent to Telegram through MCP",
+          "description": "Connect an AI agent to RichPost through MCP. Create a personal token, choose draft or publishing permissions and verify the connection without sending a post.",
+          "inLanguage": "en",
+          "dateModified": "2026-11-02",
+          "mainEntityOfPage": "__PAGE_URL__",
+          "url": "__PAGE_URL__",
+          "author": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "RichPost",
+            "url": "__SITE_URL__/"
+          }
+        }
+      ]
+    },
+    "/features/": {
+      "lastmod": "2026-11-02",
+      "title": "Возможности и руководства для Telegram — RichPost",
+      "description": "Руководства RichPost: таблицы и Markdown в Telegram, отложенные публикации и подключение ИИ агентов через MCP. Выберите задачу и начните с примера.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Руководства",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "Возможности RichPost для ваших постов",
+          "description": "Руководства RichPost: таблицы и Markdown в Telegram, отложенные публикации и подключение ИИ агентов через MCP. Выберите задачу и начните с примера.",
+          "inLanguage": "ru",
+          "url": "__PAGE_URL__",
+          "mainEntity": {
+            "@type": "ItemList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Таблицы в Telegram",
+                "url": "__SITE_URL__/features/telegram-tables/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Markdown и предпросмотр",
+                "url": "__SITE_URL__/features/telegram-markdown/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Отложенные посты",
+                "url": "__SITE_URL__/features/scheduled-posts/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "name": "ИИ агенты и MCP",
+                "url": "__SITE_URL__/features/ai-agents/"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "/en/features/": {
+      "lastmod": "2026-11-02",
+      "title": "Telegram features and practical guides — RichPost",
+      "description": "Practical RichPost guides for Telegram tables, Markdown, scheduled publishing and AI agents through MCP. Pick a task and start with a working example.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "RichPost",
+              "item": "__SITE_URL__/en/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Guides",
+              "item": "__PAGE_URL__"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "RichPost features for your Telegram posts",
+          "description": "Practical RichPost guides for Telegram tables, Markdown, scheduled publishing and AI agents through MCP. Pick a task and start with a working example.",
+          "inLanguage": "en",
+          "url": "__PAGE_URL__",
+          "mainEntity": {
+            "@type": "ItemList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Tables in Telegram",
+                "url": "__SITE_URL__/en/features/telegram-tables/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Markdown and preview",
+                "url": "__SITE_URL__/en/features/telegram-markdown/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Scheduled posts",
+                "url": "__SITE_URL__/en/features/scheduled-posts/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 4,
+                "name": "AI agents and MCP",
+                "url": "__SITE_URL__/en/features/ai-agents/"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "/": {
+      "lastmod": "2026-11-02",
+      "title": "Редактор постов для Telegram с предпросмотром — RichPost",
+      "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте предпросмотр и публикуйте в свои каналы по расписанию.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "@id": "__SITE_URL__/#organization",
+          "name": "RichPost",
+          "url": "__SITE_URL__/",
+          "logo": "__SITE_URL__/static/icons/icon-120.png",
+          "sameAs": [
+            "https://github.com/xarleyn/Rich-Studio"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "@id": "__SITE_URL__/#application",
+          "name": "RichPost",
+          "url": "__APP_URL__",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "inLanguage": [
+            "ru",
+            "en"
+          ],
+          "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте предпросмотр и публикуйте в свои каналы по расписанию.",
+          "publisher": {
+            "@id": "__SITE_URL__/#organization"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "url": "__PAGE_URL__#faq",
+          "inLanguage": "ru",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Чем RichPost отличается от обычного сообщения?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "В редакторе можно собрать rich пост с заголовками, таблицами, списками, цитатами, медиа и кнопками, а затем проверить его в предпросмотре."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Нужно ли создавать пароль?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Нет. Вход подтверждается через Telegram. У каждой учётки свой набор черновиков, файлов, подключённых каналов и отложенных постов."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Какие права нужны для подключения канала?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Вы должны быть владельцем или администратором с правом публикации. Боту тоже нужны права администратора и публикации сообщений. Студия заново проверяет права перед операциями с каналом."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Можно публиковать в несколько каналов?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Да. Подключите нужные каналы и выберите их для поста. Публиковать можно только в каналы, привязанные к вашей учётке."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Нужно ли держать компьютер включённым?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Нет, отложенные посты отправляет сервер. После назначения времени приложение можно закрыть. Очередь и результат отправки доступны во вкладке «Посты»."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Какие данные сохраняет сервис?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "На сервере хранятся данные входа через Telegram, черновики, загруженные файлы, подключённые каналы, история и очередь публикаций. У каждой учётки отдельное хранилище. Доступ бота можно отозвать в настройках канала."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "/en/": {
+      "lastmod": "2026-11-02",
+      "title": "Telegram post editor with preview and scheduling — RichPost",
+      "description": "Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.",
+      "schemas": [
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "@id": "__SITE_URL__/#organization",
+          "name": "RichPost",
+          "url": "__SITE_URL__/",
+          "logo": "__SITE_URL__/static/icons/icon-120.png",
+          "sameAs": [
+            "https://github.com/xarleyn/Rich-Studio"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "@id": "__SITE_URL__/#application",
+          "name": "RichPost",
+          "url": "__APP_URL__",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "inLanguage": [
+            "ru",
+            "en"
+          ],
+          "description": "Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.",
+          "publisher": {
+            "@id": "__SITE_URL__/#organization"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "url": "__PAGE_URL__#faq",
+          "inLanguage": "en",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "How is RichPost different from a regular message?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can build a rich post with headings, tables, lists, quotes, media and buttons, then check it in the preview."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Do I need to create a password?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. Sign in is confirmed with Telegram. Each account has its own drafts, files, connected channels and scheduled posts."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which channel permissions are required?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You must be the owner or an administrator allowed to post. The bot also needs administrator status and posting permission. Permissions are checked again before channel operations."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I publish to several channels?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Connect your channels and select them for the post. You can publish only to channels connected to your account."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does my computer need to stay on?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. The server sends scheduled posts. Once you choose a time, you can close the app. Check the queue and delivery outcome in Posts."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What data does the service store?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The server stores Telegram sign in data, drafts, uploaded files, connected channels, history and the publication queue. Each account has separate storage. You can revoke the bot's access in your channel settings."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

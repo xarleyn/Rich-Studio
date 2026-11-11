@@ -1,5 +1,10 @@
 # HTTPS for the landing and app: comma-separated STUDIO_DOMAINS (ports 80 and 443 open).
 {$STUDIO_DOMAINS} {
+	# Only explicitly configured hosts enter this block. Add www to STUDIO_DOMAINS
+	# and DNS to obtain its certificate; the application host is not redirected.
+	@canonical_www header_regexp canonical_www Host (?i)^www\.([^:]+)(?::[0-9]+)?$
+	redir @canonical_www https://{re.canonical_www.1}{uri} 308
+
 	encode zstd gzip
 	header {
 		Strict-Transport-Security "max-age=31536000"
