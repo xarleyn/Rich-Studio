@@ -8,6 +8,7 @@ Install development tools in an isolated environment:
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import brotli
@@ -33,8 +34,19 @@ def main() -> None:
     subsetter.populate(unicodes={point for start, end in unicode_ranges for point in range(start, end)})
     subsetter.subset(font)
     font.flavor = "woff2"
-    font.save(STATIC / "fonts" / "manrope.woff2")
+    font_output = STATIC / "fonts" / "manrope.woff2"
+    font.save(font_output)
     font.close()
+    font_sha = sha(font_output)
+    stylesheet = STATIC / "landing.css"
+    css, count = re.subn(
+        r"/static/fonts/manrope\.woff2\?v=[a-f0-9]{12}\b",
+        f"/static/fonts/manrope.woff2?v={font_sha[:12]}",
+        stylesheet.read_text("utf-8"),
+    )
+    if count != 1:
+        raise ValueError("Expected one versioned Manrope URL in landing.css")
+    stylesheet.write_text(css, "utf-8", newline="\n")
 
     derived = {}
     for name in ("landing-editor", "landing-preview", "landing-schedule"):
@@ -70,7 +82,7 @@ def main() -> None:
         compressed[name] = {"source_sha256": sha(source), "brotli_sha256": sha(output)}
 
     manifest = {
-        "font": {"source_sha256": sha(font_source), "sha256": sha(STATIC / "fonts" / "manrope.woff2")},
+        "font": {"source_sha256": sha(font_source), "sha256": font_sha},
         "derived": derived,
         "compressed": compressed,
     }

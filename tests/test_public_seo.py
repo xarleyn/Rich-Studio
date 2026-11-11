@@ -214,3 +214,5 @@ def test_checked_in_public_derivatives_match_their_sources():
         assert sha(entry["source"]) == entry["source_sha256"] and sha(path) == entry["sha256"]
     assert sha("fonts/manrope.ttf") == manifest["font"]["source_sha256"]
     assert sha("fonts/manrope.woff2") == manifest["font"]["sha256"]
+    css = (landing.STATIC / "landing.css").read_text("utf-8")
+    assert re.findall(r"/static/fonts/manrope\.woff2\?v=([a-f0-9]+)", css) == [manifest["font"]["sha256"][:12]]
