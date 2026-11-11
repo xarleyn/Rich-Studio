@@ -24,6 +24,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SkiaSharp;
 
 const int WebpQuality = 86;
@@ -121,6 +122,22 @@ var recordedWoff2 = ManifestString(manifest, "font", "sha256");
 
 var failures = new List<string>();
 var matches = new List<string>();
+var stylesheet = Path.Combine(staticDirectory, "landing.css");
+var css = File.ReadAllText(stylesheet);
+const string fontUrl = "/static/fonts/manrope.woff2?v=";
+var fontReference = new Regex(Regex.Escape(fontUrl) + @"[a-f0-9]{12}\b");
+if (fontReference.Matches(css).Count != 1)
+{
+    Console.Error.WriteLine("error: expected one versioned Manrope URL in landing.css");
+    return 2;
+}
+var updatedCss = fontReference.Replace(css, fontUrl + woff2Sha[..12]);
+if (css != updatedCss)
+{
+    failures.Add("landing.css: the Manrope URL must use the current WOFF2 hash");
+    if (!check)
+        File.WriteAllText(stylesheet, updatedCss);
+}
 var icon512Path = Path.Combine(staticDirectory, "icons", "icon-512.png");
 var socialPreviewPath = Path.Combine(staticDirectory, "images", "social-preview.png");
 var screenshotPath = Path.Combine(staticDirectory, "images", "landing-editor.jpg");

@@ -155,7 +155,7 @@ pub async fn page(settings: &Settings, language: &str, slug: &str) -> Result<Str
         ("__LANDING_URL__", canonical.clone()),
         (
             "__OG_IMAGE_URL__",
-            format!("{base}/static/images/landing-editor.jpg"),
+            format!("{base}/static/images/social-preview.png"),
         ),
         ("__RU_URL__", format!("{base}{path}")),
         ("__EN_URL__", format!("{base}/en{path}")),

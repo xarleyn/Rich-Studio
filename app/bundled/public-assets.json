@@ -22,8 +22,8 @@
   },
   "compressed": {
     "landing.css": {
-      "source_sha256": "eb4f818cf6746cb1bce4a12e48242885f3a5dac3ec84399ddb40da2023735cd2",
-      "brotli_sha256": "37d69a0c1ee5a3e85507e56f9f1f8c6e8ed6906d3198c902557a1c8766d0459c"
+      "source_sha256": "11e10ce73304fba68f8c23fdfa4015cc7cf453e228988fcac61f2244356ba47c",
+      "brotli_sha256": "c49f3cc1bbd19c395a4ab9ce16dc11945941e99c4c69b32b93fad307018590fe"
     },
     "landing.js": {
       "source_sha256": "13e4de38f5d4857d4e0d404be6808b1daf99cba546345af6b08c6f8e7079fc28",

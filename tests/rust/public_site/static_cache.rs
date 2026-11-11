@@ -240,9 +240,9 @@ fn checked_in_public_derivatives_match_their_sources() -> TestResult {
         sha("fonts/manrope.ttf")?,
         font["source_sha256"].as_str().ok_or("font source")?
     );
-    assert_eq!(
-        sha("fonts/manrope.woff2")?,
-        font["sha256"].as_str().ok_or("font")?
-    );
+    let font_sha = sha("fonts/manrope.woff2")?;
+    assert_eq!(font_sha, font["sha256"].as_str().ok_or("font")?);
+    let css = std::fs::read_to_string(static_dir.join("landing.css"))?;
+    assert!(css.contains(&format!("manrope.woff2?v={}\"", &font_sha[..12])));
     Ok(())
 }

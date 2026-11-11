@@ -533,9 +533,9 @@
       ]
     },
     "/": {
-      "lastmod": "2026-11-04",
-      "title": "Rich посты для Telegram с предпросмотром — RichPost",
-      "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте точный предпросмотр и публикуйте в свои каналы по расписанию.",
+      "lastmod": "2026-11-02",
+      "title": "Редактор постов для Telegram с предпросмотром — RichPost",
+      "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте предпросмотр и публикуйте в свои каналы по расписанию.",
       "schemas": [
         {
           "@context": "https://schema.org",
@@ -560,7 +560,7 @@
             "ru",
             "en"
           ],
-          "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте точный предпросмотр и публикуйте в свои каналы по расписанию.",
+          "description": "Создавайте посты для Telegram с таблицами, медиа, кнопками и форматированием. Проверяйте предпросмотр и публикуйте в свои каналы по расписанию.",
           "publisher": {
             "@id": "__SITE_URL__/#organization"
           }
@@ -624,8 +624,8 @@
       ]
     },
     "/en/": {
-      "lastmod": "2026-11-04",
-      "title": "Rich Telegram posts with a clear preview — RichPost",
+      "lastmod": "2026-11-02",
+      "title": "Telegram post editor with preview and scheduling — RichPost",
       "description": "Create Telegram posts with tables, media, buttons and rich formatting. Check the preview and publish to your channels on schedule with RichPost.",
       "schemas": [
         {
