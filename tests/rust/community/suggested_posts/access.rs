@@ -85,7 +85,7 @@ async fn guarded_http_and_mcp_enforce_roles_and_idempotency_for_suggestion_publi
     assert_eq!(mock.count("approveSuggestedPost"), 1);
     assert_eq!(
         suggestions::get(&state.account, &id)?.ok_or("suggestion")?["actor"],
-        "api@publisher"
+        "publisher"
     );
     let uncertain = suggestion(&state.account, 6)?;
     suggestions::claim(&state.account, &uncertain, &["pending"], "approving")?;

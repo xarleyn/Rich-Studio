@@ -12,6 +12,23 @@ use tokio::net::TcpListener;
 use crate::support::{blocks_post, chat_server, fake_server, http_request, settings};
 
 #[tokio::test]
+async fn linked_channel_username_ignores_ascii_case() -> Result<(), Box<dyn std::error::Error>> {
+    use rich_studio::store::channels;
+
+    let dir = TempDir::new()?;
+    let state = AppState::new(settings(&dir, "http://127.0.0.1:9"));
+    channels::save(
+        &state.account,
+        &json!({"chat_id":"-10042","chat_num":-10042,"username":"MyChannel","type":"channel"}),
+    )?;
+    assert_eq!(
+        channels::get(&state.account, &json!("@myCHANNEL"))?.ok_or("linked username")?["chat_id"],
+        "-10042"
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn channels_remember_rights_topics_and_default() -> Result<(), Box<dyn std::error::Error>> {
     let dir = TempDir::new()?;
     let state = AppState::new(settings(&dir, &chat_server().await));

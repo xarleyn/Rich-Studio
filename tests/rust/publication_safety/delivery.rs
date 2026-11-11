@@ -50,6 +50,96 @@ async fn partial_delivery_continues_and_total_failure_is_not_http_success()
 }
 
 #[tokio::test]
+async fn confirmed_broadcast_continues_when_cleanup_fails_and_keeps_recovery_history()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mut requests) = mock(|_, _, payload| ok(message(payload, 12))).await;
+    let state = AppState::new(settings(&dir, &base));
+    let mut db = rich_studio::store::Store::connect(&state.account)?;
+    rich_studio::store::db::migrate(&mut db)?;
+    for (chat, status) in [("@one", "failed"), ("@two", "sending")] {
+        posts::add(
+            &state.account,
+            posts::NewPost {
+                chat_id: &json!(chat),
+                payload: &post(),
+                draft_id: Some("draft"),
+                status,
+                message_id: None,
+                scheduled_at: None,
+                error: None,
+                kind: "rich",
+                actor: "api",
+            },
+        )?;
+    }
+    rich_studio::store::scheduler::recover(&state.account, &[])?;
+    db.execute_batch(
+        "create trigger refuse_cleanup before delete on posts when old.chat_id='@one'
+        begin select raise(abort, 'cleanup unavailable'); end;",
+    )?;
+    let (status, response) = request(
+        build_router(state.clone()),
+        "/api/send",
+        json!({"post":post(),"draft_id":"draft","chat_ids":["@one","@two"]}),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{response}");
+    assert_eq!(sent_count(&mut requests, "sendRichMessage"), 2);
+    assert!(response["warnings"].to_string().contains("@one"));
+    assert!(
+        response["warnings"]
+            .to_string()
+            .contains("cleanup unavailable")
+    );
+    assert!(
+        posts::list(&state.account)?
+            .iter()
+            .any(|row| row["chat_id"] == "@two" && row["status"] == "failed")
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn response_keeps_confirmation_when_post_or_channel_cannot_be_read()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mut requests) = mock(|_, _, payload| ok(message(payload, 12))).await;
+    let state = AppState::new(settings(&dir, &base));
+    let mut db = rich_studio::store::Store::connect(&state.account)?;
+    rich_studio::store::db::migrate(&mut db)?;
+    db.execute_batch(
+        "create trigger corrupt_metadata after update of chat_num on posts begin
+         update posts set payload='invalid JSON' where id=new.id;
+         insert into channels(chat_id,created_at,topics) values(new.chat_id,0,'invalid JSON');
+         end;",
+    )?;
+    let (status, response) = request(
+        build_router(state),
+        "/api/send",
+        json!({"post":post(),"chat_id":"@one"}),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{response}");
+    assert_eq!(response["post"]["status"], "sent");
+    assert_eq!(response["post"]["message_id"], 12);
+    assert_eq!(
+        response["results"][0]["chat_title"],
+        serde_json::Value::Null
+    );
+    let warnings = response["warnings"].to_string();
+    assert!(
+        warnings.contains("перечитать отправленный пост"),
+        "{warnings}"
+    );
+    assert!(warnings.contains("название канала"), "{warnings}");
+    assert_eq!(sent_count(&mut requests, "sendRichMessage"), 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn post_is_sent_before_pin_comment_and_poll_after_warnings()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = TempDir::new()?;

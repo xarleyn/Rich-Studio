@@ -15,19 +15,12 @@ use super::{MediaError, MediaService, describe};
 
 struct FetchFile {
     path: PathBuf,
-    target: Option<PathBuf>,
     file: Option<fs::File>,
-    keep: bool,
 }
 impl Drop for FetchFile {
     fn drop(&mut self) {
         drop(self.file.take());
-        if !self.keep {
-            let _ = fs::remove_file(&self.path);
-            if let Some(target) = &self.target {
-                let _ = fs::remove_file(target);
-            }
-        }
+        let _ = fs::remove_file(&self.path);
     }
 }
 
@@ -50,27 +43,18 @@ impl MediaService {
                     .map(str::to_owned)
             })
             .unwrap_or_else(|| "file".to_owned());
-        let (name, part) = self
+        let part = self
             .run(move |service| {
-                let name = service.free_name(&suggested);
                 fs::create_dir_all(&service.context.media_dir)?;
                 let path = service
                     .context
                     .media_dir
-                    .join(format!(".{name}.{}.part", Uuid::new_v4().simple()));
-                let mut part = FetchFile {
+                    .join(format!(".{}.part", Uuid::new_v4().simple()));
+                let file = fs::File::create_new(&path)?;
+                Ok(FetchFile {
                     path,
-                    target: None,
-                    file: None,
-                    keep: false,
-                };
-                part.file = Some(
-                    fs::OpenOptions::new()
-                        .create_new(true)
-                        .write(true)
-                        .open(&part.path)?,
-                );
-                Ok((name, part))
+                    file: Some(file),
+                })
             })
             .await?;
         let mut part = self
@@ -80,12 +64,20 @@ impl MediaService {
             if let Some(mut file) = part.file.take() {
                 file.flush()?;
             }
-            let final_name = service.free_name(&name);
-            let target = service.context.media_dir.join(&final_name);
-            part.target = Some(target.clone());
-            fs::rename(&part.path, target)?;
-            part.keep = true;
-            drop(part);
+            let final_name = service.create_unique(&suggested, |target| {
+                match fs::hard_link(&part.path, target) {
+                    // Some volumes disallow hard links. Copy exclusively there as well.
+                    Err(error)
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::Unsupported | std::io::ErrorKind::PermissionDenied
+                        ) =>
+                    {
+                        super::storage::write_new(target, fs::File::open(&part.path)?)
+                    }
+                    result => result,
+                }
+            })?;
             Ok(describe(&final_name))
         })
         .await

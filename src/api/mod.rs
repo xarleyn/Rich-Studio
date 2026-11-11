@@ -34,6 +34,21 @@ use tower_http::services::ServeDir;
 
 use crate::{AppState, mcp_tools};
 
+pub fn actor(state: &AppState, headers: &axum::http::HeaderMap) -> String {
+    let client = headers
+        .get("x-studio-client")
+        .and_then(|header| header.to_str().ok())
+        .map(str::trim)
+        .filter(|value| {
+            value.len() <= 40
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"._:-".contains(&byte))
+        })
+        .unwrap_or_default();
+    state.principal.actor(client)
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(landing::router())

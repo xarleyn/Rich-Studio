@@ -51,7 +51,7 @@ pub fn get(context: &AccountContext, chat_id: &Value) -> Result<Option<Value>, S
         .or_else(|| chat_id.as_i64().map(|value| value.to_string()))
         .unwrap_or_default();
     connection.query_row(
-        "select * from channels where chat_id=? or chat_num=? or (username is not null and '@' || username=?)",
+        "select * from channels where chat_id=? or chat_num=? or ('@' || username)=? collate nocase",
         params![text, sql_value(chat_id)?, text],
         |row| decode_row(row).map(Value::Object),
     ).optional().map_err(Into::into)

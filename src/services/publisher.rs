@@ -257,22 +257,42 @@ impl Publisher {
                 Ok(posts::mark_sent(context, &id, message_id)?)
             })
             .await?;
+            let mut after_warnings = Vec::new();
             if let Some(draft_id) = draft_id {
                 let (chat, draft_id) = (chat.clone(), draft_id.to_owned());
-                blocking::run(&self.context, move |context| {
+                if let Err(error) = blocking::run(&self.context, move |context| {
                     Ok(posts::drop_refused(
                         context,
                         &chat,
                         &draft_id,
-                        &[MAY_HAVE_GONE, POLL_MAY_HAVE_GONE],
+                        &[
+                            MAY_HAVE_GONE,
+                            POLL_MAY_HAVE_GONE,
+                            crate::store::scheduler::INTERRUPTED_SEND,
+                        ],
                     )?)
                 })
-                .await?;
+                .await
+                {
+                    after_warnings.push(format!("не удалось очистить предыдущие отказы: {error}"));
+                }
             }
-            let after_warnings = match self.after_send(&record, post, &result, actor, kind).await {
-                Ok(warnings) => warnings,
-                Err(error) => vec![error.to_string()],
-            };
+            match self.after_send(&record, post, &result, actor, kind).await {
+                Ok(items) => after_warnings.extend(items),
+                Err(error) => after_warnings.push(error.to_string()),
+            }
+            let id = record["id"].as_str().unwrap_or_default().to_owned();
+            let record =
+                match blocking::run(&self.context, move |context| Ok(posts::get(context, &id)?))
+                    .await
+                {
+                    Ok(refreshed) => refreshed.unwrap_or(record),
+                    Err(error) => {
+                        after_warnings
+                            .push(format!("не удалось перечитать отправленный пост: {error}"));
+                        record
+                    }
+                };
             self.notify(
                 record["id"].as_str().unwrap_or_default(),
                 None,
@@ -289,10 +309,6 @@ impl Publisher {
                     warning
                 }
             }));
-            let id = record["id"].as_str().unwrap_or_default().to_owned();
-            let record = blocking::run(&self.context, move |context| Ok(posts::get(context, &id)?))
-                .await?
-                .unwrap_or(record);
             output.push(json!({"chat_id":chat,"ok":true,"post":record,"message":result}));
         }
         Ok((output, warnings))

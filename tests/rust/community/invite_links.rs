@@ -9,7 +9,7 @@ use rich_studio::{
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
-use crate::support::{mcp_call, mcp_list, member, mock, request, services, settings};
+use crate::support::{mcp_call, mcp_list, member, mock, request, request_with, services, settings};
 
 #[tokio::test]
 async fn invites_preserve_omitted_limits_explicit_clear_counters_and_revocation()
@@ -405,6 +405,32 @@ async fn subscription_link_rejects_limits_and_changes_only_its_name()
     assert_eq!(edited.0, StatusCode::OK, "{}", edited.1);
     assert_eq!(edited.1["name"], "Клуб+");
     assert_eq!(mock.last("editChatSubscriptionInviteLink")["name"], "Клуб+");
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
+async fn named_publisher_actor_defaults_to_token_name() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, _, server) = mock().await?;
+    let config = settings(&dir, &base);
+    auth::add_token(&config, "agent", "publisher-token", "publish")?;
+    let app = build_router(AppState::new(config));
+    for (header, expected) in [(None, "agent"), (Some(" cli "), "cli@agent")] {
+        let (status, link) = request_with(
+            app.clone(),
+            "POST",
+            "/api/invite-links",
+            json!({"name":"test", "chat_id":"@chan"}),
+            "publisher-token",
+            false,
+            None,
+            header,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{link}");
+        assert_eq!(link["actor"], expected);
+    }
     server.abort();
     Ok(())
 }

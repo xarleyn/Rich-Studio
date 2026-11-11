@@ -263,7 +263,7 @@ impl PostService {
         if let Some(report) = dry_report {
             return Ok(report);
         }
-        let (mut results, warnings) = self
+        let (mut results, mut warnings) = self
             .publisher()
             .publish(
                 &chats,
@@ -273,7 +273,7 @@ impl PostService {
                 actor,
             )
             .await?;
-        titled_results(&self.context, &mut results)?;
+        titled_results(&self.context, &mut results, &mut warnings).await;
         let first = first_sent(&results)?;
         let mut all_warnings = report["warnings"].as_array().cloned().unwrap_or_default();
         all_warnings.extend(warnings.into_iter().map(Value::String));
@@ -462,11 +462,11 @@ impl PostService {
                 .await?;
             return Ok(json!({"scheduled":records}));
         }
-        let (mut results, warnings) = self
+        let (mut results, mut warnings) = self
             .publisher()
             .publish(&chats, &post, None, kind, actor)
             .await?;
-        titled_results(&self.context, &mut results)?;
+        titled_results(&self.context, &mut results, &mut warnings).await;
         let _ = first_sent(&results)?;
         Ok(json!({"results":results,"warnings":warnings}))
     }
@@ -491,11 +491,28 @@ fn reject_channels(context: &AccountContext, chats: &[Value]) -> Result<(), Serv
 }
 
 /// The reference `_first_sent` names the channel on every result before choosing the first one.
-fn titled_results(context: &AccountContext, results: &mut [Value]) -> Result<(), ServiceError> {
+async fn titled_results(
+    context: &AccountContext,
+    results: &mut [Value],
+    warnings: &mut Vec<String>,
+) {
     for result in results {
-        result["chat_title"] = crate::services::channels::title_of(context, &result["chat_id"])?;
+        let chat = result["chat_id"].clone();
+        result["chat_title"] = match super::blocking::run(context, move |context| {
+            Ok(super::channels::title_of(context, &chat)?)
+        })
+        .await
+        {
+            Ok(title) => title,
+            Err(error) => {
+                warnings.push(format!(
+                    "не удалось прочитать название канала {}: {error}",
+                    result["chat_id"]
+                ));
+                Value::Null
+            }
+        };
     }
-    Ok(())
 }
 
 fn first_sent(results: &[Value]) -> Result<Value, ServiceError> {

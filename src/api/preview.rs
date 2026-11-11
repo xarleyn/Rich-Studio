@@ -42,8 +42,8 @@ pub fn render_page(template: &str, post: &Value, theme: &str, title: &str) -> St
     )
 }
 
-fn page(state: &AppState, post: &Value, theme: &str, title: &str) -> Response {
-    match std::fs::read_to_string(state.static_dir.join("render.html")) {
+async fn page(state: &AppState, post: &Value, theme: &str, title: &str) -> Response {
+    match tokio::fs::read_to_string(state.static_dir.join("render.html")).await {
         Ok(template) => (
             [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
             render_page(&template, post, theme, title),
@@ -59,7 +59,7 @@ pub async fn render(
     Query(query): Query<ThemeQuery>,
     Json(post): Json<Value>,
 ) -> Response {
-    page(&state, &post, &query.theme, "Предпросмотр")
+    page(&state, &post, &query.theme, "Предпросмотр").await
 }
 
 #[utoipa::path(get, path = "/render/draft/{did}", operation_id = "render_draft_render_draft__did__get", summary = "Страница предпросмотра черновика (preview_path из save_draft)", tag = "preview", responses((status = 200, description = "Successful Response")))]
@@ -70,15 +70,18 @@ pub async fn draft(
 ) -> Response {
     let result = drafts::run(state.clone(), move |service| service.get(&id)).await;
     match result {
-        Ok(draft) => page(
-            &state,
-            &draft["payload"],
-            &query.theme,
-            draft["title"]
-                .as_str()
-                .filter(|title| !title.is_empty())
-                .unwrap_or("Черновик"),
-        ),
+        Ok(draft) => {
+            page(
+                &state,
+                &draft["payload"],
+                &query.theme,
+                draft["title"]
+                    .as_str()
+                    .filter(|title| !title.is_empty())
+                    .unwrap_or("Черновик"),
+            )
+            .await
+        }
         Err(error) => drafts::error_response(error),
     }
 }

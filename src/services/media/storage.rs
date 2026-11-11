@@ -1,6 +1,7 @@
 //! Файлы учётки: загрузка, чтение, список, удаление, свободное имя и квота.
 
 use std::fs;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -17,8 +18,7 @@ impl MediaService {
         }
         self.check_capacity(data.len())?;
         fs::create_dir_all(&self.context.media_dir)?;
-        let name = self.free_name(filename);
-        fs::write(self.context.media_dir.join(&name), data)?;
+        let name = self.create_unique(filename, |path| write_new(path, data))?;
         Ok(describe(&name))
     }
 
@@ -85,7 +85,11 @@ impl MediaService {
         Ok(unused)
     }
 
-    pub(super) fn free_name(&self, filename: &str) -> String {
+    pub(super) fn create_unique(
+        &self,
+        filename: &str,
+        create: impl Fn(&Path) -> io::Result<()>,
+    ) -> Result<String, MediaError> {
         let leaf = Path::new(filename)
             .file_name()
             .unwrap_or_default()
@@ -101,19 +105,23 @@ impl MediaService {
         } else {
             base
         };
+        let path = Path::new(&base);
+        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+        let extension = path
+            .extension()
+            .map(|value| format!(".{}", value.to_string_lossy()))
+            .unwrap_or_default();
         let mut name = base.clone();
         let mut index = 1;
-        while self.context.media_dir.join(&name).exists() {
-            let path = Path::new(&base);
-            let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-            let extension = path
-                .extension()
-                .map(|value| format!(".{}", value.to_string_lossy()))
-                .unwrap_or_default();
+        loop {
+            match create(&self.context.media_dir.join(&name)) {
+                Ok(()) => return Ok(name),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error.into()),
+            }
             name = format!("{stem}-{index}{extension}");
             index += 1;
         }
-        name
     }
 
     pub(super) fn check_capacity(&self, additional: usize) -> Result<(), MediaError> {
@@ -135,4 +143,14 @@ impl MediaService {
         }
         Ok(())
     }
+}
+
+pub(super) fn write_new(path: &Path, mut data: impl Read) -> io::Result<()> {
+    let mut file = fs::File::create_new(path)?;
+    if let Err(error) = io::copy(&mut data, &mut file) {
+        drop(file);
+        let _ = fs::remove_file(path);
+        return Err(error);
+    }
+    Ok(())
 }

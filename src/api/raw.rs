@@ -5,7 +5,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 
-use crate::telegram::uploads::{Uploads, collect_uploads};
+use crate::telegram::uploads::{UploadError, Uploads, collect_uploads};
 
 const SAFE_PREFIXES: &[&str] = &["get", "send", "edit", "answer", "copy", "forward"];
 const SAFE_METHODS: &[&str] = &[
@@ -57,16 +57,23 @@ pub async fn call(
         return (StatusCode::BAD_REQUEST, Json(json!({"detail":format!("{method} не только читает и отправляет сообщения: повторите с заголовком X-Confirm: yes")}))).into_response();
     }
     let payload = body.map_or_else(|| json!({}), |body| body.0);
-    let mut uploads = Uploads::default();
-    let payload = match collect_uploads(&payload, &state.account.media_dir, &mut uploads) {
-        Ok(payload) => payload,
-        Err(error) => {
+    let media_dir = state.account.media_dir.clone();
+    let prepared = tokio::task::spawn_blocking(move || {
+        let mut uploads = Uploads::default();
+        let payload = collect_uploads(&payload, &media_dir, &mut uploads)?;
+        Ok::<_, UploadError>((payload, uploads))
+    })
+    .await;
+    let (payload, uploads) = match prepared {
+        Ok(Ok(prepared)) => prepared,
+        Ok(Err(error)) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(json!({"detail":error.to_string()})),
             )
                 .into_response();
         }
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
     let transport = state.transport();
     match transport

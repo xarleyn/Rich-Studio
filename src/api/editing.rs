@@ -1,3 +1,4 @@
+use super::actor;
 use axum::Json;
 use axum::extract::{Path, Query};
 use axum::http::HeaderMap;
@@ -25,22 +26,6 @@ fn response(result: Result<Value, ServiceError>) -> Response {
         Ok(result) => Json(result).into_response(),
         Err(error) => super::posts::error_response(error),
     }
-}
-
-fn actor(state: &AppState, headers: &HeaderMap) -> String {
-    let client = headers
-        .get("x-studio-client")
-        .and_then(|header| header.to_str().ok())
-        .map(str::trim)
-        .filter(|value| {
-            !value.is_empty()
-                && value.len() <= 40
-                && value.chars().all(|character| {
-                    character.is_ascii_alphanumeric() || "._:-".contains(character)
-                })
-        })
-        .unwrap_or("");
-    state.principal.actor(client)
 }
 
 #[derive(Deserialize)]

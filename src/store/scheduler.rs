@@ -6,6 +6,10 @@ use crate::{
 use rusqlite::params;
 use serde_json::Value;
 
+// Also appears in rows recovered by the Python runtime.
+pub const INTERRUPTED_SEND: &str =
+    "сервис остановился во время отправки; проверьте канал, пост мог уйти";
+
 pub fn due(context: &AccountContext, now: i64) -> Result<Vec<Value>, StoreError> {
     let mut db = Store::connect(context)?;
     db::migrate(&mut db)?;
@@ -48,7 +52,10 @@ pub fn recover_ids(context: &AccountContext, keep: &[String]) -> Result<Vec<Stri
     };
     for id in ids {
         if !keep.contains(&id) {
-            let changed=tx.execute("update posts set status='failed',error='сервис остановился во время отправки; проверьте канал, пост мог уйти' where id=? and status='sending'",[&id])?;
+            let changed = tx.execute(
+                "update posts set status='failed',error=? where id=? and status='sending'",
+                params![INTERRUPTED_SEND, id],
+            )?;
             if changed == 1 {
                 recovered.push(id);
             }

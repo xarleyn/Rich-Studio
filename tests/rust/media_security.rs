@@ -66,6 +66,32 @@ fn uploads_have_safe_unique_names_and_are_isolated_by_account()
 }
 
 #[test]
+fn simultaneous_uploads_keep_each_callers_bytes() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let media = MediaService::new(state(&dir, &[]).account, 1.0, 0.0);
+    let ready = std::sync::Barrier::new(12);
+    std::thread::scope(|threads| {
+        let uploads: Vec<_> = (0..12)
+            .map(|id| {
+                let (media, ready) = (&media, &ready);
+                threads.spawn(move || {
+                    ready.wait();
+                    media.upload("same.jpg", &[id]).map(|file| (id, file))
+                })
+            })
+            .collect();
+        for upload in uploads {
+            let (id, file) = upload.join().map_err(|_| "upload thread failed")??;
+            assert_eq!(
+                media.download(file["name"].as_str().ok_or("filename")?)?,
+                [id]
+            );
+        }
+        Ok::<_, Box<dyn std::error::Error>>(())
+    })
+}
+
+#[test]
 fn upload_and_account_limits_leave_no_file() -> Result<(), Box<dyn std::error::Error>> {
     let dir = TempDir::new()?;
     let state = state(&dir, &[("ACCOUNT_STORAGE_MB", "0.000002")]);

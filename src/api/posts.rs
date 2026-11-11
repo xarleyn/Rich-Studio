@@ -1,9 +1,9 @@
 use crate::security::ScopedState;
 use axum::Json;
 
+use super::actor;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use regex::Regex;
 use serde_json::{Value, json};
 
 use crate::AppState;
@@ -61,19 +61,6 @@ fn key(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("idempotency-key")
         .and_then(|value| value.to_str().ok())
-}
-
-fn actor(state: &AppState, headers: &HeaderMap) -> String {
-    let Ok(pattern) = Regex::new(r"^[A-Za-z0-9._:-]{1,40}$") else {
-        return state.principal.actor("");
-    };
-    let client = headers
-        .get("x-studio-client")
-        .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .filter(|value| pattern.is_match(value))
-        .unwrap_or("");
-    state.principal.actor(client)
 }
 
 fn send_body(body: &Value) -> Value {

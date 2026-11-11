@@ -1,6 +1,7 @@
+pub use super::actor;
 use super::posts::error_response;
 use crate::services::community::{links, suggestions};
-use crate::{AppState, security::ScopedState, services::idempotency::Idempotency};
+use crate::{security::ScopedState, services::idempotency::Idempotency};
 use axum::{
     Json,
     extract::{Path, Query},
@@ -14,18 +15,6 @@ fn response(result: Result<Value, crate::errors::ServiceError>) -> Response {
         Ok(value) => Json(value).into_response(),
         Err(error) => error_response(error),
     }
-}
-pub fn actor(state: &AppState, headers: &HeaderMap) -> String {
-    let client = headers
-        .get("x-studio-client")
-        .and_then(|v| v.to_str().ok())
-        .filter(|v| {
-            v.len() <= 40
-                && v.chars()
-                    .all(|c| c.is_ascii_alphanumeric() || "._:-".contains(c))
-        })
-        .unwrap_or("api");
-    state.principal.actor(client)
 }
 #[derive(Deserialize)]
 pub struct LinkQuery {

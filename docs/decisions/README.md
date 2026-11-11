@@ -23,9 +23,8 @@
 | [0013](0013-message-kinds-registry.md) | Типы сообщений (пост, опрос, Live Photo, платный контент) в одном реестре `services/kinds.py` |
 | [0014](0014-public-telegram-accounts.md) | Публичный Telegram-вход, отдельные базы учёток и проверка прав перед отправкой |
 | [0016](0016-public-account-security-limits.md) | Текущие права для событий и комментариев, квота базы публичной учётки |
-| [0018](0018-telegram-message-import.md) | Импорт по ссылке: MTProto, ограниченный веб-виджет и явная пересылка |
-
 | [0017](0017-source-editors.md) | CodeMirror 6 для HTML, Markdown и JSON, локальный bundle без миникарты |
+| [0018](0018-telegram-message-import.md) | Импорт по ссылке: MTProto, ограниченный веб-виджет и явная пересылка |
 | [0019](0019-account-tokens.md) | Персональные API/MCP-токены из Telegram-учётки, роли и отзыв в интерфейсе |
 | [0020](0020-pwa-formats-templates.md) | Установка PWA, преобразование форматов без скрытой потери и шаблоны с формами |
 | [0021](0021-agent-onboarding-and-install-offer.md) | Подключение агента по ссылке и ненавязчивое предложение PWA |

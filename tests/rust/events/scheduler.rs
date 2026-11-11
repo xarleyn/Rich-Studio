@@ -101,6 +101,39 @@ async fn scheduler_reports_sent_missed_retry_and_terminal_failure()
 }
 
 #[tokio::test]
+async fn scheduled_gateway_failure_reports_uncertain_delivery()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = TempDir::new()?;
+    let (base, mock, server) = mock().await?;
+    let state = AppState::new(settings(&dir, &base));
+    subscribe_with(&state.settings, 11, "all")?;
+    stored(
+        &state.account,
+        &json!("@channel"),
+        "scheduled",
+        None,
+        Some(now() - 1),
+    );
+    mock.respond(
+        "sendRichMessage",
+        json!({"ok":false,"error_code":502,"description":"Bad Gateway"}),
+    );
+    scheduler_service::run_due(
+        &state,
+        state.account.clone(),
+        now(),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await?;
+    let events = db::due(&state.account, 10)?;
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["body"]["event"], "uncertain");
+    assert!(scheduler_store::due(&state.account, now() + 3600)?.is_empty());
+    server.abort();
+    Ok(())
+}
+
+#[tokio::test]
 async fn crash_recovery_and_expired_comment_are_reported() -> Result<(), Box<dyn std::error::Error>>
 {
     let dir = TempDir::new()?;

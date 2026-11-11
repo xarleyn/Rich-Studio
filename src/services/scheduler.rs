@@ -143,10 +143,10 @@ pub async fn run_due(
                     } if *wait > 0 => i64::try_from(*wait).ok(),
                     _ => None,
                 };
-                let detail = if matches!(error, TelegramError::NoAnswer(_)) {
-                    format!("{error}. {MAY_HAVE_GONE}")
+                let (detail, event) = if matches!(error, TelegramError::NoAnswer(_)) {
+                    (format!("{error}. {MAY_HAVE_GONE}"), Some("uncertain"))
                 } else {
-                    error.to_string()
+                    (error.to_string(), retry.map(|_| "retry"))
                 };
                 blocking::run(&context, move |context| {
                     if let Some(wait) = retry {
@@ -162,13 +162,7 @@ pub async fn run_due(
                     Ok(())
                 })
                 .await?;
-                publisher
-                    .notify(
-                        &notification_id,
-                        if retry.is_some() { Some("retry") } else { None },
-                        None,
-                    )
-                    .await;
+                publisher.notify(&notification_id, event, None).await;
                 continue;
             }
         };
