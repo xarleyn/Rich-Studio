@@ -1,6 +1,6 @@
 -r requirements.txt
-ruff==0.17.3
+ruff==0.17.4
 mypy==2.4.1
 pre-commit==4.7.0
-import-linter==2.15
+import-linter==2.16
 uv==0.13.7
