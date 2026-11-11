@@ -2,6 +2,9 @@
 docs/openapi.json linguist-generated=true
 app/bundled/api.json linguist-generated=true
 
+# Match newline_style in rustfmt.toml on Windows checkouts.
+*.rs text eol=lf
+
 # Brotli sidecars and their fingerprints must have identical sources on Windows and Linux.
 app/static/landing.css text eol=lf
 app/static/landing.js text eol=lf

@@ -1,6 +1,6 @@
 // Preview parity with the real Telegram parser.
 // tests/telegram_parse/captured.json holds HTML and Markdown sources together with the blocks the real
-// Bot API returned for them (scripts/capture_telegram_parse.py). For every case the preview of the
+// Bot API returned for them (scripts/capture_telegram_parse.cs). For every case the preview of the
 // source and the preview of Telegram's blocks must describe the same post: same blocks, same inline
 // formatting, same text. A mismatch means render.js shows the author something Telegram will not.
 // Run: node tests/render_parity.mjs (CHROMIUM=/path/to/chromium to use a preinstalled browser)

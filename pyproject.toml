@@ -43,24 +43,6 @@ no_implicit_optional = true
 ignore_missing_imports = true
 # Шаг 2 (после разбиения main.py): disallow_untyped_defs = true для app/services и app/store.
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q --strict-markers"
-markers = [
-  "e2e: браузерные проверки (Playwright), запускаются отдельно",
-]
-# незакрытые соединения SQLite и другие ошибки в __del__ роняют тест, чтобы утечка не вернулась
-filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
-
-[tool.coverage.run]
-source = ["app"]
-branch = true
-
-[tool.coverage.report]
-fail_under = 85
-show_missing = true
-skip_covered = true
-
 [tool.importlinter]
 # Слои из docs/ARCHITECTURE.md, проверяются командой `lint-imports` (запуск из корня, PYTHONPATH=app).
 # Модули-файлы (main, settings, errors, models, security) инструмент не принимает, проверяются только пакеты.

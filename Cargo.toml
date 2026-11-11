@@ -1,0 +1,170 @@
+[package]
+name = "rich-studio"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -2 }
+correctness = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+base64 = "0.23"
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
+hmac = "0.13"
+html-escape = "0.3"
+grammers-client = { version = "0.11.0", features = ["proxy"] }
+grammers-session = { version = "0.11.0", default-features = false }
+grammers-tl-types = { version = "0.11.0", features = ["impl-serde"] }
+scraper = { version = "0.29.0", default-features = false }
+zip = { version = "9.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+fs2 = "0.4.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["registry", "std"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+regex = "1"
+rpassword = "7.5.4"
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
+utoipa = { version = "6.0.0", features = ["axum_extras"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream", "multipart"] }
+rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+subtle = "2"
+time = { version = "0.3", features = ["parsing"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "time", "fs", "sync"] }
+tower-http = { version = "0.7", features = ["fs"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+http = "1"
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
+[[test]]
+name = "contract_surface"
+path = "tests/rust/contract_surface.rs"
+
+[[test]]
+name = "migrations"
+path = "tests/rust/migrations.rs"
+
+[[test]]
+name = "account_isolation"
+path = "tests/rust/account_isolation/main.rs"
+
+[[test]]
+name = "drafts_contract"
+path = "tests/rust/drafts_contract.rs"
+
+[[test]]
+name = "media_security"
+path = "tests/rust/media_security.rs"
+
+[[test]]
+name = "mcp_preview"
+path = "tests/rust/mcp_preview.rs"
+
+[[test]]
+name = "telegram_payload"
+path = "tests/rust/telegram_payload.rs"
+
+[[test]]
+name = "channels"
+path = "tests/rust/channels/main.rs"
+
+[[test]]
+name = "idempotency_compat"
+path = "tests/rust/idempotency_compat.rs"
+
+[[test]]
+name = "publication_safety"
+path = "tests/rust/publication_safety/main.rs"
+
+[[test]]
+name = "auth_security"
+path = "tests/rust/auth_security/main.rs"
+
+[[test]]
+name = "templates"
+path = "tests/rust/templates.rs"
+
+[[test]]
+name = "emoji"
+path = "tests/rust/emoji.rs"
+
+[[test]]
+name = "runtime"
+path = "tests/rust/runtime.rs"
+
+[[test]]
+name = "public_site"
+path = "tests/rust/public_site/main.rs"
+
+[[test]]
+name = "editing"
+path = "tests/rust/editing/main.rs"
+
+[[test]]
+name = "scheduler_recovery"
+path = "tests/rust/scheduler_recovery.rs"
+
+[[test]]
+name = "operations"
+path = "tests/rust/operations/main.rs"
+
+[[test]]
+name = "events"
+path = "tests/rust/events/main.rs"
+
+[[test]]
+name = "import_contract"
+path = "tests/rust/import_contract/main.rs"
+
+[[test]]
+name = "community"
+path = "tests/rust/community/main.rs"
+
+[[test]]
+name = "post_service"
+path = "tests/rust/post_service.rs"
+
+[[test]]
+name = "media_posts"
+path = "tests/rust/media_posts.rs"
+
+[[test]]
+name = "tgfake"
+path = "tests/rust/tgfake.rs"
+
+[[test]]
+name = "http_mcp_contract"
+path = "tests/rust/http_mcp_contract/main.rs"
+
+[[test]]
+name = "architecture"
+path = "tests/rust/architecture.rs"
+
+[[test]]
+name = "api_contract"
+path = "tests/rust/api_contract/main.rs"
+
+[[test]]
+name = "regressions"
+path = "tests/rust/regressions/main.rs"

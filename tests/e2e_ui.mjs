@@ -1,5 +1,5 @@
 // Browser checks for the editor. Needs a running studio (BASE, default http://localhost:7424)
-// pointed at the fake Bot API from tests/mock_telegram.py (MOCK, default http://localhost:8081),
+// pointed at the fake Bot API from tests/mock_telegram.cs (MOCK, default http://localhost:8081),
 // and Playwright: `npm i playwright && npx playwright install chromium`.
 // Run: node tests/e2e_ui.mjs; only some checks: E2E_ONLY=poll node tests/e2e_ui.mjs (a part of the file name).
 // Each check is a file in tests/e2e/ (NN-name.mjs, run in name order on one page): a new check is a new file,

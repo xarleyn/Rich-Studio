@@ -14,15 +14,19 @@ export default async function ({ browser, check, MOCK }) {
   const port = socket.address().port;
   await new Promise((done) => socket.close(done));
   const base = 'http://127.0.0.1:' + port;
-  const python = ['.venv/bin/python', '.venv/Scripts/python.exe'].find(existsSync) || 'python3';
-  const server = spawn(python, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port), '--no-access-log'], {
+  const rust = process.env.RICH_STUDIO_BINARY;
+  const python = process.env.RICH_STUDIO_PYTHON || ['.venv/bin/python', '.venv/Scripts/python.exe'].find(existsSync) || 'python3';
+  const server = spawn(rust || python, rust ? ['serve'] : ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', String(port), '--no-access-log'], {
+    windowsHide: true,
     env: { ...process.env, PYTHONPATH: resolve('app'), DATA_DIR: resolve(mkdtempSync('work/token-e2e-')),
-      STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server', STUDIO_URL: 'https://public.example', TG_BOT_USERNAME: 'YourBot',
+      STUDIO_BIND: '127.0.0.1:' + port, STUDIO_PUBLIC: 'on', STUDIO_MODE: 'server', STUDIO_URL: 'https://public.example', TG_BOT_USERNAME: 'YourBot',
       TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '', STUDIO_API_KEY: '', STUDIO_API_KEY_FILE: '',
       ALLOWED_HOSTS: '127.0.0.1', TG_API_BASE: MOCK, SPEC_PIN: 'on', STUDIO_BACKGROUND: 'off', TG_UPDATES: 'off',
       NO_PROXY: 'localhost,127.0.0.1' }, stdio: ['ignore', 'ignore', 'pipe'],
   });
   let log = '';
+  let startError;
+  server.on('error', (error) => { startError = error; });
   server.stderr.on('data', (chunk) => { log = (log + chunk).slice(-6000); });
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
   const page = await context.newPage();
@@ -38,7 +42,7 @@ export default async function ({ browser, check, MOCK }) {
     const deadline = Date.now() + 15000;
     while (true) {
       try { if ((await fetch(base + '/healthz')).ok) break; } catch { /* starting */ }
-      if (Date.now() > deadline || server.exitCode !== null) throw new Error('Token studio did not start: ' + log);
+      if (startError || Date.now() > deadline || server.exitCode !== null) throw new Error('Token studio did not start: ' + (startError?.message || log));
       await new Promise((done) => setTimeout(done, 50));
     }
     const start = await (await context.request.post(base + '/api/auth/telegram/start', { data: {} })).json();
@@ -109,6 +113,6 @@ export default async function ({ browser, check, MOCK }) {
     check('Token screen has no JavaScript errors', errors.length === 0, errors.join(' | '));
   } finally {
     await context.close(); server.kill('SIGTERM');
-    await new Promise((done) => server.exitCode !== null ? done() : server.once('exit', done));
+    await new Promise((done) => startError || server.exitCode !== null ? done() : server.once('exit', done));
   }
 }

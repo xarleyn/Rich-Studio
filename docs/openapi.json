@@ -1150,6 +1150,128 @@
     ],
     "title": "ValidationError",
     "type": "object"
+   },
+   "WidgetDataReq": {
+    "properties": {
+     "chat_data": {
+      "description": "Данные виджета для этого чата, до 1 024 байт UTF-8; пустая строка стирает",
+      "title": "Chat Data",
+      "type": "string"
+     },
+     "public_data": {
+      "description": "Общие данные виджета, до 1 024 байт UTF-8; пустая строка стирает",
+      "title": "Public Data",
+      "type": "string"
+     }
+    },
+    "title": "WidgetDataReq",
+    "type": "object"
+   },
+   "WidgetPreviewReq": {
+    "properties": {
+     "chat_data": {
+      "title": "Chat Data",
+      "type": "string"
+     },
+     "html": {
+      "title": "Html",
+      "type": "string"
+     },
+     "public_data": {
+      "title": "Public Data",
+      "type": "string"
+     }
+    },
+    "required": [
+     "html"
+    ],
+    "title": "WidgetPreviewReq",
+    "type": "object"
+   },
+   "WidgetReq": {
+    "properties": {
+     "at": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Отложить: unix или ISO 8601 с часовым поясом",
+      "title": "At"
+     },
+     "chat_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chat Id"
+     },
+     "chat_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "integer"
+          }
+         ]
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chat Ids"
+     },
+     "pin": {
+      "default": false,
+      "title": "Pin",
+      "type": "boolean"
+     },
+     "widget": {
+      "additionalProperties": true,
+      "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?}. Только автономные виджеты; allow_queries=true недоступно. HTML после отправки неизменяем; лимиты: исходник 32 768 байт, после zlib level 9 — 4 096",
+      "title": "Widget",
+      "type": "object"
+     }
+    },
+    "required": [
+     "widget"
+    ],
+    "title": "WidgetReq",
+    "type": "object"
+   },
+   "WidgetValidateReq": {
+    "properties": {
+     "widget": {
+      "additionalProperties": true,
+      "description": "Проверяемый виджет: {html, chat_data?, public_data?}",
+      "title": "Widget",
+      "type": "object"
+     }
+    },
+    "required": [
+     "widget"
+    ],
+    "title": "WidgetValidateReq",
+    "type": "object"
    }
   }
  },
@@ -3237,6 +3359,85 @@
     ]
    }
   },
+  "/api/posts/{pid}/widget-data": {
+   "post": {
+    "description": "`chat_data`/`public_data` — строки до 1 024 байт UTF-8 без NUL; пустая строка стирает, отсутствующий ключ поле не трогает, null отклоняется. `?post_version=` из GET поста защищает от потери параллельной правки (409). Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.",
+    "operationId": "widget_data_api_posts__pid__widget_data_post",
+    "parameters": [
+     {
+      "description": "version прочитанного поста; устаревшая версия получает 409",
+      "in": "query",
+      "name": "post_version",
+      "required": false,
+      "schema": {
+       "minimum": 0,
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+      "in": "header",
+      "name": "x-studio-client",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+       "title": "X-Studio-Client"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WidgetDataReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Изменить данные виджета (editMessageWidgetData): HTML неизменяем",
+    "tags": [
+     "telegram"
+    ]
+   }
+  },
   "/api/preview-send": {
    "post": {
     "description": "В ответе `parsed`: блоки, на которые Telegram разобрал пост, и они же для повторной отправки (`input_blocks`).\n`chat_id`, отличный от `TG_PREVIEW_CHAT`, требует права `publish`: это уже отправка в чужой чат.",
@@ -4287,6 +4488,124 @@
     ]
    }
   },
+  "/api/widget": {
+   "post": {
+    "description": "Отдельное сообщение: HTML со встроенными CSS и JS. Только автономные виджеты: allow_queries=true отклоняется. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint студия автоматически не меняет. Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Лимиты: исходник 32 768 байт без NUL, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — строки по 1 024 байта UTF-8 без NUL.",
+    "operationId": "send_widget_api_widget_post",
+    "parameters": [
+     {
+      "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+      "in": "header",
+      "name": "x-studio-client",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+       "title": "X-Studio-Client"
+      }
+     },
+     {
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "in": "header",
+      "name": "idempotency-key",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "title": "Idempotency-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WidgetReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Автономный HTML-виджет в чат (sendWidget), сразу или отложенно",
+    "tags": [
+     "telegram"
+    ]
+   }
+  },
+  "/api/widget/validate": {
+   "post": {
+    "description": "В ответе `ok`, `errors`, `warnings`, `size_raw` (байт UTF-8) и `size_compressed` (после zlib level 9). Ничего не отправляется и не сохраняется.",
+    "operationId": "widget_validate_api_widget_validate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WidgetValidateReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Проверить виджет до отправки: размеры и запрещённые возможности",
+    "tags": [
+     "telegram"
+    ]
+   }
+  },
   "/auth/telegram/callback": {
    "get": {
     "description": "Telegram id берётся только из подписанных данных; повторы и вход из другого браузера отклоняются.",
@@ -4354,6 +4673,48 @@
      }
     },
     "summary": "Страница предпросмотра черновика (preview_path из save_draft)",
+    "tags": [
+     "preview"
+    ]
+   }
+  },
+  "/render/widget": {
+   "post": {
+    "description": "Принимает форму с полями `html`, `chat_data`, `public_data` и отдаёт страницу предпросмотра (открывается отдельным окном: рантайму нужен SharedArrayBuffer, а он требует COOP/COEP). Ничего не отправляется и не сохраняется.",
+    "operationId": "widget_preview_render_widget_post",
+    "requestBody": {
+     "content": {
+      "application/x-www-form-urlencoded": {
+       "schema": {
+        "$ref": "#/components/schemas/WidgetPreviewReq"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "text/html": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Предпросмотр виджета: страница с runtime WidgetSandbox",
     "tags": [
      "preview"
     ]

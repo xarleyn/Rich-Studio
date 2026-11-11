@@ -1,0 +1,4721 @@
+{
+  "components": {
+    "schemas": {
+      "ApproveSuggestedReq": {
+        "properties": {
+          "send_date": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Когда опубликовать: unix или ISO 8601; только если автор не выбрал время сам. Пусто — сразу",
+            "title": "Send Date"
+          }
+        },
+        "title": "ApproveSuggestedReq",
+        "type": "object"
+      },
+      "Body_media_upload_api_media_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_media_upload_api_media_post",
+        "type": "object"
+      },
+      "ButtonsReq": {
+        "properties": {
+          "callbacks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callbacks"
+          },
+          "reply_markup": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Новые кнопки; null убирает их",
+            "title": "Reply Markup"
+          }
+        },
+        "title": "ButtonsReq",
+        "type": "object"
+      },
+      "ChannelReq": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "description": "@канал или числовой id",
+            "title": "Chat Id"
+          }
+        },
+        "required": [
+          "chat_id"
+        ],
+        "title": "ChannelReq",
+        "type": "object"
+      },
+      "DeclineSuggestedReq": {
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Комментарий автору предложения, до 128 символов",
+            "title": "Comment"
+          }
+        },
+        "title": "DeclineSuggestedReq",
+        "type": "object"
+      },
+      "DraftReq": {
+        "properties": {
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Каналы, для которых черновик: публикация из него без chat_id уходит туда. Без поля остаются прежние, [] — канал по умолчанию",
+            "title": "Chat Ids"
+          },
+          "post": {
+            "additionalProperties": true,
+            "title": "Post",
+            "type": "object"
+          },
+          "post_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "id опубликованного или отложенного поста, который правится в этом черновике",
+            "title": "Post Id"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Версия черновика, на которой основана правка; если с тех пор его сохранили в другом месте, ответ 409 вместо перезаписи. Без поля черновик перезаписывается",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "DraftReq",
+        "type": "object"
+      },
+      "EditReq": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          }
+        },
+        "required": [
+          "post",
+          "message_id"
+        ],
+        "title": "EditReq",
+        "type": "object"
+      },
+      "FetchReq": {
+        "properties": {
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Имя файла; по умолчанию из ссылки",
+            "title": "Filename"
+          },
+          "url": {
+            "description": "Ссылка http(s) на файл",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "FetchReq",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImportReq": {
+        "properties": {
+          "url": {
+            "description": "Ссылка t.me на сообщение; поддерживаются темы форума",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "ImportReq",
+        "type": "object"
+      },
+      "InviteLinkEditReq": {
+        "description": "Непереданное поле остаётся как было; снять: name \"\", expire_date 0, member_limit 0, creates_join_request false.",
+        "properties": {
+          "creates_join_request": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Вступление по заявке: true включить, false снять, не передано — как было",
+            "title": "Creates Join Request"
+          },
+          "expire_date": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Когда ссылка перестанет работать: unix или ISO 8601",
+            "title": "Expire Date"
+          },
+          "invite_link": {
+            "description": "Ссылка из /api/invite-links: https://t.me/+…",
+            "title": "Invite Link",
+            "type": "string"
+          },
+          "member_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Сколько человек смогут вступить по ссылке (1–99999)",
+            "title": "Member Limit"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Название ссылки до 32 символов: откуда придут люди (видно только админам)",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "invite_link"
+        ],
+        "title": "InviteLinkEditReq",
+        "type": "object"
+      },
+      "InviteLinkRef": {
+        "properties": {
+          "invite_link": {
+            "description": "Ссылка из /api/invite-links: https://t.me/+…",
+            "title": "Invite Link",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_link"
+        ],
+        "title": "InviteLinkRef",
+        "type": "object"
+      },
+      "InviteLinkReq": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "@канал или числовой id; по умолчанию TG_DEFAULT_CHAT",
+            "title": "Chat Id"
+          },
+          "creates_join_request": {
+            "default": false,
+            "description": "Вступление по заявке: её принимает админ (тогда без member_limit)",
+            "title": "Creates Join Request",
+            "type": "boolean"
+          },
+          "expire_date": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Когда ссылка перестанет работать: unix или ISO 8601",
+            "title": "Expire Date"
+          },
+          "member_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Сколько человек смогут вступить по ссылке (1–99999)",
+            "title": "Member Limit"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Название ссылки до 32 символов: откуда придут люди (видно только админам)",
+            "title": "Name"
+          },
+          "subscription_price": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Платная подписка: звёзд в месяц (1–10000) через createChatSubscriptionInviteLink; тогда без срока, предела и заявок",
+            "title": "Subscription Price"
+          }
+        },
+        "title": "InviteLinkReq",
+        "type": "object"
+      },
+      "MediaPostReq": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Отложить: unix или ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Ids"
+          },
+          "kind": {
+            "description": "live_photo — sendLivePhoto, paid_media — sendPaidMedia (фото и видео за звёзды)",
+            "enum": [
+              "live_photo",
+              "paid_media"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "description": "Параметры метода без chat_id, как в Bot API. live_photo: {live_photo: видео, photo: кадр, caption?}; paid_media: {star_count, media: [{type: photo|video|live_photo, media, photo?}], caption?}. Файлы из загрузок — upload:<имя>",
+            "title": "Params",
+            "type": "object"
+          },
+          "pin": {
+            "default": false,
+            "title": "Pin",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "params"
+        ],
+        "title": "MediaPostReq",
+        "type": "object"
+      },
+      "PackReq": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PackReq",
+        "type": "object"
+      },
+      "PinReq": {
+        "properties": {
+          "disable_notification": {
+            "default": true,
+            "title": "Disable Notification",
+            "type": "boolean"
+          }
+        },
+        "title": "PinReq",
+        "type": "object"
+      },
+      "PollReq": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Отложить: unix или ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Ids"
+          },
+          "pin": {
+            "default": false,
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "poll": {
+            "additionalProperties": true,
+            "description": "Параметры sendPoll без chat_id: question, options, members_only, country_codes, description, media, type=quiz…",
+            "title": "Poll",
+            "type": "object"
+          }
+        },
+        "required": [
+          "poll"
+        ],
+        "title": "PollReq",
+        "type": "object"
+      },
+      "Post": {
+        "properties": {
+          "callbacks": {
+            "additionalProperties": true,
+            "description": "Ответы на callback-кнопки: {callback_data: текст или {text, show_alert}}",
+            "title": "Callbacks",
+            "type": "object"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "InputRichMessage первого комментария: студия ответит им на пересылку поста в группу обсуждения",
+            "title": "Comment"
+          },
+          "options": {
+            "additionalProperties": true,
+            "description": "Любые другие параметры sendRichMessage: disable_notification, protect_content…",
+            "title": "Options",
+            "type": "object"
+          },
+          "pin": {
+            "default": false,
+            "description": "Закрепить пост после публикации",
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "poll_after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Параметры sendPoll (question, options…): опрос уйдёт в тот же чат сразу после поста; тема форума и disable_notification берутся из options поста, если в опросе их нет",
+            "title": "Poll After"
+          },
+          "reply_markup": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "InlineKeyboardMarkup под постом",
+            "title": "Reply Markup"
+          },
+          "rich_message": {
+            "additionalProperties": true,
+            "description": "InputRichMessage: ровно одно из html / markdown / blocks, плюс media",
+            "title": "Rich Message",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rich_message"
+        ],
+        "title": "Post",
+        "type": "object"
+      },
+      "PublishReq": {
+        "properties": {
+          "as_new": {
+            "default": false,
+            "description": "draft_id — правка опубликованного поста, а вы хотите выпустить её копией новым постом (без флага 409: правку заменяют через /api/posts/{id}/edit)",
+            "title": "As New",
+            "type": "boolean"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "@канал или числовой id; по умолчанию TG_DEFAULT_CHAT",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Несколько каналов сразу (вместо chat_id)",
+            "title": "Chat Ids"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Только показать, какие запросы уйдут в Telegram: без отправки и без записи в историю",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "PublishReq",
+        "type": "object"
+      },
+      "RescheduleReq": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Новое время: unix или ISO 8601 с часовым поясом",
+            "title": "At"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "RescheduleReq",
+        "type": "object"
+      },
+      "ScheduleReq": {
+        "properties": {
+          "as_new": {
+            "default": false,
+            "description": "draft_id — правка опубликованного поста, а вы хотите выпустить её копией новым постом (без флага 409: правку заменяют через /api/posts/{id}/edit)",
+            "title": "As New",
+            "type": "boolean"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "unix-время или ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "@канал или числовой id; по умолчанию TG_DEFAULT_CHAT",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Несколько каналов сразу (вместо chat_id)",
+            "title": "Chat Ids"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Только показать, какие запросы уйдут в Telegram: без отправки и без записи в историю",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          }
+        },
+        "required": [
+          "post",
+          "at"
+        ],
+        "title": "ScheduleReq",
+        "type": "object"
+      },
+      "SendReq": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "@канал или числовой id; по умолчанию TG_DEFAULT_CHAT",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Несколько каналов сразу (вместо chat_id)",
+            "title": "Chat Ids"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "SendReq",
+        "type": "object"
+      },
+      "SessionReq": {
+        "properties": {
+          "key": {
+            "description": "STUDIO_API_KEY или токен",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "SessionReq",
+        "type": "object"
+      },
+      "TemplateDraftReq": {
+        "properties": {
+          "title": {
+            "default": "",
+            "description": "Название нового черновика; пусто — название шаблона",
+            "maxLength": 128,
+            "title": "Title",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Значения полей по key; отсутствующее берётся из default",
+            "title": "Values",
+            "type": "object"
+          },
+          "version": {
+            "description": "Версия шаблона, для которой заполнена форма",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "TemplateDraftReq",
+        "type": "object"
+      },
+      "TemplateField": {
+        "properties": {
+          "default": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Default",
+            "type": "string"
+          },
+          "key": {
+            "description": "Имя переменной {{key}} в строках поста",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "Подпись поля в форме",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "type": {
+            "default": "text",
+            "enum": [
+              "text",
+              "multiline",
+              "url"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "TemplateField",
+        "type": "object"
+      },
+      "TemplateReq": {
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateField"
+            },
+            "maxItems": 50,
+            "title": "Fields",
+            "type": "array"
+          },
+          "post": {
+            "additionalProperties": true,
+            "description": "Пост с {{переменными}} в строковых значениях; _studio не сохраняется",
+            "title": "Post",
+            "type": "object"
+          },
+          "title": {
+            "description": "Название шаблона",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Обязательна при обновлении: версия из GET /api/templates/{id}",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "title",
+          "post"
+        ],
+        "title": "TemplateReq",
+        "type": "object"
+      },
+      "TokenReq": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 90,
+            "description": "Срок от 1 до 365 дней; null — без срока",
+            "title": "Expires In Days"
+          },
+          "level": {
+            "default": "draft",
+            "description": "Чтение, черновики или публикация",
+            "enum": [
+              "read",
+              "draft",
+              "publish"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "description": "Название подключения, например Claude laptop",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TokenReq",
+        "type": "object"
+      },
+      "Topic": {
+        "properties": {
+          "id": {
+            "description": "message_thread_id темы: число в ссылке t.me/c/<канал>/<тема>/<сообщение>",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "Topic",
+        "type": "object"
+      },
+      "TopicsReq": {
+        "properties": {
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/Topic"
+            },
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "topics"
+        ],
+        "title": "TopicsReq",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WidgetDataReq": {
+        "properties": {
+          "chat_data": {
+            "type": "string",
+            "description": "Данные виджета для этого чата, до 1 024 байт UTF-8; пустая строка стирает",
+            "title": "Chat Data"
+          },
+          "public_data": {
+            "type": "string",
+            "description": "Общие данные виджета, до 1 024 байт UTF-8; пустая строка стирает",
+            "title": "Public Data"
+          }
+        },
+        "title": "WidgetDataReq",
+        "type": "object"
+      },
+      "WidgetPreviewReq": {
+        "properties": {
+          "chat_data": {
+            "title": "Chat Data",
+            "type": "string"
+          },
+          "html": {
+            "title": "Html",
+            "type": "string"
+          },
+          "public_data": {
+            "title": "Public Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "title": "WidgetPreviewReq",
+        "type": "object"
+      },
+      "WidgetReq": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Отложить: unix или ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Ids"
+          },
+          "pin": {
+            "default": false,
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "widget": {
+            "additionalProperties": true,
+            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?}. Только автономные виджеты; allow_queries=true недоступно. HTML после отправки неизменяем; лимиты: исходник 32 768 байт, после zlib level 9 — 4 096",
+            "title": "Widget",
+            "type": "object"
+          }
+        },
+        "required": [
+          "widget"
+        ],
+        "title": "WidgetReq",
+        "type": "object"
+      },
+      "WidgetValidateReq": {
+        "properties": {
+          "widget": {
+            "additionalProperties": true,
+            "description": "Проверяемый виджет: {html, chat_data?, public_data?}",
+            "title": "Widget",
+            "type": "object"
+          }
+        },
+        "required": [
+          "widget"
+        ],
+        "title": "WidgetValidateReq",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Сервис для rich-постов Telegram (sendRichMessage), с личным и публичным режимами. Поле `post` везде имеет вид `{rich_message: InputRichMessage, reply_markup?: InlineKeyboardMarkup, options?: {...}}` и уходит в Bot API без изменений. Медиа из загрузок указывайте как `upload:<имя файла>`. Спецификация Bot API: GET /api/spec.",
+    "title": "Rich Studio API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/account/tokens": {
+      "get": {
+        "description": "Только Telegram-сессия владельца учётки. Секреты и хэши не возвращаются; даты — Unix seconds.\nПри создании токена история сокращается до 100 последних неактивных; всего не более 120 записей.\nТокены других учёток и сервера не видны.",
+        "operationId": "listing_api_account_tokens_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Мои токены API/MCP и адрес подключения",
+        "tags": [
+          "service"
+        ]
+      },
+      "post": {
+        "description": "Секрет возвращается только здесь, один раз. До 20 действующих токенов и 60 попыток создания в час.\nУровень admin недоступен; выданный токен не может управлять токенами или входить в редактор.",
+        "operationId": "create_api_account_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Создать персональный токен API/MCP",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/account/tokens/{token_id}": {
+      "delete": {
+        "description": "После отзыва новые запросы с этим токеном отклоняются. Уже принятые операции и расписание сохраняются.\nПовторный отзыв безопасен; чужой или неизвестный id даёт 404. Telegram-сессия остаётся открытой.",
+        "operationId": "revoke_api_account_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отозвать свой токен API/MCP",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/auth/config": {
+      "get": {
+        "operationId": "config_api_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Публичные настройки входа через Telegram",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/auth/telegram/start": {
+      "post": {
+        "description": "Challenge действует пять минут. Cookie SameSite=Lax нужна для возврата с telegram.org.",
+        "operationId": "start_api_auth_telegram_start_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Начать вход через Telegram с одноразовой проверкой браузера",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/channels": {
+      "get": {
+        "operationId": "list_channels_api_channels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Каналы студии с названиями, темами форума и правами бота",
+        "tags": [
+          "channels"
+        ]
+      },
+      "post": {
+        "operationId": "check_channel_api_channels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Добавить канал или проверить его заново: название, форум, права бота",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/channels/{chat_id}": {
+      "delete": {
+        "operationId": "remove_channel_api_channels__chat_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "title": "Chat Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Убрать канал из списка (в Telegram ничего не меняется)",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/channels/{chat_id}/topics": {
+      "put": {
+        "description": "Темы приходят и сами, из событий создания темы.",
+        "operationId": "set_topics_api_channels__chat_id__topics_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chat_id",
+            "required": true,
+            "schema": {
+              "title": "Chat Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicsReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Темы форума вручную: Bot API не умеет их перечислять",
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/check": {
+      "get": {
+        "operationId": "check_api_check_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "chat_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Бот админ канала? Есть права на публикацию? Канал запоминается с названием",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/config": {
+      "get": {
+        "operationId": "config_api_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Что нужно редактору: канал по умолчанию, чат для «Мне в личку», задан ли токен, версия спецификации",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/drafts": {
+      "get": {
+        "operationId": "drafts_api_drafts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Черновики студии, последние сверху",
+        "tags": [
+          "drafts"
+        ]
+      },
+      "post": {
+        "operationId": "create_draft_api_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Новый черновик; он сразу открывается в редакторе",
+        "tags": [
+          "drafts"
+        ]
+      }
+    },
+    "/api/drafts/{did}": {
+      "delete": {
+        "operationId": "del_draft_api_drafts__did__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "did",
+            "required": true,
+            "schema": {
+              "title": "Did",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Удалить черновик",
+        "tags": [
+          "drafts"
+        ]
+      },
+      "get": {
+        "operationId": "draft_api_drafts__did__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "did",
+            "required": true,
+            "schema": {
+              "title": "Did",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Черновик целиком: пост, название, version, каналы",
+        "tags": [
+          "drafts"
+        ]
+      },
+      "put": {
+        "description": "`chat_ids` — каналы черновика: публикация из него без `chat_id` уходит туда. Без поля остаются прежние.",
+        "operationId": "put_draft_api_drafts__did__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "did",
+            "required": true,
+            "schema": {
+              "title": "Did",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Сохранить черновик; с version — 409, если его сохранили в другом месте",
+        "tags": [
+          "drafts"
+        ]
+      }
+    },
+    "/api/edit": {
+      "post": {
+        "operationId": "edit_api_edit_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Заменить опубликованный пост (editMessageText + rich_message)",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/emoji/file/{custom_emoji_id}": {
+      "get": {
+        "operationId": "emoji_file_api_emoji_file__custom_emoji_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "custom_emoji_id",
+            "required": true,
+            "schema": {
+              "title": "Custom Emoji Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Полный файл эмодзи: webm-видео, tgs-анимация или webp",
+        "tags": [
+          "emoji"
+        ]
+      }
+    },
+    "/api/emoji/img/{custom_emoji_id}": {
+      "get": {
+        "operationId": "emoji_img_api_emoji_img__custom_emoji_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "custom_emoji_id",
+            "required": true,
+            "schema": {
+              "title": "Custom Emoji Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Статичная картинка эмодзи (webp-миниатюра); скачивается при первом запросе",
+        "tags": [
+          "emoji"
+        ]
+      }
+    },
+    "/api/emoji/packs": {
+      "get": {
+        "operationId": "packs_list_api_emoji_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Паки кастомных эмодзи учётки для панели редактора",
+        "tags": [
+          "emoji"
+        ]
+      },
+      "post": {
+        "operationId": "packs_add_api_emoji_packs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Добавить пак: короткое имя набора или ссылка t.me/addemoji/<код>",
+        "tags": [
+          "emoji"
+        ]
+      }
+    },
+    "/api/emoji/packs/{name}": {
+      "delete": {
+        "operationId": "packs_remove_api_emoji_packs__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Убрать пак из панели; скачанные картинки остаются в кэше на случай возврата",
+        "tags": [
+          "emoji"
+        ]
+      }
+    },
+    "/api/export": {
+      "get": {
+        "operationId": "export_api_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Скачать бэкап: zip с базой (черновики, посты, история) и загруженными файлами",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_report_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Состояние студии: проверки ok/warn/fail с подсказкой, что делать, счётчики и последние ошибки",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/imports/forward": {
+      "post": {
+        "description": "Откройте bot_url, нажмите Start и перешлите сообщение. Запрос действует 10 минут, принимает\nтолько следующую пересылку от текущего пользователя. Результат: GET /api/imports/forward/{id}.",
+        "operationId": "begin_forward_api_imports_forward_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Подготовить импорт выбранной пересылки в личном чате бота",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/forward/{token}": {
+      "get": {
+        "operationId": "forward_status_api_imports_forward__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Результат импорта пересланного сообщения текущей учётки",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/telegram": {
+      "get": {
+        "description": "Только состояние подключения текущей учётки, без секретов и сессий.",
+        "operationId": "import_status_api_imports_telegram_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Доступные способы импорта из Telegram",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "description": "Проверяет ссылку, читает сообщение и сохраняет визуальные блоки, HTML и Rich Markdown.\n\nНичего не публикует. MTProto использует сессию текущей учётки либо бота; без подключения пробует\nпубличный веб-виджет. Заглушка, приватная ссылка без сессии и неполный rich-пост дают ошибку.\nПотери преобразования перечислены в warnings. Существующие черновики не меняются.",
+        "operationId": "import_telegram_api_imports_telegram_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Импортировать сообщение Telegram в новый черновик",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/invite-links": {
+      "get": {
+        "description": "`joined` и `requests` студия считает сама по событиям `chat_member` и `chat_join_request`: Telegram боту\nтаких счётчиков не даёт. Вступления, пока студия была выключена больше суток, не посчитаются.",
+        "operationId": "list_links_api_invite_links_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "chat_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Пригласительные ссылки, созданные студией, со счётчиком вступлений",
+        "tags": [
+          "invite links"
+        ]
+      },
+      "patch": {
+        "description": "Непереданные поля остаются как были, снять их: `name: \"\"`, `expire_date: 0`, `member_limit: 0`,\n`creates_join_request: false`. У платной подписки меняется только название.",
+        "operationId": "edit_link_api_invite_links_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteLinkEditReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Изменить название, срок или предел ссылки",
+        "tags": [
+          "invite links"
+        ]
+      },
+      "post": {
+        "description": "Бот должен быть админом канала с правом «Пригласительные ссылки» (`can_invite_users`).",
+        "operationId": "create_link_api_invite_links_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteLinkReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Создать именную пригласительную ссылку (createChatInviteLink) или платную подписку",
+        "tags": [
+          "invite links"
+        ]
+      }
+    },
+    "/api/invite-links/revoke": {
+      "post": {
+        "operationId": "revoke_link_api_invite_links_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteLinkRef"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отозвать ссылку: по ней больше не вступить",
+        "tags": [
+          "invite links"
+        ]
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "description": "`q=<request_id>` — всё, что сделал один запрос.",
+        "operationId": "read_logs_api_logs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "default": "INFO",
+              "enum": [
+                "DEBUG",
+                "INFO",
+                "WARNING",
+                "ERROR",
+                "CRITICAL"
+              ],
+              "title": "Level",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "unix-время: только строки не старше",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 4102444800,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "unix-время: только строки не старше",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "начало имени, например rich-studio.telegram",
+            "in": "query",
+            "name": "logger",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "начало имени, например rich-studio.telegram",
+              "title": "Logger",
+              "type": "string"
+            }
+          },
+          {
+            "description": "подстрока в строке журнала",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "подстрока в строке журнала",
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Журнал студии (строки JSON), новые в конце; без токена и текста постов",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/media": {
+      "get": {
+        "operationId": "media_list_api_media_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Загруженные файлы; used — нужен ли файл черновику или посту",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "media_upload_api_media_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_media_upload_api_media_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Загрузить файл; в посте он указывается как upload:<name>",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media-post": {
+      "post": {
+        "description": "Отдельное сообщение, не rich-пост: в блоках `InputRichMessage` таких медиа нет. Платный контент требует,\nчтобы в канале была разрешена публикация платных медиа (`can_send_paid_media`).",
+        "operationId": "send_media_api_media_post_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaPostReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live Photo (sendLivePhoto) или платный контент за звёзды (sendPaidMedia), сразу или отложенно",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/media/cleanup": {
+      "post": {
+        "operationId": "media_cleanup_api_media_cleanup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Удалить файлы, которые не упоминает ни один черновик и ни один живой пост",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/fetch": {
+      "post": {
+        "description": "Ходит только на публичные адреса и проверяет каждый редирект; локальная сеть: `MEDIA_FETCH_PRIVATE=1`.",
+        "operationId": "media_fetch_api_media_fetch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Скачать файл по ссылке в загрузки; дальше он upload:<name>",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{name}": {
+      "delete": {
+        "operationId": "media_delete_api_media__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Удалить файл; если он нужен отложенному посту или черновику, 409 (force=true удаляет всё равно)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/poll": {
+      "post": {
+        "description": "Опрос сразу после поста — поле `poll_after` в самом посте: оно проверяется по `sendPoll` до отправки поста.",
+        "operationId": "send_poll_api_poll_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PollReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Опрос или викторина в канал (sendPoll), сразу или отложенно",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts": {
+      "get": {
+        "description": "Для каждого поста: `title`, `thumb`, `link`, нажатия (`clicks`) и текст кнопки каждого `callback_data`\n(`buttons`). Отправка, которой Telegram отказал, — статус `failed` с ошибкой.",
+        "operationId": "list_posts_api_posts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "chat",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chat"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Опубликованные, отложенные и неудачные посты: первая строка, миниатюра, ссылка",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}": {
+      "delete": {
+        "description": "`DELETE` неудачной отправки убирает её из списка.",
+        "operationId": "delete_post_api_posts__pid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отменить отложенный или пропущенный пост, или удалить пост из канала",
+        "tags": [
+          "telegram"
+        ]
+      },
+      "get": {
+        "operationId": "post_api_posts__pid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Пост целиком: payload, статус, канал, version, реакции, нажатия",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/buttons": {
+      "post": {
+        "description": "Прежние кнопки попадают в историю поста (`/versions`), `version` поста растёт.",
+        "operationId": "set_buttons_api_posts__pid__buttons_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ButtonsReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Заменить только кнопки под постом (editMessageReplyMarkup), текст не трогается",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/widget-data": {
+      "post": {
+        "description": "`chat_data`/`public_data` — до 1 024 байт; присутствующий ключ задаёт значение, пустая строка стирает, отсутствующий ключ поле не трогает. Отложенному виджету данные записываются в payload и уйдут вместе с `sendWidget`.",
+        "operationId": "widget_data_api_posts__pid__widget_data_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "post_version",
+            "required": false,
+            "description": "version прочитанного поста; устаревшая версия получает 409",
+            "schema": {"type": "integer", "minimum": 0}
+          },
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetDataReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Изменить данные виджета (editMessageWidgetData): HTML неизменяем",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/edit": {
+      "post": {
+        "description": "`?post_version=` — поле `version` поста из `GET /api/posts/{id}`: если пост с тех пор заменили, 409.",
+        "operationId": "edit_post_api_posts__pid__edit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Поле version поста, который вы прочитали. Если пост с тех пор заменили, ответ 409, а не молчаливая перезапись чужой правки",
+            "in": "query",
+            "name": "post_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Поле version поста, который вы прочитали. Если пост с тех пор заменили, ответ 409, а не молчаливая перезапись чужой правки",
+              "title": "Post Version"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Заменить содержимое поста, опубликованного через студию",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/pin": {
+      "delete": {
+        "operationId": "unpin_post_api_posts__pid__pin_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Открепить пост",
+        "tags": [
+          "telegram"
+        ]
+      },
+      "post": {
+        "operationId": "pin_post_api_posts__pid__pin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinReq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Закрепить пост в канале",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/reschedule": {
+      "post": {
+        "operationId": "reschedule_api_posts__pid__reschedule_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Перенести отложенный пост или вернуть пропущенный в очередь на новое время",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/stop-poll": {
+      "post": {
+        "operationId": "stop_poll_api_posts__pid__stop_poll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Закрыть опрос и сохранить итоги",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/posts/{pid}/versions": {
+      "get": {
+        "operationId": "post_versions_api_posts__pid__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Как выглядел пост до каждой замены, новые сверху",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/preview-send": {
+      "post": {
+        "description": "В ответе `parsed`: блоки, на которые Telegram разобрал пост, и они же для повторной отправки (`input_blocks`).\n`chat_id`, отличный от `TG_PREVIEW_CHAT`, требует права `publish`: это уже отправка в чужой чат.",
+        "operationId": "preview_send_api_preview_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отправить пост себе в личку (TG_PREVIEW_CHAT)",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/raw/{method}": {
+      "post": {
+        "description": "Только для уровня admin; `RAW_API=off` выключает маршрут совсем.",
+        "operationId": "raw_api_raw__method__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "method",
+            "required": true,
+            "schema": {
+              "title": "Method",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Params",
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Любой метод Bot API как есть (для функций, которых ещё нет в студии)",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/render": {
+      "post": {
+        "operationId": "render_api_render_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "theme",
+            "required": false,
+            "schema": {
+              "default": "auto",
+              "title": "Theme",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отрисовать пост как в Telegram: отдельная HTML-страница",
+        "tags": [
+          "preview"
+        ]
+      }
+    },
+    "/api/schedule": {
+      "post": {
+        "operationId": "schedule_api_schedule_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отложить публикацию",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/send": {
+      "post": {
+        "operationId": "send_api_send_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Опубликовать пост (sendRichMessage)",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/session": {
+      "delete": {
+        "operationId": "logout_api_session_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Выйти из редактора: сессия и её cookie удаляются",
+        "tags": [
+          "service"
+        ]
+      },
+      "get": {
+        "operationId": "whoami_api_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Кто я: имя токена и его уровень",
+        "tags": [
+          "service"
+        ]
+      },
+      "post": {
+        "description": "Cookie `rs_session`: HttpOnly, SameSite=Strict, Secure по HTTPS, живёт `SESSION_DAYS` дней. Её же берут\nстраницы предпросмотра и картинки из загрузок.",
+        "operationId": "login_api_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Войти в редактор: ключ или токен меняется на cookie сессии",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/spec": {
+      "get": {
+        "operationId": "get_spec_api_spec_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Сводка спецификации для редактора (rich-типы, методы, изменения)",
+        "tags": [
+          "spec"
+        ]
+      }
+    },
+    "/api/spec/raw": {
+      "get": {
+        "operationId": "get_spec_raw_api_spec_raw_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Полный api.json",
+        "tags": [
+          "spec"
+        ]
+      }
+    },
+    "/api/spec/refresh": {
+      "post": {
+        "operationId": "refresh_spec_api_spec_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Скачать свежую спецификацию и показать, что изменилось",
+        "tags": [
+          "spec"
+        ]
+      }
+    },
+    "/api/spec/type/{name}": {
+      "get": {
+        "operationId": "get_spec_type_api_spec_type__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Точные поля типа или метода Bot API из текущей спецификации",
+        "tags": [
+          "spec"
+        ]
+      }
+    },
+    "/api/suggested-posts": {
+      "get": {
+        "description": "`state`: pending (ждёт решения), approved, declined, paid, refunded, failed. Студия видит предложения,\nпришедшие, пока она запущена: бот — админ канала с правом «Личные сообщения канала».",
+        "operationId": "list_suggested_api_suggested_posts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Предложенные посты из личных сообщений канала",
+        "tags": [
+          "suggested posts"
+        ]
+      }
+    },
+    "/api/suggested-posts/{sid}/approve": {
+      "post": {
+        "description": "Платное предложение списывает звёзды с автора. Боту нужно право публиковать в канале.",
+        "operationId": "approve_api_suggested_posts__sid__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApproveSuggestedReq"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Принять предложенный пост: Telegram опубликует его в канале (approveSuggestedPost)",
+        "tags": [
+          "suggested posts"
+        ]
+      }
+    },
+    "/api/suggested-posts/{sid}/decline": {
+      "post": {
+        "operationId": "decline_api_suggested_posts__sid__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeclineSuggestedReq"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Отклонить предложенный пост с комментарием автору (declineSuggestedPost)",
+        "tags": [
+          "suggested posts"
+        ]
+      }
+    },
+    "/api/suggested-posts/{sid}/reopen": {
+      "post": {
+        "description": "Только человек (уровень admin; в MCP этого нет) и только после проверки в личных сообщениях канала, что\nрешение не дошло.\nДошедшее решение Telegram, скорее всего, второй раз не примет, а его итог всё равно придёт и обновит состояние.",
+        "operationId": "reopen_api_suggested_posts__sid__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Решить снова: решение без ответа Telegram (approving/declining) возвращается в ожидание",
+        "tags": [
+          "suggested posts"
+        ]
+      }
+    },
+    "/api/templates": {
+      "get": {
+        "operationId": "list_templates_api_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Шаблоны постов текущей учётки и их заполняемые поля",
+        "tags": [
+          "templates"
+        ]
+      },
+      "post": {
+        "description": "Переменные заменяются только в строковых значениях. Все переменные должны иметь описание в fields.",
+        "operationId": "create_template_api_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Сохранить пост как шаблон с переменными {{key}}",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/templates/{tid}": {
+      "delete": {
+        "operationId": "delete_template_api_templates__tid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tid",
+            "required": true,
+            "schema": {
+              "title": "Tid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Версия прочитанного шаблона",
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "description": "Версия прочитанного шаблона",
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Удалить шаблон; созданные из него черновики остаются",
+        "tags": [
+          "templates"
+        ]
+      },
+      "get": {
+        "operationId": "get_template_api_templates__tid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tid",
+            "required": true,
+            "schema": {
+              "title": "Tid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Шаблон целиком: пост, поля и version",
+        "tags": [
+          "templates"
+        ]
+      },
+      "put": {
+        "operationId": "update_template_api_templates__tid__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tid",
+            "required": true,
+            "schema": {
+              "title": "Tid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Изменить шаблон; version защищает от перезаписи чужой правки",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/templates/{tid}/drafts": {
+      "post": {
+        "description": "Проверяет обязательные поля и URL; экранирует значения для HTML/Markdown. Не публикует пост и не копирует канал.",
+        "operationId": "create_draft_api_templates__tid__drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tid",
+            "required": true,
+            "schema": {
+              "title": "Tid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateDraftReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Заполнить поля шаблона и создать новый черновик",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/api/updates": {
+      "get": {
+        "operationId": "updates_status_api_updates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Приём событий от Telegram: нажатия, комментарии, реакции, опросы",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/api/validate": {
+      "post": {
+        "operationId": "validate_api_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Проверить пост по спецификации: ошибки, предупреждения, символы",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
+    "/api/widget": {
+      "post": {
+        "description": "Отдельное сообщение: HTML со встроенными CSS и JS. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Каналы не входят в прямую отправку (Bot API 10.4): личный чат, обычная группа или супергруппа. Лимиты: исходник 32 768 байт, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — по 1 024 байта.",
+        "operationId": "send_widget_api_widget_post",
+        "parameters": [
+          {
+            "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+            "in": "header",
+            "name": "x-studio-client",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кто отправляет: ui (редактор), mcp:<клиент>, имя скрипта. Пишется в историю постов.",
+              "title": "X-Studio-Client"
+            }
+          },
+          {
+            "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "HTML-виджет в чат (sendWidget), сразу или отложенно",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/api/widget/validate": {
+      "post": {
+        "description": "В ответе `ok`, `errors`, `warnings`, `size_raw` (байт UTF-8) и `size_compressed` (после zlib level 9). Ничего не отправляется и не сохраняется.",
+        "operationId": "widget_validate_api_widget_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetValidateReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Проверить виджет до отправки: размеры и запрещённые возможности",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/auth/telegram/callback": {
+      "get": {
+        "description": "Telegram id берётся только из подписанных данных; повторы и вход из другого браузера отклоняются.",
+        "operationId": "callback_auth_telegram_callback_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Проверить подпись Telegram и открыть сессию пользователя",
+        "tags": [
+          "service"
+        ]
+      }
+    },
+    "/render/draft/{did}": {
+      "get": {
+        "operationId": "render_draft_render_draft__did__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "did",
+            "required": true,
+            "schema": {
+              "title": "Did",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "theme",
+            "required": false,
+            "schema": {
+              "default": "auto",
+              "title": "Theme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Страница предпросмотра черновика (preview_path из save_draft)",
+        "tags": [
+          "preview"
+        ]
+      }
+    },
+    "/render/widget": {
+      "post": {
+        "description": "Принимает форму с полями `html`, `chat_data`, `public_data` и отдаёт HTML-документ предпросмотра. Ничего не отправляется и не сохраняется.",
+        "operationId": "widget_preview_render_widget_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetPreviewReq"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Предпросмотр виджета: документ для iframe с runtime WidgetSandbox",
+        "tags": [
+          "preview"
+        ]
+      }
+    }
+  }
+}

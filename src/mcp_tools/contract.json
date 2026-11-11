@@ -1,0 +1,1819 @@
+{
+  "instructions": "Rich Studio: write, check, preview and publish rich posts for the user's Telegram channel.\nOrder: bot_api_status (what is new; refresh_bot_api if the user asks for the newest) → save_draft (returns validation:\nfix every error and save again) → preview_post with draft_id (the user sees the post as in Telegram right in the chat)\n→ publish_post or schedule_post with draft_id and the version preview_post returned, only after the user explicitly confirmed that exact post\nand channel. Channels: list_channels gives titles and forum topics; name the channel by its title when asking, pass\nchat_ids to save_draft so the draft (and the editor) knows where it goes. Pass the post JSON once, to save_draft; later calls take draft_id. validate_post checks without saving.\nTo continue the user's work: list_drafts → get_draft → save_draft with draft_id and version (the editor shows it).\nTo change a published post: list_posts → get_post (read it first) → edit_post (post or draft_id + version; a draft\nwith post_id is an edit of that post and can only go out through edit_post); post_history shows earlier versions.\nstudio_status says whether scheduled posts, button answers and first comments will actually work.\nstudio_health lists what is wrong and what to do (status ok|warn|fail per check); studio_logs reads the log.\nA post is {\"rich_message\": InputRichMessage with exactly one of html|markdown|blocks, \"reply_markup\"?,\n\"options\"?, \"pin\"?, \"comment\"?, \"callbacks\"?, \"poll_after\"? (sendPoll fields: a poll sent right after the post)};\nit reaches the Bot API unchanged. describe_type gives exact\nfields of any Bot API type. Uploaded files are referenced as upload:<name>.",
+  "tools": [
+    {
+      "name": "preview_post",
+      "description": "Показать пост пользователю прямо в чате так, как его отрисует Telegram, вместе с ошибками проверки.\n        Ничего не отправляет. Файлы upload:<имя> в чате не загружаются.",
+      "inputSchema": {
+        "properties": {
+          "post": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after?}; или вместо него draft_id",
+            "title": "Post"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "id черновика из save_draft вместо post: пост берётся из черновика, JSON не нужен",
+            "title": "Draft Id"
+          }
+        },
+        "title": "preview_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://rich-studio/preview"
+        }
+      }
+    },
+    {
+      "name": "bot_api_status",
+      "description": "Версия Bot API, на которой работает студия, и последние изменения rich-типов и методов.",
+      "inputSchema": {
+        "properties": {},
+        "title": "bot_api_statusArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "refresh_bot_api",
+      "description": "Скачать свежую спецификацию Bot API прямо сейчас (обычно студия делает это сама при запуске и раз в\n        12 часов). Возвращает версию, изменения rich-типов и чего не хватает подписям и предпросмотру (gaps).\n        При ошибке скачивания студия продолжает работать на прежней версии, ошибка в поле error. На сервере\n        спецификация закреплена (`pinned`): новая версия приходит только с обновлением образа.",
+      "inputSchema": {
+        "properties": {},
+        "title": "refresh_bot_apiArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "describe_type",
+      "description": "Точные поля типа или метода Bot API из текущей спецификации.",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "description": "Тип или метод, например InputRichBlockTable",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "describe_typeArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "check_channel",
+      "description": "Бот админ канала и может публиковать? Канал запоминается с названием и появляется в list_channels.",
+      "inputSchema": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          }
+        },
+        "title": "check_channelArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_channels",
+      "description": "Каналы студии: chat_id, название (title), форум ли (is_forum) и его темы (topics: id = message_thread_id),\n        права бота при последней проверке, is_default. Называйте пользователю канал по названию; тема форума\n        задаётся в post.options.message_thread_id.",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_channelsArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "validate_post",
+      "description": "Проверить пост по спецификации: ошибки (исправить обязательно), предупреждения, длина.",
+      "inputSchema": {
+        "properties": {
+          "post": {
+            "additionalProperties": true,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after? (опрос сразу после поста)}",
+            "title": "Post",
+            "type": "object"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "validate_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "save_draft",
+      "description": "Сохранить черновик и сразу проверить его (validation: ошибки исправить и сохранить снова). Он появится\n        в редакторе, предпросмотр по адресу preview_path; дальше preview_post и publish_post принимают draft_id.\n        С draft_id обновляет существующий черновик (связь с правкой опубликованного поста сохраняется).",
+      "inputSchema": {
+        "properties": {
+          "post": {
+            "additionalProperties": true,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after? (опрос сразу после поста)}",
+            "title": "Post",
+            "type": "object"
+          },
+          "title": {
+            "default": "",
+            "description": "Название черновика; пусто при обновлении — прежнее",
+            "title": "Title",
+            "type": "string"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "id черновика, чтобы обновить его, а не создать новый",
+            "title": "Draft Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "version из get_draft: если пользователь успел изменить черновик, будет ошибка, а не перезапись",
+            "title": "Version"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Каналы черновика (list_channels): редактор откроет его с ними, publish_post без chat_id уйдёт туда. Без поля у существующего черновика остаются прежние",
+            "title": "Chat Ids"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "save_draftArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_drafts",
+      "description": "Черновики студии (последние сверху); post_id — опубликованный пост, который правится в черновике;\n        goes_to — куда уйдёт публикация без chat_id: каналы черновика по названию или канал по умолчанию.",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_draftsArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_draft",
+      "description": "Черновик целиком: пост (payload), название, version для save_draft.",
+      "inputSchema": {
+        "properties": {
+          "draft_id": {
+            "description": "id из list_drafts",
+            "title": "Draft Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft_id"
+        ],
+        "title": "get_draftArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "send_preview_to_me",
+      "description": "Отправить пост пользователю в личку (TG_PREVIEW_CHAT), чтобы он увидел его в Telegram. В канал не уходит.\n        В ответе parsed.input_blocks: пост так, как его разобрал Telegram (можно отправить как rich_message.blocks).",
+      "inputSchema": {
+        "properties": {
+          "post": {
+            "additionalProperties": true,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after? (опрос сразу после поста)}",
+            "title": "Post",
+            "type": "object"
+          }
+        },
+        "required": [
+          "post"
+        ],
+        "title": "send_preview_to_meArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "upload_media",
+      "description": "Загрузить картинку, видео или файл для поста. Вернёт ref (upload:<имя>): его ставят в media блока\n        (например {\"type\": \"photo\", \"photo\": {\"type\": \"photo\", \"media\": ref}}) или в rich_message.media.",
+      "inputSchema": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ссылка http(s) на файл: студия скачает его сама",
+            "title": "Url"
+          },
+          "data_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Или содержимое файла в base64 (с filename)",
+            "title": "Data Base64"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Имя файла с расширением: по нему выбирается тип",
+            "title": "Filename"
+          }
+        },
+        "title": "upload_mediaArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_media",
+      "description": "Загруженные файлы: в посте указываются как ref (upload:<имя>); used — нужен ли черновику или посту.",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_mediaArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "telegram_import_status",
+      "description": "Способы импорта Telegram для текущей учётки; секреты подключения не возвращаются.",
+      "inputSchema": {
+        "properties": {},
+        "title": "telegram_import_statusArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "import_telegram_post",
+      "description": "Импортировать Telegram-сообщение по ссылке t.me в новый черновик: визуальные блоки, HTML и\n        Rich Markdown. Ничего не публикует, исходный черновик не меняет. Проверяйте warnings: некоторые\n        элементы могут быть заменены отметкой. Не считайте импорт успешным при ошибке доступа/подключения.",
+      "inputSchema": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "import_telegram_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_invite_links",
+      "description": "Пригласительные ссылки, созданные студией: name, invite_link, joined (вступили), requests (заявки),\n        expire_date, member_limit, is_revoked, kind (invite или subscription). Без chat_id — по всем каналам.\n        Счётчики ведёт студия по событиям Telegram, пока она запущена; это вступления, а не люди: кто вышел и\n        вступил снова, посчитан дважды.",
+      "inputSchema": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          }
+        },
+        "title": "list_invite_linksArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_invite_link",
+      "description": "Создать именную пригласительную ссылку в канал (своя ссылка на каждую площадку, чтобы видеть, откуда\n        пришли), или платную подписку за звёзды. Только после подтверждения пользователя. Бот должен быть админом\n        с правом приглашать (can_invite_users).",
+      "inputSchema": {
+        "properties": {
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Название до 32 символов: площадка, где ссылку разместят",
+            "title": "Name"
+          },
+          "expire_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Когда ссылка перестанет работать: ISO 8601 с часовым поясом",
+            "title": "Expire Date"
+          },
+          "member_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Сколько человек смогут вступить (1–99999)",
+            "title": "Member Limit"
+          },
+          "creates_join_request": {
+            "default": false,
+            "description": "Вступление по заявке, которую принимает админ (без member_limit)",
+            "title": "Creates Join Request",
+            "type": "boolean"
+          },
+          "subscription_price": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Платная подписка: звёзд в месяц (1–10000); тогда без срока и предела",
+            "title": "Subscription Price"
+          }
+        },
+        "title": "create_invite_linkArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "edit_invite_link",
+      "description": "Изменить ссылку, созданную студией. Непереданное остаётся как было; снять: name \"\", expire_date \"\",\n        member_limit 0, creates_join_request false. У подписки — только название. Только после подтверждения\n        пользователя.",
+      "inputSchema": {
+        "properties": {
+          "invite_link": {
+            "description": "Ссылка из list_invite_links: https://t.me/+…",
+            "title": "Invite Link",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Название до 32 символов: площадка, где ссылку разместят",
+            "title": "Name"
+          },
+          "expire_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Когда ссылка перестанет работать: ISO 8601 с часовым поясом",
+            "title": "Expire Date"
+          },
+          "member_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Сколько человек смогут вступить (1–99999)",
+            "title": "Member Limit"
+          },
+          "creates_join_request": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Заявки на вступление: true включить, false снять, не передано — как было",
+            "title": "Creates Join Request"
+          }
+        },
+        "required": [
+          "invite_link"
+        ],
+        "title": "edit_invite_linkArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "revoke_invite_link",
+      "description": "Отозвать ссылку: по ней больше нельзя вступить, счётчики остаются. Только после подтверждения пользователя.",
+      "inputSchema": {
+        "properties": {
+          "invite_link": {
+            "description": "Ссылка из list_invite_links: https://t.me/+…",
+            "title": "Invite Link",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_link"
+        ],
+        "title": "revoke_invite_linkArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "send_media_post",
+      "description": "Live Photo или платный контент отдельным сообщением: в rich-пост такие медиа не вкладываются. Файлы\n        сначала загрузите (upload_media). Только после явного подтверждения пользователя для этого сообщения,\n        цены и канала. Платный контент — только там, где разрешены платные медиа (каналы).",
+      "inputSchema": {
+        "properties": {
+          "kind": {
+            "description": "live_photo — sendLivePhoto; paid_media — sendPaidMedia (фото и видео за звёзды)",
+            "enum": [
+              "live_photo",
+              "paid_media"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "description": "Параметры метода без chat_id. live_photo: {live_photo: 'upload:clip.mp4', photo: 'upload:still.jpg', caption?}; paid_media: {star_count, media: [{type: photo|video|live_photo, media: 'upload:…', photo? (кадр live_photo)}], caption?}",
+            "title": "Params",
+            "type": "object"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько каналов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Отложить: ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "pin": {
+            "default": false,
+            "description": "Закрепить после отправки",
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на пост. При повторе после ошибки передайте тот же ключ: второго поста не будет. Без ключа ключом считается сам запрос: тот же пост в тот же канал в течение суток не уйдёт второй раз",
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "kind",
+          "params"
+        ],
+        "title": "send_media_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "edit_post",
+      "description": "Заменить содержимое опубликованного, отложенного или пропущенного (missed) поста. Только после подтверждения пользователя.\n        Сначала прочитайте пост через get_post и передайте его version как post_version. Новое содержимое: post\n        или draft_id с version (черновик-правка этого поста из get_draft). Ответы на кнопки и первый комментарий\n        остаются, если их не передать; прежняя версия попадёт в post_history.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "id поста из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after?}; или вместо него draft_id",
+            "title": "Post"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "id черновика из save_draft вместо post: пост берётся из черновика, JSON не нужен",
+            "title": "Draft Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "version из save_draft/get_draft: если черновик успели изменить, будет ошибка, а не другой пост",
+            "title": "Version"
+          },
+          "post_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "version поста из get_post: если его с тех пор заменил кто-то другой, правка не пройдёт",
+            "title": "Post Version"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "edit_postArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "edit_postOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "reschedule_post",
+      "description": "Перенести отложенный пост или вернуть пропущенный (missed) в очередь. Только после подтверждения.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "id поста из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          },
+          "at": {
+            "description": "Новое время: ISO 8601 с часовым поясом",
+            "title": "At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_id",
+          "at"
+        ],
+        "title": "reschedule_postArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reschedule_postOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "cancel_scheduled_post",
+      "description": "Отменить отложенный или пропущенный пост (из канала ничего не удаляется). Только после подтверждения.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "id поста из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "cancel_scheduled_postArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "cancel_scheduled_postOutput",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_post",
+      "description": "Пост целиком: содержимое (payload), статус, канал, message_id, реакции, нажатия, итоги опроса.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "id поста из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "get_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "post_history",
+      "description": "Как пост выглядел до каждой замены (новые сверху), кто заменял.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "id поста из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "post_historyArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_posts",
+      "description": "Посты студии, новые сверху: первая строка текста (title), ссылка t.me (link), статус и ошибка\n        (failed — Telegram отказал, пост не вышел), реакции, нажатия кнопок, итоги опросов, кто отправил.",
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "sent | scheduled | failed | missed | cancelled | deleted",
+            "title": "Status"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "только посты этого канала",
+            "title": "Chat Id"
+          }
+        },
+        "title": "list_postsArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "publish_post",
+      "description": "Опубликовать пост в канал. Только после явного подтверждения пользователя для этого поста и канала\n        (назовите канал по названию из list_channels). Пост или draft_id с version; без chat_id пост уходит в каналы\n        черновика, а если их нет, в канал по умолчанию. Опубликованный из черновика пост связан с ним.",
+      "inputSchema": {
+        "properties": {
+          "post": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after?}; или вместо него draft_id",
+            "title": "Post"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько каналов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на пост. При повторе после ошибки передайте тот же ключ: второго поста не будет. Без ключа ключом считается сам запрос: тот же пост в тот же канал в течение суток не уйдёт второй раз",
+            "title": "Idempotency Key"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Только показать запросы к Telegram, ничего не отправлять",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "id черновика из save_draft вместо post: пост берётся из черновика, JSON не нужен",
+            "title": "Draft Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "version из save_draft/get_draft: если черновик успели изменить, будет ошибка, а не другой пост",
+            "title": "Version"
+          }
+        },
+        "title": "publish_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "send_poll",
+      "description": "Опрос или викторина отдельным сообщением (в rich-пост опрос не вкладывается), сразу или отложенно.\n        Только после явного подтверждения пользователя для этого опроса и канала.",
+      "inputSchema": {
+        "properties": {
+          "poll": {
+            "additionalProperties": true,
+            "description": "Параметры sendPoll без chat_id: question, options [{text}], type quiz + correct_option_id, is_anonymous, allows_multiple_answers, members_only, country_codes…",
+            "title": "Poll",
+            "type": "object"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько каналов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Отложить: ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "pin": {
+            "default": false,
+            "description": "Закрепить после отправки",
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на пост. При повторе после ошибки передайте тот же ключ: второго поста не будет. Без ключа ключом считается сам запрос: тот же пост в тот же канал в течение суток не уйдёт второй раз",
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "poll"
+        ],
+        "title": "send_pollArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "schedule_post",
+      "description": "Отложить публикацию. Только после явного подтверждения пользователя. Студия должна работать в это время;\n        если она была выключена и пост опоздал больше schedule_late_min, он станет missed и не уйдёт сам.",
+      "inputSchema": {
+        "properties": {
+          "at": {
+            "description": "Когда: ISO 8601 с часовым поясом, например 2026-10-10T09:00:00+03:00",
+            "title": "At",
+            "type": "string"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after?}; или вместо него draft_id",
+            "title": "Post"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "@канал или числовой id (list_channels); пусто — каналы черновика, иначе канал по умолчанию",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько каналов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на пост. При повторе после ошибки передайте тот же ключ: второго поста не будет. Без ключа ключом считается сам запрос: тот же пост в тот же канал в течение суток не уйдёт второй раз",
+            "title": "Idempotency Key"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Только показать запросы и время, ничего не откладывать",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "id черновика из save_draft вместо post: пост берётся из черновика, JSON не нужен",
+            "title": "Draft Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "version из save_draft/get_draft: если черновик успели изменить, будет ошибка, а не другой пост",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "schedule_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "widget_validate",
+      "description": "Проверить HTML-виджет до отправки: размер исходника (лимит 32 768 байт) и после сжатия zlib (лимит 4 096, иначе сервер отклонит), лимиты chat_data/public_data и предупреждения о возможностях, которые клиенты Telegram вырезают (сеть, ввод, видео, WebGL). Ничего не отправляет и не сохраняет.",
+      "inputSchema": {
+        "properties": {
+          "html": {
+            "description": "Исходник виджета: HTML со встроенными CSS и JS",
+            "title": "Html",
+            "type": "string"
+          },
+          "chat_data": {
+            "type": "string",
+            "description": "Необязательно: данные виджета для чата",
+            "title": "Chat Data"
+          },
+          "public_data": {
+            "type": "string",
+            "description": "Необязательно: общие данные виджета",
+            "title": "Public Data"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "title": "widget_validateArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "send_widget",
+      "description": "Отправить автономный HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. allow_queries=true отклоняется. Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint автоматически не меняется. HTML после отправки неизменяем — меняются только данные (edit_widget_data). Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Сначала widget_validate.",
+      "inputSchema": {
+        "properties": {
+          "widget": {
+            "additionalProperties": true,
+            "description": "Параметры sendWidget без chat_id: {html, caption?, chat_data?, public_data?}. Только автономные виджеты; allow_queries=true недоступно",
+            "title": "Widget",
+            "type": "object"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Личный чат, обычная группа или супергруппа (@имя или числовой id); пусто — канал по умолчанию (если это канал, будет отказ)",
+            "title": "Chat Id"
+          },
+          "chat_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Несколько чатов сразу вместо chat_id",
+            "title": "Chat Ids"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Отложить: ISO 8601 с часовым поясом",
+            "title": "At"
+          },
+          "pin": {
+            "default": false,
+            "description": "Закрепить после отправки",
+            "title": "Pin",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на виджет. При повторе после ошибки передайте тот же ключ: второй виджет не уйдёт",
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "widget"
+        ],
+        "title": "send_widgetArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "edit_widget_data",
+      "description": "Изменить данные отправленного или отложенного виджета. HTML неизменяем. chat_data/public_data — строки до 1 024 байт UTF-8 без NUL: пустая строка стирает, отсутствующий ключ поле не трогает, null отклоняется. Сначала get_post, затем post_version из его version: устаревшая версия отклоняется без правки. Отложенному виджету данные пишутся в payload без вызова Telegram.",
+      "inputSchema": {
+        "properties": {
+          "post_id": {
+            "description": "Пост-виджет из list_posts",
+            "title": "Post Id",
+            "type": "string"
+          },
+          "post_version": {
+            "description": "version из get_post; устаревшая версия отклоняется без правки",
+            "type": "integer",
+            "minimum": 0
+          },
+          "chat_data": {
+            "type": "string",
+            "description": "До 1 024 байт UTF-8",
+            "title": "Chat Data"
+          },
+          "public_data": {
+            "type": "string",
+            "description": "До 1 024 байт UTF-8",
+            "title": "Public Data"
+          }
+        },
+        "required": [
+          "post_id"
+        ],
+        "title": "edit_widget_dataArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "studio_status",
+      "description": "Что сейчас работает: токен, канал по умолчанию, приём событий (без него не будет ответов на кнопки,\n        первых комментариев и реакций), предел опоздания отложенных постов, можно ли агентам публиковать.",
+      "inputSchema": {
+        "properties": {},
+        "title": "studio_statusArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "studio_health",
+      "description": "Состояние студии целиком: проверки (база, диск, Telegram, фоновые циклы, очередь, сбойные и неясные\n        отправки, спецификация, бэкап, место, ошибки в журнале) со статусом ok/warn/fail и подсказкой action,\n        счётчики вызовов и последние предупреждения. Ничего не меняет.",
+      "inputSchema": {
+        "properties": {},
+        "title": "studio_healthArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "studio_logs",
+      "description": "Последние строки журнала студии (JSON: ts, level, logger, msg, event и поля события), новые в конце.\n        Токена и текста постов в журнале нет.",
+      "inputSchema": {
+        "properties": {
+          "level": {
+            "default": "WARNING",
+            "description": "DEBUG | INFO | WARNING | ERROR | CRITICAL: этот и выше",
+            "title": "Level",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 500,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "maximum": 4102444800,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "unix-время: только строки не старше",
+            "title": "Since"
+          },
+          "logger": {
+            "default": "",
+            "description": "начало имени: rich-studio.telegram, rich-studio.http…",
+            "title": "Logger",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "description": "подстрока в строке",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "title": "studio_logsArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_suggested_posts",
+      "description": "Посты, которые подписчики предложили в личных сообщениях канала: text, media, author, price_amount и\n        price_currency (XTR — звёзды), send_date (время, которое выбрал автор), state. Покажите их пользователю\n        и спросите, что принять.",
+      "inputSchema": {
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "open",
+            "description": "open (ждёт решения, решается или одобрение не прошло), pending, approving, declining, approved, declined, paid, refunded, failed",
+            "title": "State"
+          }
+        },
+        "title": "list_suggested_postsArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "approve_suggested_post",
+      "description": "Принять предложенный пост: Telegram опубликует его в канале, платный спишет звёзды с автора. Только после\n        явного подтверждения пользователя для этого предложения.",
+      "inputSchema": {
+        "properties": {
+          "suggestion_id": {
+            "description": "id предложения из list_suggested_posts",
+            "title": "Suggestion Id",
+            "type": "string"
+          },
+          "send_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Когда опубликовать (ISO 8601), если автор не выбрал; пусто — сразу",
+            "title": "Send Date"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Один ключ на пост. При повторе после ошибки передайте тот же ключ: второго поста не будет. Без ключа ключом считается сам запрос: тот же пост в тот же канал в течение суток не уйдёт второй раз",
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "suggestion_id"
+        ],
+        "title": "approve_suggested_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "decline_suggested_post",
+      "description": "Отклонить предложенный пост, можно с комментарием автору. Только после подтверждения пользователя.",
+      "inputSchema": {
+        "properties": {
+          "suggestion_id": {
+            "description": "id предложения из list_suggested_posts",
+            "title": "Suggestion Id",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Комментарий автору, до 128 символов",
+            "title": "Comment"
+          }
+        },
+        "required": [
+          "suggestion_id"
+        ],
+        "title": "decline_suggested_postArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list_post_templates",
+      "description": "Шаблоны текущей учётки: id, название, version и заполняемые поля.",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_post_templatesArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_post_template",
+      "description": "Шаблон целиком: payload с {{key}}, fields и version перед правкой или заполнением.",
+      "inputSchema": {
+        "properties": {
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id"
+        ],
+        "title": "get_post_templateArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "save_post_template",
+      "description": "Создать шаблон поста с полями key, label, type (text/multiline/url), required, default.\n        В посте ставьте {{key}} в строковые значения. Для обновления нужны template_id и прочитанная version.\n        Не публикует и не сохраняет _studio с альтернативными буферами редактора.",
+      "inputSchema": {
+        "$defs": {
+          "TemplateField": {
+            "properties": {
+              "key": {
+                "description": "Имя переменной {{key}} в строках поста",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+                "title": "Key",
+                "type": "string"
+              },
+              "label": {
+                "description": "Подпись поля в форме",
+                "maxLength": 100,
+                "minLength": 1,
+                "title": "Label",
+                "type": "string"
+              },
+              "type": {
+                "default": "text",
+                "enum": [
+                  "text",
+                  "multiline",
+                  "url"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "required": {
+                "default": true,
+                "title": "Required",
+                "type": "boolean"
+              },
+              "default": {
+                "type": "string",
+                "maxLength": 10000,
+                "default": "",
+                "title": "Default"
+              }
+            },
+            "required": [
+              "key",
+              "label"
+            ],
+            "title": "TemplateField",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "post": {
+            "additionalProperties": true,
+            "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after? (опрос сразу после поста)}",
+            "title": "Post",
+            "type": "object"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/$defs/TemplateField"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Template Id"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          }
+        },
+        "required": [
+          "title",
+          "post",
+          "fields"
+        ],
+        "title": "save_post_templateArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "draft_from_template",
+      "description": "Заполнить шаблон и создать отдельный черновик без публикации; пропуски берутся из default.\n        Обязательные поля и URL проверяются, HTML/Markdown экранируются. Возвращает ссылку для открытия.",
+      "inputSchema": {
+        "properties": {
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Заполняемые значения по key из fields",
+            "title": "Values",
+            "type": "object"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id",
+          "version",
+          "values"
+        ],
+        "title": "draft_from_templateArguments",
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

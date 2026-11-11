@@ -7,7 +7,7 @@ Without a label the editor shows the spec's own name; without a renderer the pre
 with the block's JSON. Telegram gets the post either way.
 
 Used by GET /api/spec (the editor shows the list), by tests/test_spec_coverage.py and by
-scripts/update_spec.py.
+scripts/update_spec.cs.
 """
 
 import functools

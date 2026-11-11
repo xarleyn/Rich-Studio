@@ -216,6 +216,17 @@ interface PostRow {
   link: string | null;
 }
 
+/** POST /api/widget/validate response (services/widgets.rs) */
+interface WidgetReport {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  /** source bytes, UTF-8 */
+  size_raw: number;
+  /** bytes after zlib level 9 */
+  size_compressed: number;
+}
+
 /** GET /api/media item */
 interface Upload {
   name: string;

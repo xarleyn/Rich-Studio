@@ -3,7 +3,7 @@
 version: 2
 updates:
   # requirements.lock (what the image installs) is not bumped by Dependabot: after its PR run `make lock`
-  # and push the lock, tests/test_lock.py fails until then
+  # and push the lock, npm run test:lock fails until then
   - package-ecosystem: pip
     directory: /
     schedule: { interval: weekly, day: monday }

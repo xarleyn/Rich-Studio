@@ -1,20 +1,31 @@
-# base image by digest: a moved tag cannot change what is built; Dependabot (docker) bumps tag and digest together
-FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 DATA_DIR=/data
-WORKDIR /app
-# every package with its hash (make lock): a changed or swapped file on PyPI stops the build
-COPY requirements.lock .
-RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
-COPY app/ .
-# an unprivileged user that owns /data (the server's named volume); the local compose runs as the host user
-# Source archives and SFTP may arrive with mode 600/700: the runtime user still needs to read the application.
-RUN chmod -R a+rX /app \
+# Both stages are pinned; the final image contains no Python runtime or server source.
+FROM rust:1.99.1-slim-bookworm@sha256:ed2c95ca377d6571b124b05e75e01207973ded639dce7d5542eb7bcd797e32aa AS build
+WORKDIR /build
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY src/ src/
+COPY app/bundled/ app/bundled/
+COPY app/static/ app/static/
+COPY app/store/migrations/ app/store/migrations/
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/build/target,sharing=locked \
+    cargo build --release --locked --bin rich-studio \
+    && cp target/release/rich-studio /build/rich-studio
+
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin studio \
-    && mkdir -p /data && chown 10001:10001 /data
+    && mkdir -p /data /opt/rich-studio \
+    && chown 10001:10001 /data
+COPY --from=build /build/rich-studio /usr/local/bin/rich-studio
+COPY app/static/ /opt/rich-studio/static/
+RUN chmod -R a+rX /opt/rich-studio
+ENV DATA_DIR=/data STUDIO_BIND=0.0.0.0:8080 STUDIO_STATIC_DIR=/opt/rich-studio/static
+WORKDIR /opt/rich-studio
 USER 10001:10001
 VOLUME /data
 EXPOSE 8080
-HEALTHCHECK --interval=60s --timeout=5s CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz')"
-# the studio writes its own request log (logs.py, ./data/logs); uvicorn's would only duplicate it
-# one process: the background loops run under a lease (services/loops.py); a stop waits for sends under way
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log", "--timeout-graceful-shutdown", "10"]
+HEALTHCHECK --interval=60s --timeout=6s --start-period=10s CMD ["rich-studio", "healthcheck"]
+CMD ["rich-studio", "serve"]

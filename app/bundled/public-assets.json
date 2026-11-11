@@ -7,17 +7,17 @@
     "images/landing-editor.webp": {
       "source": "images/landing-editor.jpg",
       "source_sha256": "a52c3a37c31a85e0fe2dcdbeae6b7485319dcc16be35f991aad19b7943d51dc4",
-      "sha256": "9cb0955766978f74af4c4b43ea4069c5118d71c6460f39080989f700bdaf3fe6"
+      "sha256": "cb4129765210fe77989a05a02174551f3c6340fe9c8dfda49c3e2d8bc9e6afc7"
     },
     "images/landing-preview.webp": {
       "source": "images/landing-preview.jpg",
       "source_sha256": "da7d2bb9139bc51a354126173343a97749ece5fcaa2b29a625e3503ce65cd82e",
-      "sha256": "025dc8b699173e038a3059bc6efc4e06c7b85e698598bb01d38ce1df2a01e72e"
+      "sha256": "26949071d8fe6efe319b264f82702f333e5c8f197aff4134405d89f78c76dc02"
     },
     "images/landing-schedule.webp": {
       "source": "images/landing-schedule.jpg",
       "source_sha256": "d67f67cf190f5fcf226d9f429501dd82987e29c761dd2fb7daf5e1a6ba075823",
-      "sha256": "747c007f04204bf721d24850b25b3e9716d006ebf46f5e0fc945f037a4c902a1"
+      "sha256": "446ea91e864e9619d78df11b865970d79aa2e3e8e2c8f9351d7622d5735f89ae"
     }
   },
   "compressed": {
