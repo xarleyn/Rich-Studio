@@ -1,8 +1,9 @@
 use std::fmt;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use crate::account_context::media_file_path;
 use crate::telegram::TelegramError;
 
 const FILE_KEYS: &[&str] = &["media", "photo", "live_photo", "thumbnail", "cover"];
@@ -54,19 +55,8 @@ fn collect(
             if FILE_KEYS.contains(&key) && reference.starts_with("upload:") =>
         {
             let name = &reference[7..];
-            let relative = Path::new(name);
-            if name.is_empty()
-                || relative.components().count() != 1
-                || relative
-                    .components()
-                    .any(|part| !matches!(part, Component::Normal(_)))
-            {
-                return Err(UploadError(format!("файл {name:?} не найден в загрузках")));
-            }
-            let path = media_dir.join(name);
-            if !path.is_file() {
-                return Err(UploadError(format!("файл {name:?} не найден в загрузках")));
-            }
+            let path = media_file_path(media_dir, name)
+                .ok_or_else(|| UploadError(format!("файл {name:?} не найден в загрузках")))?;
             if let Some((key, _)) = uploads.files.iter().find(|(_, existing)| existing == &path) {
                 return Ok(Value::String(format!("attach://{key}")));
             }

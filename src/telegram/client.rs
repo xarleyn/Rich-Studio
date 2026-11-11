@@ -316,7 +316,14 @@ impl TelegramTransport {
                 form = form.text(key, text);
             }
             for (key, path) in &uploads.files {
-                let data = tokio::fs::read(path).await.map_err(|_| {
+                let source = path.clone();
+                let data = tokio::task::spawn_blocking(move || {
+                    crate::account_context::read_media_file(&source)
+                })
+                .await
+                .map_err(std::io::Error::other)
+                .and_then(|result| result)
+                .map_err(|_| {
                     TelegramError::MissingUpload(format!(
                         "файл {:?} не найден в загрузках",
                         path.file_name().unwrap_or_default()

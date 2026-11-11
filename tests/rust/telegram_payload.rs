@@ -114,6 +114,44 @@ fn uploads_rewrite_only_file_fields_and_deduplicate() -> Result<(), Box<dyn std:
     Ok(())
 }
 
+#[cfg(any(unix, windows))]
+#[test]
+fn media_links_are_excluded_from_downloads_and_attachments()
+-> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink as link_file;
+    #[cfg(windows)]
+    use std::os::windows::fs::symlink_file as link_file;
+
+    let dir = TempDir::new()?;
+    let context = context(&dir);
+    let media = MediaService::new(context.clone(), 50.0, 500.0);
+    media.upload("original.png", b"fixture")?;
+    let linked = link_file("original.png", context.media_dir.join("alias.png"));
+    // Windows requires Developer Mode or the symbolic-link privilege.
+    #[cfg(windows)]
+    if linked
+        .as_ref()
+        .is_err_and(|error| error.raw_os_error() == Some(1314))
+    {
+        return Ok(());
+    }
+    linked?;
+    assert!(media.download("alias.png").is_err());
+    let mut attachments = Uploads::default();
+    assert!(
+        collect_uploads(
+            &json!({"media":"upload:alias.png"}),
+            &context.media_dir,
+            &mut attachments
+        )
+        .is_err()
+    );
+    assert!(attachments.files.is_empty());
+    assert_eq!(media.download("original.png")?, b"fixture");
+    Ok(())
+}
+
 #[tokio::test]
 async fn json_and_multipart_keep_the_payload_and_hide_the_token()
 -> Result<(), Box<dyn std::error::Error>> {

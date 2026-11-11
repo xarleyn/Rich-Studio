@@ -8,7 +8,10 @@ use std::time::Duration;
 use rusqlite::{Connection, OpenFlags, backup::Backup};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use crate::{account_context::AccountContext, settings::Settings};
+use crate::{
+    account_context::{AccountContext, open_media_file},
+    settings::Settings,
+};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -101,7 +104,7 @@ pub fn export_zip(settings: &Settings, context: &AccountContext) -> Result<Expor
                     format!("{prefix}media/{name}"),
                     SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
                 )?;
-                io::copy(&mut File::open(entry.path())?, &mut archive)?;
+                io::copy(&mut open_media_file(&entry.path())?, &mut archive)?;
             }
         }
     }

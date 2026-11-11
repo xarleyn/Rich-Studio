@@ -1,3 +1,5 @@
+use std::fs::{self, File};
+use std::io::{self, Read as _};
 use std::path::{Path, PathBuf};
 
 use crate::settings::Settings;
@@ -86,4 +88,49 @@ impl AccountContext {
     pub fn database_path(&self) -> &Path {
         &self.database_path
     }
+}
+
+/// Downloads, Telegram attachments and exports accept regular files in the account's media folder.
+pub(crate) fn media_file_path(directory: &Path, name: &str) -> Option<PathBuf> {
+    let leaf = Path::new(name);
+    if leaf.file_name() != Some(leaf.as_os_str()) {
+        return None;
+    }
+    let path = directory.join(leaf);
+    fs::symlink_metadata(&path).ok()?.is_file().then_some(path)
+}
+
+/// Recheck at open time: an attachment may be queued before its bytes are read.
+pub(crate) fn open_media_file(path: &Path) -> io::Result<File> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_file() {
+        return Err(io::ErrorKind::NotFound.into());
+    }
+    let mut options = File::options();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let file = options.open(path)?;
+    let opened = file.metadata()?;
+    if !opened.is_file() {
+        return Err(io::ErrorKind::NotFound.into());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        if (metadata.dev(), metadata.ino()) != (opened.dev(), opened.ino()) {
+            return Err(io::ErrorKind::NotFound.into());
+        }
+    }
+    Ok(file)
+}
+
+pub(crate) fn read_media_file(path: &Path) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    open_media_file(path)?.read_to_end(&mut bytes)?;
+    Ok(bytes)
 }

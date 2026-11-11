@@ -8,6 +8,7 @@ use regex::Regex;
 use serde_json::{Value, json};
 
 use super::{MediaError, MediaService, describe};
+use crate::account_context::{media_file_path, read_media_file};
 
 impl MediaService {
     pub fn upload(&self, filename: &str, data: &[u8]) -> Result<Value, MediaError> {
@@ -22,24 +23,11 @@ impl MediaService {
     }
 
     pub fn download(&self, name: &str) -> Result<Vec<u8>, MediaError> {
-        Ok(fs::read(self.path_of(name)?)?)
+        Ok(read_media_file(&self.path_of(name)?)?)
     }
 
     pub fn path_of(&self, name: &str) -> Result<PathBuf, MediaError> {
-        let path = Path::new(name);
-        if name.is_empty()
-            || path.is_absolute()
-            || path.components().count() != 1
-            || name == "."
-            || name == ".."
-        {
-            return Err(MediaError::NotFound);
-        }
-        let path = self.context.media_dir.join(name);
-        if !path.is_file() {
-            return Err(MediaError::NotFound);
-        }
-        Ok(path)
+        media_file_path(&self.context.media_dir, name).ok_or(MediaError::NotFound)
     }
 
     pub fn list(&self) -> Result<Vec<Value>, MediaError> {
