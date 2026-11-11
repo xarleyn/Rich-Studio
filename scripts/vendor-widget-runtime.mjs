@@ -13,7 +13,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const TAG = 'v0.6.1';
@@ -28,11 +28,15 @@ const run = (command, args, options = {}) =>
 
 function ensureCheckout() {
   const marker = path.join(checkout, 'packages', 'core', 'src', 'host', 'widget-host.ts');
-  if (existsSync(marker)) return;
-  rmSync(checkout, { recursive: true, force: true });
-  mkdirSync(cache, { recursive: true });
-  run('git', ['clone', '--depth', '1', '--branch', TAG, REPO, checkout]);
-  run('pnpm', ['install', '--frozen-lockfile'], { cwd: checkout });
+  if (!existsSync(marker)) {
+    rmSync(checkout, { recursive: true, force: true });
+    mkdirSync(cache, { recursive: true });
+    run('git', ['clone', '--depth', '1', '--branch', TAG, REPO, checkout]);
+  }
+  if (!existsSync(path.join(checkout, 'node_modules', '.modules.yaml'))) {
+    // Match the packageManager pinned in the upstream checkout.
+    run('npx', ['--yes', 'pnpm@12.10.1', 'install', '--frozen-lockfile'], { cwd: checkout });
+  }
 }
 
 /** Компилирует TS-сборщик в кэш вместе с их sandbox-build.ts: node любого поколения исполняет обычный JS. */
@@ -57,7 +61,7 @@ async function compileBuilder() {
 async function buildInto(destination) {
   ensureCheckout();
   const bundled = await compileBuilder();
-  const { buildAll } = await import(new URL('file:///' + bundled.replaceAll('\\', '/')).href);
+  const { buildAll } = await import(pathToFileURL(bundled).href);
   return buildAll(checkout, destination, root);
 }
 
