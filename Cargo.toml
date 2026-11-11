@@ -38,7 +38,7 @@ tokio-util = { version = "0.7", features = ["io"] }
 futures-util = "0.3"
 regex = "1"
 rpassword = "7.5.4"
-rmcp = { version = "3.8.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
 utoipa = { version = "6.0.0", features = ["axum_extras"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream", "multipart"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
