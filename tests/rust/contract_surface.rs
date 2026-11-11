@@ -1,17 +1,21 @@
 use axum::{
-    Router,
     body::Body,
     http::{Request, StatusCode, header},
 };
-use rich_studio::{AppState, build_router};
+use rich_studio::{AppState, build_router, settings::Settings};
+use std::collections::BTreeMap;
+use tempfile::TempDir;
 use tower::ServiceExt as _;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
-async fn response(
-    app: Router,
-    uri: &str,
-) -> Result<axum::response::Response, Box<dyn std::error::Error>> {
+async fn response(uri: &str) -> Result<axum::response::Response, Box<dyn std::error::Error>> {
+    let directory = TempDir::new()?;
+    let settings = Settings::from_map(&BTreeMap::from([(
+        "DATA_DIR".to_owned(),
+        directory.path().to_string_lossy().into_owned(),
+    )]))?;
+    let app = build_router(AppState::new(settings));
     let request = Request::builder()
         .header("host", "localhost")
         .uri(uri)
@@ -28,7 +32,7 @@ async fn body_text(
 
 #[tokio::test]
 async fn liveness_reports_ok() -> TestResult {
-    let response = response(build_router(AppState::default()), "/healthz").await?;
+    let response = response("/healthz").await?;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(body_text(response).await?, r#"{"ok":true}"#);
     Ok(())
@@ -36,7 +40,7 @@ async fn liveness_reports_ok() -> TestResult {
 
 #[tokio::test]
 async fn index_serves_the_existing_editor() -> TestResult {
-    let response = response(build_router(AppState::default()), "/").await?;
+    let response = response("/").await?;
     assert_eq!(response.status(), StatusCode::OK);
     assert!(
         body_text(response)
@@ -48,7 +52,7 @@ async fn index_serves_the_existing_editor() -> TestResult {
 
 #[tokio::test]
 async fn mcp_get_is_rejected_without_opening_a_stream() -> TestResult {
-    let response = response(build_router(AppState::default()), "/mcp").await?;
+    let response = response("/mcp").await?;
     assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     assert_eq!(
         response
