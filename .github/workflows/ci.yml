@@ -60,7 +60,7 @@ jobs:
       - run: npm run test:lock
       - run: npx eslint .
       - run: npx tsc -p .
-      - run: npx playwright install --with-deps chromium
+      - run: bash scripts/ci-chromium.sh
       - run: npm run test:render
       - run: npm run test:formats
       - run: npm run test:source
@@ -88,7 +88,8 @@ jobs:
         with:
           node-version: "24"
       - run: pip install -r requirements.txt
-      - run: npm ci && npx playwright install --with-deps chromium
+      - run: npm ci
+      - run: bash scripts/ci-chromium.sh
       - run: cargo build --locked --bin rich-studio
       - run: npm run test:docs
       - name: unchanged browser scenarios against isolated Rust and mock Telegram
