@@ -32,18 +32,13 @@ cleanup() {
   rm -rf "$WORK" || true
 }
 trap cleanup EXIT
-# GET/POST inside the studio container (it has no published port): python, since the image has no curl
+# The native CLI reaches the service on loopback; the drill publishes no ports.
 call() {
-  dc exec -T -e TOKEN="$TOKEN" rich-studio python -c '
-import json, os, sys, urllib.request
-method, path, body = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else None)
-req = urllib.request.Request("http://127.0.0.1:8080" + path, method=method, data=body and body.encode(),
-    headers={"Authorization": "Bearer " + os.environ["TOKEN"], "Content-Type": "application/json"})
-print(urllib.request.urlopen(req, timeout=10).read().decode())' "$@"
+  dc exec -T -e STUDIO_TOKEN="$TOKEN" rich-studio rich-studio request "$@"
 }
 wait_ready() {
   for _ in $(seq 60); do
-    dc exec -T rich-studio python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/readyz")' \
+    dc exec -T rich-studio rich-studio healthcheck \
       >/dev/null 2>&1 && return 0
     sleep 1
   done
@@ -51,7 +46,7 @@ wait_ready() {
 }
 
 echo "== first token (server mode does not start without one)"
-TOKEN=$(dc run --rm --no-deps -T rich-studio python cli.py token add restore-check --level admin 2>/dev/null)
+TOKEN=$(dc run --rm --no-deps -T rich-studio rich-studio token add restore-check --level admin)
 dc up -d rich-studio litestream
 wait_ready
 echo "== a draft to find after the restore"

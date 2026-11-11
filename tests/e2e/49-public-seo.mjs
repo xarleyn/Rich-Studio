@@ -28,6 +28,9 @@ export default async function ({ browser, check, MOCK }) {
     TG_BOT_USERNAME: 'fixture_bot', TG_API_BASE: MOCK, ALLOWED_HOSTS: `localhost:${port},127.0.0.1:${port},localhost,127.0.0.1`,
     STUDIO_BACKGROUND: 'off', TG_UPDATES: 'off', SPEC_PIN: 'on', NO_PROXY: 'localhost,127.0.0.1',
   }, stdio: ['ignore', 'ignore', 'pipe'] });
+  let startError;
+  server.once('error', (error) => { startError = error; });
+  const closed = new Promise((done) => server.once('close', done));
   let log = '';
   server.stderr.on('data', (chunk) => { log = (log + chunk).slice(-6000); });
   const context = await browser.newContext({ reducedMotion: 'reduce' });
@@ -38,6 +41,7 @@ export default async function ({ browser, check, MOCK }) {
   try {
     const deadline = Date.now() + 20000;
     while (true) {
+      if (startError) throw startError;
       try { if ((await fetch(app + '/healthz')).ok) break; } catch { /* starting */ }
       if (Date.now() > deadline || server.exitCode !== null) throw new Error('SEO fixture did not start: ' + log);
       await setTimeout(50);
@@ -76,6 +80,6 @@ export default async function ({ browser, check, MOCK }) {
   } finally {
     await context.close();
     server.kill();
-    if (server.exitCode === null && server.signalCode === null) await new Promise((done) => server.once('exit', done));
+    await closed;
   }
 }
