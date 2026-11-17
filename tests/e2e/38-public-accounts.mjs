@@ -90,18 +90,19 @@ export default async function ({ browser, check, MOCK }) {
     await page.waitForFunction(() => document.querySelector('#save-state').textContent.startsWith('сохранено'));
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.screenshot({ path: 'test-results/ui/public-editor-1400.png', fullPage: true });
-    const drafts = await (await first.request.get(base + '/api/drafts')).json();
+    const editorHeaders = { 'X-Studio-Client': 'ui' };
+    const drafts = await (await first.request.get(base + '/api/drafts', { headers: editorHeaders })).json();
 
     const second = await browser.newContext();
     contexts.push(second);
     const other = await second.newPage();
     await signIn(second, other, 202, 'Алексей');
-    check('A second Telegram account cannot read the first account draft', (await second.request.get(base + '/api/drafts/' + drafts[0].id)).status() === 404);
+    check('A second Telegram account cannot read the first account draft', (await second.request.get(base + '/api/drafts/' + drafts[0].id, { headers: editorHeaders })).status() === 404);
     await other.getByRole('button', { name: 'Закрыть', exact: true }).click();
     await other.locator('#account-menu').click();
     await other.getByRole('button', { name: 'Выйти', exact: true }).click();
     await other.waitForSelector('#login-screen');
-    check('Logout ends the session on the server', (await second.request.get(base + '/api/drafts')).status() === 401);
+    check('Logout ends the session on the server', (await second.request.get(base + '/api/drafts', { headers: editorHeaders })).status() === 401);
     check('Public editor has no JavaScript or CSP errors', errors.length === 0, errors.join(' | '));
   } finally {
     for (const context of contexts) await context.close();

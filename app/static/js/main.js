@@ -14,28 +14,30 @@ import { bindCode, snippetBar } from './code.js';
 import { bindTarget, loadChannels, showChannels, showTarget } from './channels.js';
 import { closeDialog, openDialog } from './dialogs.js';
 import { $, $$, act, debounce, h, sentReport, store, toast } from './dom.js';
-import { effect } from '../vendor/signals-core.js';
+import { effect, signal } from '../vendor/signals-core.js';
 import './components/rs-preview.js';
 import './components/rs-edit-bar.js';
+import './components/rs-draft-notes.js';
 import './components/rs-health.js';
 import './components/rs-parse-check.js';
 import './components/rs-code-editor.js';
 import { editPost, leaveEditing, reschedulePost, showHistory, updatePost } from './editing.js';
 import { loadDrafts, newDraft, openDraft, renderDrafts, saveDraft, watchDrafts } from './drafts.js';
-import { autosave, buildPost, changed, loadPost, parsedToBlocks, parseKey, renderPreview, setMode } from './editor.js';
+import { autosave, bindHtmlExport, bindJson, buildPost, changed, parsedToBlocks, parseKey, renderPreview, setMode, validate } from './editor.js';
+import { renderKeyboard } from './keyboard.js';
 import { watchHealth } from './health.js';
 import { showImport } from './imports.js';
 import { initPwa } from './pwa.js';
 import { showTemplates } from './templates.js';
 import { canRedo, canUndo, redo, undo } from './history.js';
 import { STATUS_LABELS } from './labels.js';
-import { addMediaEntry, loadUploads, upload } from './media.js';
+import { addMediaEntry, downloadBackup, loadUploads, upload } from './media.js';
 import { showMediaPost } from './media-post.js';
 import { showPoll } from './poll.js';
 import { showWidget } from './widget.js';
 import { loadPosts, replacePost } from './posts.js';
 import { refreshSpec, showSpec, updateBadge } from './spec-dialog.js';
-import { chat, chatLabel, chats, dark, dirty, editing, parsed, S, saveState, showParsed, target, targetLabel } from './state.js';
+import { chat, chatLabel, chats, dark, dirty, editing, parsed, S, saveState, showParsed, target, targetLabel, uiTheme } from './state.js';
 import { whenPicker } from './when.js';
 
 const isTextField = (el) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
@@ -45,6 +47,15 @@ function bindEffects() {
   effect(() => { $('#save-state').textContent = saveState.value; });
   effect(() => { $('#btn-undo').disabled = !canUndo.value; $('#btn-redo').disabled = !canRedo.value; });
   effect(() => { store.set('dark', dark.value); parsed.value; showParsed.value; renderPreview(); });
+  // the studio's own theme: a chosen one is set on <html> and kept; until then the list shows the system's
+  const system = matchMedia('(prefers-color-scheme: dark)');
+  const systemDark = signal(system.matches);
+  system.addEventListener('change', (e) => { systemDark.value = e.matches; });
+  effect(() => {
+    const theme = uiTheme.value;
+    if (theme) { document.documentElement.dataset.theme = theme; store.set('uiTheme', theme); }
+    /** @type {HTMLSelectElement} */ ($('#ui-theme')).value = theme || (systemDark.value ? 'dark' : 'light');
+  });
   effect(() => { /** @type {any} */ ($('#edit-bar')).post = editing.value; });
   // «Кнопки» in «Посты» shows only for the post being edited
   let wasEditing = editing.peek()?.id;
@@ -93,7 +104,8 @@ function bindActions() {
   $('#title').oninput = () => { dirty.value = true; autosave(); };
   // the channel belongs to the draft: changing it is a change of the draft
   // dirty at once: a publish right after the change must not go by the old saved channels; only the redraw waits
-  const redrawTarget = debounce(() => { showTarget(); renderPreview(); }, 300);
+  // what Telegram refuses depends on the chats: the button cards and the check follow them
+  const redrawTarget = debounce(() => { showTarget(); renderPreview(); renderKeyboard(); validate(); }, 300);
   $('#chat').oninput = () => { dirty.value = true; saveState.value = tr('есть изменения'); autosave(); redrawTarget(); };
   bindTarget();
   addEventListener('keydown', (e) => {
@@ -165,6 +177,7 @@ function bindActions() {
   bar.addEventListener('leave', () => leaveEditing());
 
   $('#theme-toggle').onclick = () => { dark.value = !dark.value; };
+  $('#ui-theme').onchange = (e) => { uiTheme.value = /** @type {HTMLSelectElement} */ (e.target).value === 'dark' ? 'dark' : 'light'; };
   $('#open-render').onclick = () => act(async () => {
     if (dirty.value || !S.draftId) await saveDraft(true);
     window.open('/render/draft/' + S.draftId + '?theme=' + (dark.value ? 'dark' : 'light') + '&lang=' + locale, '_blank', 'noopener');
@@ -177,12 +190,12 @@ function bindActions() {
     if (b.dataset.tab === 'uploads') loadUploads();
   });
   $('#posts-filter').onchange = () => loadPosts().catch((e) => toast(e.message, 'err'));
-  $$('#mode-tabs button').forEach((b) => b.onclick = () => setMode(b.dataset.mode));
-  $('#json-apply').onclick = () => {
-    try { const v = JSON.parse($('#src-json').value); loadPost(v); setMode('json', true); changed(); toast(tr('JSON применён'), 'ok'); } catch (e) { $('#json-err').textContent = e.message; }
-  };
+  $$('#mode-tabs button[data-mode]').forEach((b) => b.onclick = () => setMode(b.dataset.mode));
+  bindJson();
+  bindHtmlExport();
   $('#media-add').onclick = () => { addMediaEntry('photo', ''); changed(); };
   $('#upload').onchange = (e) => upload([...e.target.files]);
+  $('#export').onclick = downloadBackup;
   const side = $('.side');
   side.addEventListener('dragover', (e) => e.preventDefault());
   side.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer.files.length) upload([...e.dataTransfer.files]); });
@@ -224,6 +237,8 @@ async function boot() {
     [S.spec, S.config] = await Promise.all([api('GET', '/api/spec'), api('GET', '/api/config')]);
   } catch (e) { document.body.prepend(h('p', { class: 'err', style: 'padding:12px', text: tr('Не удалось загрузить сервис: ') + e.message })); return; }
   dark.value = store.get('dark', dark.value);
+  const theme = store.get('uiTheme', null);
+  uiTheme.value = theme === 'light' || theme === 'dark' ? theme : null;
   $('#chat').value = S.config.default_chat || '';
   $('#chat').placeholder = S.config.default_chat || tr('@канал или id');
   if (!S.config.token_set) toast(tr('TG_BOT_TOKEN не задан: редактор и предпросмотр работают, отправка нет. Добавьте токен в .env и перезапустите.'), 'err');

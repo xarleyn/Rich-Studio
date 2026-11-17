@@ -2,7 +2,8 @@
 .tg-preview {
   --tg-bg: #8fb48b; --tg-bubble: #ffffff; --tg-text: #000000; --tg-muted: #8a9299; --tg-link: #168acd;
   --tg-accent: #3390ec; --tg-quote-bg: rgba(51,144,236,.08); --tg-code-bg: rgba(0,0,0,.05); --tg-border: rgba(0,0,0,.12);
-  --tg-pre-bg: #f4f4f5;
+  /* code block: checked against a screenshot of Telegram Desktop, 2026-11-16 (#172) */
+  --tg-pre-bg: #eaeff2; --tg-pre-head: #cad5de; --tg-pre-bar: #60819c; --tg-pre-label: #507392; --tg-pre-text: #4f7493; --tg-pre-icon: #7f9bb0;
   --tg-stripe: rgba(0,0,0,.035); --tg-btn-bg: rgba(0,0,0,.18); --tg-btn-text: #fff; --tg-spoiler: #b6bec5;
   --tg-mark: #fff2a8;
   background: radial-gradient(circle at 20% 20%, rgba(255,255,255,.18), transparent 40%),
@@ -14,7 +15,10 @@
 .tg-preview.tg-dark {
   --tg-bg: #0e1621; --tg-bubble: #182533; --tg-text: #f5f5f5; --tg-muted: #6d7f8f; --tg-link: #6ab3f3;
   --tg-accent: #6ab3f3; --tg-quote-bg: rgba(106,179,243,.1); --tg-code-bg: rgba(255,255,255,.07); --tg-border: rgba(255,255,255,.14);
-  --tg-pre-bg: #202b37;
+  /* code block: checked against a screenshot of Telegram Desktop's night theme, 2026-11-16 (#172). Except --tg-pre-text:
+     that screenshot has no code without highlighting, so it is extrapolated from the colour of a plain name there
+     (in the light theme the plain code colour is the header label's, and so is this one) */
+  --tg-pre-bg: #06090d; --tg-pre-head: #2c445b; --tg-pre-bar: #5382a9; --tg-pre-label: #5888b0; --tg-pre-text: #5485b0; --tg-pre-icon: #486f92;
   --tg-stripe: rgba(255,255,255,.04); --tg-btn-bg: rgba(255,255,255,.1); --tg-spoiler: #4a5866; --tg-mark: #6b5d1c;
 }
 .tg-msg { max-width: 460px; margin: 0 auto; }
@@ -29,9 +33,24 @@
 .tg-body a, .tg-link { color: var(--tg-link); text-decoration: none; cursor: pointer; }
 .tg-body a:hover { text-decoration: underline; }
 .tg-body code { background: var(--tg-code-bg); border-radius: 4px; padding: 0 4px; font: 13.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.tg-body pre { background: var(--tg-pre-bg); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 0 0 8px; position: relative; }
-.tg-body pre[data-lang]::before { content: attr(data-lang); display: block; font: 500 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--tg-muted); margin-bottom: 4px; }
+.tg-body pre { background: var(--tg-pre-bg); border-radius: 8px; padding: 8px 12px; overflow-x: auto; margin: 0 0 8px; position: relative; }
 .tg-body pre code { background: none; padding: 0; white-space: pre; }
+/* a code block as Telegram Desktop draws it (colours above): a bar on the left, a header with the language or, without
+   one, «копировать» (CSS writes it, so it is not part of the post's text) and a copy icon; code in the plain colour of
+   the client's code, no syntax highlighting (ADR 0022) */
+.tg-pre { margin: 0 0 8px; border-left: 3px solid var(--tg-pre-bar); border-radius: 6px; overflow: hidden; background: var(--tg-pre-bg); }
+.tg-body .tg-pre > pre { margin: 0; padding: 6px 12px 8px; border-radius: 0; background: none; color: var(--tg-pre-text); font: 13.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tg-pre-head { display: flex; align-items: center; gap: 8px; min-height: 20px; padding: 0 8px; background: var(--tg-pre-head); color: var(--tg-pre-label); font: 500 12.5px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tg-pre-head::before { content: attr(data-lang); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tg-pre-head:not([data-lang])::before { content: "копировать"; }
+.tg-pre-head.tg-copied::after { content: "скопировано"; order: 1; margin-left: auto; font-family: inherit; }
+.tg-pre-copy { position: relative; order: 2; margin-left: auto; flex: none; width: 13px; height: 14px; cursor: pointer; color: var(--tg-pre-icon); }
+.tg-copied .tg-pre-copy { margin-left: 0; }
+.tg-pre-copy:hover, .tg-pre-copy:focus-visible { color: var(--tg-pre-label); outline: none; }
+/* two sheets: the back one outlined, the front one filled */
+.tg-pre-copy::before, .tg-pre-copy::after { content: ""; position: absolute; box-sizing: border-box; width: 9px; height: 11px; border-radius: 2px; }
+.tg-pre-copy::before { left: 0; top: 0; border: 1.5px solid currentColor; }
+.tg-pre-copy::after { right: 0; bottom: 0; background: currentColor; box-shadow: 0 0 0 1.5px var(--tg-pre-head); }
 .tg-body mark { background: var(--tg-mark); color: inherit; border-radius: 3px; padding: 0 2px; }
 .tg-body hr { border: 0; border-top: 1px solid var(--tg-border); margin: 12px 0; }
 .tg-body footer { color: var(--tg-muted); font-size: 13px; margin: 8px 0 4px; }
@@ -61,9 +80,15 @@
 .tg-table.striped tr:nth-child(even) { background: var(--tg-stripe); }
 .tg-cell-empty { visibility: hidden; }
 .tg-spoiler { background: var(--tg-spoiler); color: transparent; border-radius: 4px; cursor: pointer; transition: .2s; }
-.tg-spoiler * { visibility: hidden; }
+/* what a closed spoiler holds is hidden (a link, an emoji have colours of their own), a spoiler open in it too: hidden
+   is inherited, and nothing under it makes it visible again. «.tg-spoiler-open * { visibility: visible }» showed the
+   link in a closed spoiler in an open one (review of #211) */
+.tg-spoiler:not(.tg-spoiler-open) > * { visibility: hidden; }
 .tg-spoiler.tg-spoiler-open { background: rgba(0,0,0,.06); color: inherit; }
-.tg-spoiler.tg-spoiler-open * { visibility: visible; }
+/* a background or an outline makes the browser lay out an inline element on every line it spans: 512 of them one in
+   another over 7000 lines took 2 s (issue #198). A spoiler in a closed spoiler is hidden and under the outer one's blot,
+   so it needs no blot of its own; an unknown tag has a frame on two levels only (.tg-unknown below) */
+.tg-spoiler:not(.tg-spoiler-open) .tg-spoiler { background: none; }
 .tg-time { border-bottom: 1px dashed var(--tg-link); cursor: help; }
 .tg-emoji { display: inline-flex; align-items: center; }
 .tg-emoji-img { width: 20px; height: 20px; vertical-align: -5px; border-radius: 4px; }
@@ -79,6 +104,9 @@
 .tg-media img, .tg-media video { display: block; width: 100%; max-height: 520px; object-fit: cover; background: var(--tg-code-bg); }
 .tg-media audio { width: 100%; }
 .tg-media-spoiler img, .tg-media-spoiler video { filter: blur(22px) brightness(.8); cursor: pointer; }
+/* an animation plays by itself in a loop, without controls, under a «GIF» label as in Telegram */
+.tg-gif::before { content: "GIF"; position: absolute; left: 8px; top: 8px; z-index: 1; padding: 0 8px; border-radius: 10px; background: rgba(0,0,0,.45); color: #fff; font-size: 13px; line-height: 20px; pointer-events: none; }
+.tg-media-spoiler.tg-gif::before { display: none; }
 .tg-media-ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 110px; background: var(--tg-code-bg); color: var(--tg-muted); border: 1px dashed var(--tg-border); border-radius: 8px; padding: 8px; text-align: center; }
 .tg-media-kind { font-weight: 600; }
 .tg-media-ph small { font-size: 11px; word-break: break-all; }
@@ -88,13 +116,16 @@
 .tg-collage-grid > * { margin: 0 !important; }
 .tg-collage-grid .tg-media { border-radius: 0; margin: 0; height: 100%; }
 .tg-collage-grid .tg-media img, .tg-collage-grid .tg-media video { height: 100%; aspect-ratio: 1; }
-.tg-slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 8px; margin: 0 -4px; scrollbar-width: none; cursor: grab; }
-.tg-slides.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.tg-slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 8px; margin: 0 -4px; scrollbar-width: none; user-select: none; }
+.tg-slides:has(> :nth-child(2)) { cursor: grab; }
+.tg-slides.tg-dragging { cursor: grabbing; scroll-snap-type: none; }
+.tg-slides:focus-visible { outline: 2px solid var(--tg-accent); outline-offset: -2px; }
 .tg-slides > * { flex: 0 0 100%; scroll-snap-align: start; margin: 0 !important; }
 .tg-slides .tg-media { margin: 0; border-radius: 0; }
-.tg-dots { display: flex; justify-content: center; gap: 5px; margin-top: 6px; }
-.tg-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--tg-border); cursor: pointer; }
-.tg-dots span.on { background: var(--tg-accent); }
+.tg-dots { display: flex; justify-content: center; margin-top: 2px; }
+/* the padding makes a dot easier to hit with the mouse, the visible dot stays 6px */
+.tg-dots span { width: 6px; height: 6px; padding: 4px 3px; border-radius: 50%; background: var(--tg-border) content-box; cursor: pointer; }
+.tg-dots span.on { background-color: var(--tg-accent); }
 .tg-map { position: relative; overflow: hidden; border-radius: 8px; background: #e4ecdf linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px) 0 0 / 32px 32px; margin: 0 -4px; min-height: 120px; }
 .tg-map-tiles { position: absolute; display: grid; grid-template-columns: repeat(3, 256px); }
 .tg-map-tiles img { width: 256px; height: 256px; display: block; }
@@ -114,6 +145,9 @@
 .tg-kb .tg-btn { background: var(--tg-btn-bg); color: var(--tg-btn-text); border-radius: 8px; backdrop-filter: blur(6px); flex: 1 1 0; }
 .tg-kb .tg-btn-primary { background: #3390ec; } .tg-kb .tg-btn-success { background: #31b545; } .tg-kb .tg-btn-danger { background: #e53935; }
 .tg-unknown { outline: 1.5px dashed #e8a33d; outline-offset: 1px; border-radius: 3px; }
+/* an unknown tag in an unknown tag has a frame of its own, so the two read apart; from the third level on none, so the
+   time stays linear: see .tg-spoiler above (issue #198) */
+.tg-unknown .tg-unknown .tg-unknown { outline: none; }
 .tg-unknown-block { padding: 6px 8px; margin: 0 0 8px; font-size: 13px; }
 .tg-unknown-block pre { font-size: 11px; max-height: 140px; overflow: auto; margin: 4px 0 0; border: 0; }
 .tg-empty { color: var(--tg-muted); font-style: italic; }

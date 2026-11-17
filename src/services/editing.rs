@@ -19,6 +19,7 @@ pub struct EditingService {
     context: AccountContext,
     transport: TelegramTransport,
     posts: PostService,
+    loop_status: Option<std::sync::Arc<tokio::sync::RwLock<super::loops::LoopStatus>>>,
 }
 
 fn missing() -> ServiceError {
@@ -62,13 +63,30 @@ impl EditingService {
             posts: PostService::new(context.clone(), transport.clone(), settings, spec),
             context,
             transport,
+            loop_status: None,
         }
+    }
+
+    pub fn with_loop_status(
+        mut self,
+        status: std::sync::Arc<tokio::sync::RwLock<super::loops::LoopStatus>>,
+    ) -> Self {
+        self.loop_status = Some(status);
+        self
     }
 
     pub async fn get(&self, id: &str) -> Result<Value, ServiceError> {
         let id = id.to_owned();
+        let role = if let Some(status) = &self.loop_status {
+            status.read().await.role.clone()
+        } else {
+            "standby".to_owned()
+        };
         blocking::run(&self.context, move |context| {
-            posts::get(context, &id)?.ok_or_else(missing)
+            let mut record = posts::get(context, &id)?.ok_or_else(missing)?;
+            record["comment_in_flight"] =
+                super::listing::comment_in_flight(context, &record, &role);
+            Ok(record)
         })
         .await
     }
@@ -395,6 +413,15 @@ impl EditingService {
         }
         let kind = kinds::get(record["kind"].as_str())?;
         let mut payload = record["payload"].clone();
+        if !callbacks.is_null() {
+            let checked = json!({"rich_message":payload["rich_message"],"reply_markup":markup,"callbacks":callbacks});
+            self.posts
+                .run(move |service| service.validate_answers(&checked))
+                .await?;
+        }
+        let text_buttons = crate::spec::validator::callback_buttons(
+            &json!({"rich_message":payload["rich_message"]}),
+        );
         let holder = if let Some(key) = kind.key {
             &mut payload[key]
         } else {
@@ -403,6 +430,9 @@ impl EditingService {
         if !holder.is_object() {
             *holder = json!({});
         }
+        let before = crate::spec::validator::callback_buttons(
+            &json!({"reply_markup":holder["reply_markup"]}),
+        );
         if truthy(&markup["inline_keyboard"]) {
             holder["reply_markup"] = markup.clone();
         } else if let Some(object) = holder.as_object_mut() {
@@ -410,7 +440,15 @@ impl EditingService {
         }
         let new_markup = holder["reply_markup"].clone();
         if !callbacks.is_null() {
-            payload["callbacks"] = callbacks.clone();
+            let mut kept = payload["callbacks"]
+                .as_object()
+                .cloned()
+                .unwrap_or_default();
+            kept.retain(|key, _| !before.contains_key(key) || text_buttons.contains_key(key));
+            if let Some(callbacks) = callbacks.as_object() {
+                kept.extend(callbacks.clone());
+            }
+            payload["callbacks"] = Value::Object(kept);
         }
         if payload == record["payload"] {
             return Ok(record);

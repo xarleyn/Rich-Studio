@@ -336,6 +336,16 @@ pub(crate) async fn call(
     if body.is_some() {
         builder = builder.header("content-type", "application/json");
     }
+    // Cookie fixtures model the editor in a same-origin browser. Explicit fetch metadata belongs to the test.
+    if headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("cookie"))
+        && !headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("sec-fetch-site"))
+    {
+        builder = builder.header("sec-fetch-site", "same-origin");
+    }
     for (name, value) in headers {
         builder = builder.header(*name, *value);
     }

@@ -123,7 +123,7 @@ e2e-tgfake:
 # run `make lock`; `npm run test:lock` checks they agree.
 lock:
 	$(UV) pip compile requirements.txt --universal --python-version 3.12 --generate-hashes \
-	  --annotation-style line --custom-compile-command "make lock" -o requirements.lock
+	  --annotation-style line --custom-compile-command "make lock" $(LOCK_ARGS) -o requirements.lock
 
 # newer Bot API spec into app/bundled/api.json; exit 10 = updated, then make the Rust spec-gaps test green
 spec-update:

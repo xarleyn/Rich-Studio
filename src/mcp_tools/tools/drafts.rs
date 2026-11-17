@@ -127,8 +127,18 @@ pub async fn call(state: AppState, name: &str, arguments: Value) -> Result<Value
             let draft = drafts::run(state.account.clone(), move |service| service.save(input))
                 .await
                 .map_err(|error| error.to_string())?;
-            let spec = state.spec.read().await.clone();
-            let validation = super::bot_api::validate(&spec, &draft["payload"]);
+            let validation = crate::services::validation_context::check(
+                &state,
+                &draft["payload"],
+                draft["chat_ids"].as_array().map(|ids| {
+                    ids.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                }),
+                None,
+            )
+            .await?;
             let mut output = Map::new();
             for field in ["id", "title", "version", "chat_ids"] {
                 output.insert(

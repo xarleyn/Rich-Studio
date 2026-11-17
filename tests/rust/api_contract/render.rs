@@ -98,7 +98,7 @@ async fn check_reports_bot_username_and_rights() -> TestResult {
     let dir = TempDir::new()?;
     let (base, _telegram) = telegram().await;
     let app = build_router(state(&dir, &base, &[]));
-    let reply = call(app, "GET", "/api/check", None, &[]).await;
+    let reply = call(app, "POST", "/api/check", Some(json!({})), &[]).await;
     assert_eq!(reply.status, StatusCode::OK, "{}", reply.text);
     assert_eq!(reply.value["can_post"], true);
     assert_eq!(reply.value["bot"]["username"], "studio_test_bot");

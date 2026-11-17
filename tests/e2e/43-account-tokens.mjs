@@ -108,7 +108,7 @@ export default async function ({ browser, check, MOCK }) {
     await panel.getByRole('button', { name: 'Yes, revoke', exact: true }).click();
     await panel.getByText('Revoked', { exact: true }).waitFor();
     assert.equal((await fetch(base + '/api/drafts', { headers: { Authorization: 'Bearer ' + secret } })).status, 401);
-    assert.equal((await context.request.get(base + '/api/session')).status(), 200);
+    assert.equal((await context.request.get(base + '/api/session', { headers: { 'X-Studio-Client': 'ui' } })).status(), 200);
     check('Revocation stops the external credential and preserves the Telegram browser session', true);
     check('Token screen has no JavaScript errors', errors.length === 0, errors.join(' | '));
   } finally {

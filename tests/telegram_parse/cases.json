@@ -120,6 +120,76 @@
   "source": "<p>Формула <tg-math>a^2</tg-math></p><tg-math-block>\\sum_i i</tg-math-block><p><tg-time unix=\"1798761600\" format=\"wDT\">дата</tg-time> и <tg-time unix=\"1798761600\" format=\"r\"></tg-time></p>"
  },
  {
+  "name": "html-math-nested",
+  "format": "html",
+  "source": "<p>Формула в формуле <tg-math>a<tg-math>b</tg-math>c</tg-math> и в блоке</p><tg-math-block>x+<tg-math>y</tg-math></tg-math-block>"
+ },
+ {
+  "name": "html-detected-card-ton",
+  "format": "html",
+  "source": "<p>Карта 4242 4242 4242 4242, адрес TON EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c и UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ</p>"
+ },
+ {
+  "name": "html-ton-checksum",
+  "format": "html",
+  "source": "<p>Неверная сумма EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9d и EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2X, верная EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N. Base64 EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E+qBcnt и base64url EQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBcnt, смесь алфавитов EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E-qBcnt. Workchain 1 EQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEKA. Masterchain Ef8AW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBTal, testnet kQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBXJn.</p>"
+ },
+ {
+  "name": "html-href-quot",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=&quot;x&quot;\">ссылка</a></p>"
+ },
+ {
+  "name": "html-href-apos",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=&#x27;x&#x27;\">ссылка</a></p>"
+ },
+ {
+  "name": "html-href-pct22",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=%22x%22\">ссылка</a></p>"
+ },
+ {
+  "name": "html-href-space",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=a b\">ссылка</a></p>"
+ },
+ {
+  "name": "html-href-u2028",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=a&#x2028;b\">ссылка</a></p>"
+ },
+ {
+  "name": "html-entities",
+  "format": "html",
+  "source": "<p>1&nbsp;2 3&mdash;4 5&laquo;6 7&#X22;8</p>"
+ },
+ {
+  "name": "html-numeric-entities",
+  "format": "html",
+  "source": "<p>A: &#65; &#0000000000000065; &#x0000000000041; как есть: &#X41; &#65 &#; &#x;</p><p>управляющие: a&#0;b&#1;c&#9;d&#10;e&#13;f&#31;g</p><p>128…160: x&#128;x&#150;x&#159;x&#160;x</p><pre>в pre: a&#0;b&#9;c</pre><p><code>в code: a&#10;b</code></p>"
+ },
+ {
+  "name": "html-numeric-vanish",
+  "format": "html",
+  "source": "<p>первый абзац</p><p>второй a&#xD800;b</p>"
+ },
+ {
+  "name": "md-entities",
+  "format": "markdown",
+  "source": "1&nbsp;2 3&mdash;4 5&laquo;6 7&#X22;8"
+ },
+ {
+  "name": "md-numeric-entities",
+  "format": "markdown",
+  "source": "A: &#65; &#0000000000000065; и x&#128;x&#150;x\n\nвторой a&#xD800;b\n\nтретий **жирный&#1114112;** конец\n\n```\nкод &#65; &#xD800;\n```"
+ },
+ {
+  "name": "md-heading-indent",
+  "format": "markdown",
+  "source": "# h\n    a&#xD800;b\n\n***\n    a&#xD800;b\n\nh\n===\n    a&#xD800;b"
+ },
+ {
   "name": "md-table-pipes",
   "format": "markdown",
   "source": "| a | b | c |\n|---|---|---|\n| 1 || 3 |\n| x | ||s|| | y |\n| p | q |"

@@ -84,11 +84,17 @@ async fn database_full_after_a_send_never_frees_idempotency_key() -> TestResult 
         &headers,
     )
     .await;
+    assert_eq!(first.status, StatusCode::BAD_GATEWAY, "{}", first.text());
     assert_eq!(
-        first.status,
-        StatusCode::PAYLOAD_TOO_LARGE,
+        first.json()["detail"]["published"],
+        true,
         "{}",
         first.text()
+    );
+    assert!(
+        first.json()["detail"]["results"][0]["message_id"]
+            .as_i64()
+            .is_some()
     );
     Store::connect(&context)?.execute_batch("drop trigger full_after_send")?;
     let retried = call(app, "POST", "/api/send", Some(body), &headers).await;
@@ -98,7 +104,17 @@ async fn database_full_after_a_send_never_frees_idempotency_key() -> TestResult 
         "{}",
         retried.text()
     );
-    assert!(retried.text().contains("мог уйти"), "{}", retried.text());
+    assert_eq!(
+        retried.json()["detail"]["published"],
+        true,
+        "{}",
+        retried.text()
+    );
+    assert!(
+        retried.text().contains("не публикуйте повторно"),
+        "{}",
+        retried.text()
+    );
     assert_eq!(fake.count("sendRichMessage"), 1);
     Ok(())
 }

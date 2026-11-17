@@ -29,7 +29,43 @@ pub fn collect_uploads(
     media_dir: &Path,
     uploads: &mut Uploads,
 ) -> Result<Value, UploadError> {
+    check_uploads(value, media_dir, true)?;
     collect(value, media_dir, uploads, "")
+}
+
+pub fn valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && !name.contains(['/', '\\'])
+        && !name.chars().any(|character| character.is_ascii_control())
+}
+
+/// Check only InputFile fields, leaving text and unknown fields untouched. Drafts
+/// may reference a file to upload later, but a reference is always a plain name.
+pub fn check_uploads(value: &Value, media_dir: &Path, must_exist: bool) -> Result<(), UploadError> {
+    let mut todo = vec![("", value)];
+    while let Some((key, value)) = todo.pop() {
+        match value {
+            Value::Object(object) => {
+                todo.extend(object.iter().map(|(key, value)| (key.as_str(), value)));
+            }
+            Value::Array(items) => todo.extend(items.iter().map(|value| (key, value))),
+            Value::String(reference) if FILE_KEYS.contains(&key) => {
+                if let Some(name) = reference.strip_prefix("upload:") {
+                    if !valid_name(name) {
+                        return Err(UploadError(format!(
+                            "upload:{name:?}: нужно имя загруженного файла, не путь (GET /api/media)"
+                        )));
+                    }
+                    if must_exist && media_file_path(media_dir, name).is_none() {
+                        return Err(UploadError(format!("файл {name:?} не найден в загрузках")));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn collect(

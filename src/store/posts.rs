@@ -136,17 +136,34 @@ pub fn list(context: &AccountContext) -> Result<Vec<Value>, StoreError> {
 
 pub fn mark_sent(context: &AccountContext, id: &str, message_id: i64) -> Result<Value, StoreError> {
     Store::connect(context)?.execute(
-        "update posts set status='sent',message_id=?,sent_at=?,error=null,retry_at=null where id=?",
+        "update posts set status='sent',message_id=?,sent_at=?,error=null,retry_at=null,outcome_unknown=0 where id=?",
         params![message_id, now(), id],
     ).map_err(|error| StoreError::from_sqlite(error, context))?;
     get(context, id)?.ok_or_else(|| StoreError::Migration("sent post is missing".to_owned()))
 }
 
 pub fn mark_failed(context: &AccountContext, id: &str, error: &str) -> Result<(), StoreError> {
+    mark_failure(context, id, error, false)
+}
+
+pub fn mark_outcome_unknown(
+    context: &AccountContext,
+    id: &str,
+    error: &str,
+) -> Result<(), StoreError> {
+    mark_failure(context, id, error, true)
+}
+
+fn mark_failure(
+    context: &AccountContext,
+    id: &str,
+    error: &str,
+    uncertain: bool,
+) -> Result<(), StoreError> {
     Store::connect(context)?
         .execute(
-            "update posts set status='failed',error=? where id=?",
-            params![error, id],
+            "update posts set status='failed',error=?,outcome_unknown=? where id=?",
+            params![error, uncertain, id],
         )
         .map_err(|error| StoreError::from_sqlite(error, context))?;
     Ok(())
@@ -184,7 +201,7 @@ pub fn drop_refused(
 ) -> Result<usize, StoreError> {
     let connection = Store::connect(context)?;
     let mut statement = connection
-        .prepare("select id,error from posts where status='failed' and draft_id=? and chat_id=?")?;
+        .prepare("select id,error from posts where status='failed' and outcome_unknown=0 and draft_id=? and chat_id=?")?;
     let rows = statement
         .query_map(params![draft_id, chat_text(chat_id)], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))

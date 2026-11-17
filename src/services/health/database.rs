@@ -33,7 +33,7 @@ pub(super) fn queue_checks(context: &AccountContext, settings: &Settings) -> Vec
             ),
             (
                 "posts",
-                "select id,chat_id,status,comment_status,error,coalesce(sent_at,scheduled_at,created_at) as at from posts where (status in ('failed','missed') and coalesce(sent_at,scheduled_at,created_at)>=?1) or status='sending' or (comment_status='failed' and coalesce(sent_at,created_at)>=?1) order by at desc limit 20",
+                "select id,chat_id,status,outcome_unknown,comment_status,comment_failed_at,error,coalesce(sent_at,scheduled_at,created_at) as at from posts where status='missed' or outcome_unknown=1 or (status='failed' and coalesce(sent_at,scheduled_at,created_at)>=?1) or status='sending' or comment_status='sending' or (comment_status='failed' and comment_failed_at>=?1) order by at desc",
                 now - 86400,
                 "за сутки без сбоев",
                 "посты требуют внимания",
@@ -51,27 +51,40 @@ pub(super) fn queue_checks(context: &AccountContext, settings: &Settings) -> Vec
             ),
         ] {
             let mut statement = connection.prepare(query)?;
-            let rows = statement
-                .query_map([cutoff], db::decode_row)?
-                .collect::<Result<Vec<_>, _>>()?;
-            let rows = rows
-                .into_iter()
-                .map(Value::Object)
-                .filter(|row| {
-                    name != "posts"
-                        || row["status"] != "sending"
-                        || !crate::services::in_flight::contains(
-                            context,
-                            row["id"].as_str().unwrap_or_default(),
-                        )
-                })
-                .collect::<Vec<_>>();
+            let mut rows = Vec::new();
+            let mut total = 0;
+            for row in statement.query_map([cutoff], db::decode_row)? {
+                let row = Value::Object(row?);
+                if name == "posts" {
+                    let id = row["id"].as_str().unwrap_or_default();
+                    let post_problem = row["status"] == "missed"
+                        || row["outcome_unknown"] == true
+                        || (row["status"] == "failed" && row["at"].as_i64().unwrap_or(0) >= cutoff)
+                        || (row["status"] == "sending"
+                            && !crate::services::in_flight::contains(context, id));
+                    let comment_problem = (row["comment_status"] == "failed"
+                        && row["comment_failed_at"].as_i64().unwrap_or(0) >= cutoff)
+                        || (row["comment_status"] == "sending"
+                            && !crate::services::in_flight::comment_contains(context, id));
+                    if !post_problem && !comment_problem {
+                        continue;
+                    }
+                }
+                total += 1;
+                if name != "posts" || rows.len() < 20 {
+                    rows.push(row);
+                }
+            }
             let summary = if rows.is_empty() {
                 good.to_owned()
             } else if name == "scheduler" && !settings.background {
                 format!("{bad} (фоновые циклы выключены)")
             } else {
-                bad.to_owned()
+                if name == "posts" {
+                    format!("{total} {bad}")
+                } else {
+                    bad.to_owned()
+                }
             };
             let mut result = check(
                 name,
@@ -81,6 +94,9 @@ pub(super) fn queue_checks(context: &AccountContext, settings: &Settings) -> Vec
             );
             if !rows.is_empty() {
                 result["details"] = json!({field:rows});
+                if name == "posts" {
+                    result["details"]["total"] = json!(total);
+                }
             }
             checks.push(result);
         }

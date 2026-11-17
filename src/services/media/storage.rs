@@ -35,14 +35,19 @@ impl MediaService {
         if self.context.media_dir.exists() {
             for entry in fs::read_dir(&self.context.media_dir)? {
                 let entry = entry?;
-                if !entry.file_type()?.is_file() {
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if !file_type.is_file() {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().into_owned();
                 if name.starts_with('.') {
                     continue;
                 }
-                let metadata = entry.metadata()?;
+                let Ok(metadata) = entry.metadata() else {
+                    continue;
+                };
                 let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
                 files.push((modified, name, metadata.len()));
             }
@@ -61,14 +66,24 @@ impl MediaService {
     }
 
     pub fn delete(&self, name: &str, force: bool) -> Result<(), MediaError> {
+        if !crate::telegram::uploads::valid_name(name) {
+            return Err(MediaError::BadRequest(
+                "нужно имя загруженного файла, не путь".to_owned(),
+            ));
+        }
         if !force {
             let used = self.used_by(name)?;
             if !used.is_empty() {
                 return Err(MediaError::Conflict(used));
             }
         }
-        let path = self.path_of(name)?;
-        fs::remove_file(path)?;
+        // Unlink the directory entry itself: a hand-created symlink may be
+        // removed, but its target must never be touched.
+        match fs::remove_file(self.context.media_dir.join(name)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
         Ok(())
     }
 

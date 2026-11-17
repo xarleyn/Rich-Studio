@@ -141,6 +141,11 @@
       "description": "Проверить пост по спецификации: ошибки (исправить обязательно), предупреждения, длина.",
       "inputSchema": {
         "properties": {
+          "chat_ids": {
+            "description": "Куда пойдёт пост: предупреждения об ограничениях проверенных каналов; без списка — канал по умолчанию.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "post": {
             "additionalProperties": true,
             "description": "Пост: {rich_message: {html|markdown|blocks, media?}, reply_markup?, options?, pin?, comment?, poll_after? (опрос сразу после поста)}",
@@ -1090,7 +1095,7 @@
         "properties": {
           "poll": {
             "additionalProperties": true,
-            "description": "Параметры sendPoll без chat_id: question, options [{text}], type quiz + correct_option_id, is_anonymous, allows_multiple_answers, members_only, country_codes…",
+            "description": "Параметры sendPoll без chat_id: question, options [{text}], type quiz + correct_option_ids, is_anonymous, allows_multiple_answers, members_only, country_codes…",
             "title": "Poll",
             "type": "object"
           },
@@ -1314,7 +1319,7 @@
     },
     {
       "name": "send_widget",
-      "description": "Отправить автономный HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. allow_queries=true отклоняется. Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint автоматически не меняется. HTML после отправки неизменяем — меняются только данные (edit_widget_data). Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Сначала widget_validate.",
+      "description": "Отправить автономный HTML-виджет отдельным сообщением (sendWidget) только после явного подтверждения пользователя. allow_queries=true отклоняется. Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint автоматически не меняется. HTML после отправки неизменяем — меняются только данные (edit_widget_data). На production endpoint — только личный чат; совместимый или beta endpoint может разрешать группы и супергруппы. Каналы отклоняются. Сначала widget_validate.",
       "inputSchema": {
         "properties": {
           "widget": {

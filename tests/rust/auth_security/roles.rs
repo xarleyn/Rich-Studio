@@ -15,7 +15,7 @@ async fn unsafe_origins_unknown_hosts_and_mcp_publish_off_fail_closed()
     let mut config = settings(&dir, false);
     config.mcp_publish = false;
     let app = build_router(AppState::new(config));
-    let owner = [("x-api-key", "owner-secret")];
+    let owner = [("x-api-key", "owner-secret-at-least-thirty-two-characters")];
     assert_eq!(
         request(
             app.clone(),
@@ -23,7 +23,7 @@ async fn unsafe_origins_unknown_hosts_and_mcp_publish_off_fail_closed()
             "/api/drafts",
             json!({}),
             &[
-                ("x-api-key", "owner-secret"),
+                ("x-api-key", "owner-secret-at-least-thirty-two-characters"),
                 ("origin", "http://localhost:9999")
             ]
         )

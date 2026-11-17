@@ -29,7 +29,7 @@ export function changesList(changes) {
     h('ul', { class: 'changes' }, c.items.slice(0, 80).map((i) => h('li', {}, h('span', { class: 'muted', text: (kinds[i.kind] || i.kind) + ': ' }), h('code', { text: i.name }), i.description ? ' ' + i.description.slice(0, 160) : '')))));
 }
 
-// what labels.js and render.js do not know yet: the editor still works, it only looks rougher
+// what labels.js, render.js and html-export.js do not know yet: the editor still works, it only looks rougher
 export function gapsList(gaps) {
   if (!gaps.length) return [h('p', { class: 'ok small', text: tr('✓ Подписи и предпросмотр знают все блоки и элементы текста этой версии.') })];
   const part = { labels: tr('нет русской подписи (в палитре видно имя из спецификации)'), preview: tr('нет отрисовки (в предпросмотре заглушка с JSON, в Telegram уйдёт как есть)') };

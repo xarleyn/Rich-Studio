@@ -1,7 +1,12 @@
 .env
 data/
 **/__pycache__
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/telegram-rich-posts/
+.claude/skills/telegram-rich-posts/*
+!.claude/skills/telegram-rich-posts/SKILL.md
 node_modules/
 **/AGENTS.md
 .venv/
@@ -12,3 +17,7 @@ target/
 deploy/.env
 deploy/litestream.env
 deploy/secrets/
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key

@@ -105,9 +105,17 @@ async fn guarded_http_and_mcp_enforce_roles_and_idempotency_for_suggestion_publi
         StatusCode::FORBIDDEN
     );
     assert_eq!(
-        request(app, "POST", &reopen, json!({}), "owner-secret", false, None)
-            .await
-            .0,
+        request(
+            app,
+            "POST",
+            &reopen,
+            json!({}),
+            "owner-secret-at-least-thirty-two-characters",
+            false,
+            None
+        )
+        .await
+        .0,
         StatusCode::OK
     );
     let mut off = config;
@@ -118,7 +126,7 @@ async fn guarded_http_and_mcp_enforce_roles_and_idempotency_for_suggestion_publi
             "POST",
             "/mcp",
             body,
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -147,7 +155,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "GET",
         "/api/suggested-posts?state=pending",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -173,7 +181,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -185,7 +193,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "POST",
         "/api/suggested-posts/-1009:10/approve",
         json!({"send_date":auth::now() + 2_700_000}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -203,7 +211,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "POST",
         "/api/suggested-posts/-1009:10/approve",
         json!({"send_date":at}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
         Some("ui"),
@@ -223,7 +231,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -235,7 +243,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "POST",
         "/api/suggested-posts/-1009:10/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -269,7 +277,7 @@ async fn suggested_post_is_listed_approved_and_survives_a_replayed_update()
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -295,7 +303,7 @@ async fn suggested_posts_need_publish_and_work_through_mcp()
             app.clone(),
             "list_suggested_posts",
             json!({}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
         )
         .await,
     );
@@ -308,7 +316,7 @@ async fn suggested_posts_need_publish_and_work_through_mcp()
         app.clone(),
         "approve_suggested_post",
         json!({"suggestion_id":"-1009:40"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await;
     assert_eq!(approved["isError"], false);

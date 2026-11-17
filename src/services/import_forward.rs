@@ -1,4 +1,7 @@
-//! A private forward must consume an account-local, explicitly armed ticket.
+//! Explicit linked imports and automatic private forwards remain account-local.
+
+mod automatic;
+pub use automatic::receive_automatic;
 
 use super::{import_links::parse_link, imports};
 use crate::{
@@ -9,6 +12,16 @@ use crate::{
     store::{auth, import_inbox},
 };
 use serde_json::{Value, json};
+
+fn sender_context(settings: &Settings, sender: i64) -> Result<Option<AccountContext>, ImportError> {
+    if settings.owner_telegram_id > 0 && settings.owner_telegram_id == sender {
+        return Ok(Some(AccountContext::root(settings)));
+    }
+    if settings.public && auth::account(settings, sender)?.is_some() {
+        return Ok(Some(AccountContext::account(settings, sender, Role::Owner)));
+    }
+    Ok((settings.preview_chat == sender.to_string()).then(|| AccountContext::root(settings)))
+}
 
 pub fn begin(
     settings: &Settings,
@@ -50,11 +63,7 @@ fn receive_sync(settings: &Settings, update: &Value, spec: &Spec) -> Result<bool
     {
         return Ok(false);
     }
-    let context = if settings.public && auth::account(settings, sender)?.is_some() {
-        AccountContext::account(settings, sender, Role::Owner)
-    } else if settings.preview_chat == sender.to_string() {
-        AccountContext::root(settings)
-    } else {
+    let Some(context) = sender_context(settings, sender)? else {
         return Ok(false);
     };
     if let Some(token) = message["text"]

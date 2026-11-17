@@ -51,7 +51,8 @@ function definitions(spec) {
   const field = (name, types, description) => ({ name, types, description, required: false });
   return {
     ...spec.types,
-    $Post: { fields: [
+    ...spec.post?.types,
+    $Post: spec.post?.types?.[spec.post.root] || { fields: [
       field('rich_message', ['InputRichMessage'], tr('Содержимое поста: HTML, Markdown или блоки')),
       field('reply_markup', ['InlineKeyboardMarkup'], tr('Кнопки под постом')),
       field('options', ['$Options'], tr('Дополнительные параметры sendRichMessage')),
@@ -86,7 +87,7 @@ function fieldsFor(types, object, doc, defs, seen = new Set()) {
       }
     }
     for (const f of type.fields || []) {
-      const constant = type.const && ['type', 'source', 'status'].includes(f.name) ? [type.const] : [];
+      const constant = type.const && (type.const_field ? f.name === type.const_field : ['type', 'source', 'status'].includes(f.name)) ? [type.const] : [];
       add(f.name, { ...f, enum: [...(f.enum || []), ...constant],
         enumDescriptions: Object.fromEntries(constant.map((value) => [value, f.description])) });
     }

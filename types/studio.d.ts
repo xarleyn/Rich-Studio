@@ -36,14 +36,23 @@ interface SpecField {
   required: boolean;
   description: string;
   enum?: string[] | null;
+  range?: [number, number] | null;
 }
 
 interface SpecType {
   description: string;
   fields: SpecField[];
   subtypes: string[];
+  /** the field that tells this member of a union from the others, and its value */
+  const_field: string | null;
   const: string | null;
   href?: string | null;
+}
+
+/** `post` in GET /api/spec: the studio's post and the method parameters behind its options and poll_after */
+interface SpecPost {
+  root: string;
+  types: Record<string, { description: string; fields: SpecField[] }>;
 }
 
 interface SpecMethod {
@@ -64,6 +73,22 @@ interface SpecSummary {
   changes: Json[];
   gaps: SpecGap[];
   last_check: { at: number; error: string | null } | null;
+  post: SpecPost;
+  /** where Telegram refuses a field or a type (spec/chats.py): `rules` by "Type.field", "Type",
+   * "sendRichMessage.parameter"; `places` the words for a chat type ("в канале"; "forum" for a forum supergroup) */
+  chat_rules: { rules: Record<string, ChatRule>; places: Record<string, string> };
+}
+
+/** A rule of `chat_rules.rules` in GET /api/spec */
+interface ChatRule {
+  /** Chat.type values (and "ephemeral", a rich reply to a press) Telegram refuses it in: the sentence of the
+   * description that says so, Telegram's answer when it was measured, and both in words (`text`) */
+  refused: Record<string, { why: string | null; answer: string | null; text: string }>;
+  /** the only method it works in (the thinking block: sendRichMessageDraft), so in no post; `why` says so */
+  only_in: string | null;
+  why: string | null;
+  /** the way out, written by hand (a direct link to a Mini App instead of web_app) */
+  hint: string | null;
 }
 
 /** What labels.js or render.js does not know yet (spec/coverage.py) */
@@ -120,6 +145,27 @@ interface DraftRow {
   version: number;
   /** the channels the draft is meant for; null: the default channel */
   chat_ids: string[] | null;
+}
+
+/** a field of a post template: in the post it stands as {{key}} */
+interface TemplateField {
+  key: string;
+  label: string;
+  type: 'text' | 'multiline' | 'url';
+  required: boolean;
+  default: string;
+}
+
+/** GET /api/templates item; GET /api/templates/{id} adds `payload`, the post with {{key}} in it */
+interface TemplateRow {
+  id: string;
+  title: string;
+  fields: TemplateField[];
+  /** grows with every save: an edit, a delete or a fill based on an older one gets 409 */
+  version: number;
+  created_at: number;
+  updated_at: number;
+  payload?: Json;
 }
 
 /** GET /api/channels item */
@@ -201,9 +247,17 @@ interface PostRow {
   /** +1 on every replacement of the content or the buttons: «Обновить пост» sends it as post_version */
   version: number;
   pinned: boolean;
+  /** a failed send that may be in the channel all the same (no answer, a stop or a crash mid-send): stays until removed */
+  outcome_unknown: boolean;
   comment_status: string | null;
+  /** with comment_status "sending": true while the request is under way; false when nobody sends it any more (Telegram
+   * may have it, the record is missing, e.g. a database that refused it); null when this process is a standby and
+   * cannot tell (the lease holder sends comments). False for any other comment_status */
+  comment_in_flight: boolean | null;
   reactions: Json | null;
   clicks: Json | null;
+  /** rich replies to button presses that did not go (Telegram refused, no answer, too late), by callback_data */
+  reply_errors: Record<string, { n: number; error: string; at: number }> | null;
   /** callback_data → the text on its button */
   buttons: Record<string, string>;
   poll_results: Json | null;
@@ -276,12 +330,18 @@ interface EditorState {
 
   /** Unapplied JSON source is saved with the draft, including syntax errors; it never becomes the sent post implicitly. */
   pendingJson: string | null;
+  json: { text: string; base: string } | null;
+  notes: Json;
+  unknown: Json;
   media: Json[];
   flags: Json;
   keyboard: ButtonRow[];
   options: Json;
-  /** poll: sendPoll fields of the poll sent right after the post (post.poll_after) */
-  extra: { pin: boolean; comment: string; commentObj: Json | null; callbacks: Record<string, string | Json>; poll: Json | null };
+  /** comment: the HTML of the first comment in the form, commentBase: the comment it came in (its other fields go with
+   * the HTML), commentObj: a comment that is not HTML, kept as it came; callbacks: every answer as it came, of the
+   * buttons in the text too; poll: sendPoll fields of the poll sent right after the post (post.poll_after); markup:
+   * reply_markup besides inline_keyboard, as it came */
+  extra: { pin: boolean; comment: string; commentBase: Json; commentObj: Json | null; callbacks: Record<string, string | Json>; poll: Json | null; markup: Json };
   updates: UpdatesStatus | null;
   uploads: Upload[];
   posts: PostRow[];

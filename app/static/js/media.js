@@ -49,7 +49,9 @@ export function insertUpload(u) {
     renderBlocksPane();
   } else {
     const id = addMediaEntry(u.kind, u.ref);
-    const tag = u.kind === 'photo' ? `<img src="tg://photo?id=${id}">` : u.kind === 'document' ? `<tg-document src="tg://document?id=${id}"></tg-document>` : u.kind === 'audio' || u.kind === 'voice_note' ? `<audio src="tg://${u.kind === 'audio' ? 'audio' : 'voice_note'}?id=${id}"></audio>` : `<video src="tg://${u.kind}?id=${id}"></video>`;
+    // the documented links are tg://photo, video, document and audio: a GIF goes as a video, a voice note as an
+    // audio, and what the file is, its entry in media says
+    const tag = u.kind === 'photo' ? `<img src="tg://photo?id=${id}">` : u.kind === 'document' ? `<tg-document src="tg://document?id=${id}"></tg-document>` : u.kind === 'audio' || u.kind === 'voice_note' ? `<audio src="tg://audio?id=${id}"></audio>` : `<video src="tg://video?id=${id}"></video>`;
     insertAtCursor($('#src-' + S.format), S.format === 'markdown' && u.kind === 'photo' ? `![](tg://photo?id=${id})` : tag);
   }
   changed();
@@ -65,7 +67,7 @@ export async function loadUploads() {
     h('span', { class: 'name', title: u.name, text: u.name }),
     u.used ? null : h('span', { class: 'unused', title: tr('Нет ни в одном черновике и ни в одном живом посте'), text: tr('не нужен') }),
     h('button', { class: 'ghost small-btn', text: tr('в пост'), onclick: () => insertUpload(u) }),
-    h('button', { class: 'ghost small-btn', text: '✕', title: tr('Удалить файл'), onclick: () => deleteUpload(u.name) }))));
+    h('button', { class: 'ghost small-btn', text: '✕', title: tr('Удалить файл'), onclick: () => deleteUpload(u) }))));
   if (!S.uploads.length) ul.append(h('li', { class: 'muted small', text: tr('Файлов нет.') }));
   const unused = S.uploads.filter((u) => !u.used).length;
   const clean = $('#media-cleanup');
@@ -76,6 +78,30 @@ export async function loadUploads() {
     try { const r = await api('POST', '/api/media/cleanup'); toast(tr('Удалено файлов: ') + r.deleted.length, 'ok'); } catch (e) { toast(e.message, 'err'); }
     loadUploads();
   };
+}
+
+/** «Скачать бэкап» by fetch, not a link: a link sends no X-Studio-Client, and a read by the session cookie without it
+ * is refused under a name from ALLOWED_HOSTS over plain http (security.py, #215). */
+export async function downloadBackup() {
+  const b = /** @type {HTMLButtonElement} */ ($('#export'));
+  b.disabled = true;
+  try {
+    const r = await api('GET', '/api/export', undefined, true);
+    if (!r.ok) {
+      const d = (await r.json().catch(() => ({}))).detail;
+      throw new Error(typeof d === 'string' ? d : tr('Бэкап не собран: ') + r.status);
+    }
+    const name = /filename="?([^";]+)/.exec(r.headers.get('content-disposition') || '')?.[1] || 'rich-studio.zip';
+    const url = URL.createObjectURL(await r.blob());
+    const a = h('a', { href: url, download: name, hidden: true });
+    document.body.append(a); a.click(); a.remove();
+    // the browser reads the file after the click: freed later, as FileSaver.js does
+    setTimeout(() => URL.revokeObjectURL(url), 40e3);
+  } catch (e) {
+    toast(e.message, 'err');
+  } finally {
+    b.disabled = false;
+  }
 }
 
 export async function upload(files) {
@@ -89,9 +115,10 @@ export async function upload(files) {
 }
 
 // a file a scheduled post or a draft still needs is deleted only after a second, explicit yes
-async function deleteUpload(name) {
-  if (!confirm(tr('Удалить файл ') + name + '?')) return;
-  const path = '/api/media/' + encodeURIComponent(name);
+async function deleteUpload(u) {
+  if (!confirm(tr('Удалить файл ') + u.name + '?')) return;
+  // the name as its url has it, encoded by the server: a name that is not UTF-8 is shown with «�», its url keeps the bytes
+  const path = '/api/media/' + u.url.slice('/media/'.length);
   try {
     await api('DELETE', path);
   } catch (e) {

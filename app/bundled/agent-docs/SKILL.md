@@ -15,6 +15,8 @@ Configure the user's chosen client, optionally install this skill, then verify `
 
 ## Drafts and previews
 
+When the server offers resources, read `skill://telegram-rich-posts/SKILL.md` (or the `telegram-rich-posts` prompt) for the full current formatting and validation guide, including Bot API 10.4 private rich replies to callback buttons. It is available through MCP without repository access.
+
 1. Discover available MCP tools and read their input schemas. Use `describe_type` for current Telegram structures rather than guessing fields.
 2. For an existing draft: `list_drafts` → `get_draft` → `save_draft` with its `draft_id` and current `version`. For a new requested draft, call `save_draft` with a title and post.
 3. Fix reported validation errors. Then call `preview_post(draft_id)` and show its preview and `editor_url`. This preview does not send a message to Telegram. `send_preview_to_me` does send one, so use it when requested.

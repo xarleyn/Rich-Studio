@@ -17,6 +17,7 @@ pub mod posts;
 pub mod preview;
 pub mod pwa;
 pub mod raw;
+pub mod redaction;
 pub mod specs;
 pub mod static_assets;
 pub mod telegram_auth;
@@ -149,7 +150,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/spec/refresh", post(specs::refresh))
         .route("/api/validate", post(specs::validate))
         .route("/api/channels", get(channels::list).post(channels::check))
-        .route("/api/check", get(channels::check_query))
+        .route("/api/check", post(channels::check_query))
         .route(
             "/api/channels/{chat_id}/topics",
             axum::routing::put(channels::topics),
@@ -193,6 +194,10 @@ pub fn router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::security::guard,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            redaction::errors,
         ))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

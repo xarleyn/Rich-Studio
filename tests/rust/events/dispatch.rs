@@ -123,9 +123,15 @@ async fn bot_commands_are_ignored_outside_own_private_chat()
     let mention = private_ru(11, "/start@SomeOtherBot");
     let mut forwarded = private_ru(11, "/start");
     forwarded["message"]["forward_origin"] = json!({"type":"hidden_user"});
-    for update in [supergroup, other_private, bot, mention, forwarded] {
+    for update in [supergroup, other_private, bot, mention] {
         assert!(updates::handle_update(&state, &update).await?.is_none());
     }
+    // Forwarded command-looking text is ordinary imported content, never a bot command.
+    assert_eq!(
+        updates::handle_update(&state, &forwarded).await?,
+        Some("forward_import")
+    );
+    assert_eq!(mock.count("setMessageReaction"), 1);
     assert_eq!(mock.count("sendMessage"), 0);
     assert!(db::contact(&config, 11)?.is_none());
     server.abort();

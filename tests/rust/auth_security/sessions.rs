@@ -1,10 +1,68 @@
 use axum::http::StatusCode;
+use axum::{body::Body, http::Request};
 use rich_studio::store::auth;
 use rich_studio::{AppState, build_router};
 use serde_json::{Value, json};
 use tempfile::TempDir;
+use tower::ServiceExt as _;
 
 use crate::support::{TestResult, cookie, request, settings};
+
+#[tokio::test]
+async fn cookie_api_read_requires_browser_metadata_or_editor_header() -> TestResult {
+    let dir = TempDir::new()?;
+    let app = build_router(AppState::new(settings(&dir, false)));
+    let (status, _, headers) = request(
+        app.clone(),
+        "POST",
+        "/api/session",
+        json!({"key":"owner-secret-at-least-thirty-two-characters"}),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let session = cookie(&headers);
+    // Raw requests keep the missing-header case truly absent, outside the browser fixture helper's default.
+    for (site, client, expected) in [
+        (None, None, StatusCode::FORBIDDEN),
+        (Some("same-origin"), None, StatusCode::OK),
+        (None, Some("ui"), StatusCode::OK),
+        (Some("cross-site"), Some("ui"), StatusCode::FORBIDDEN),
+        (Some("same-site"), Some("ui"), StatusCode::FORBIDDEN),
+    ] {
+        let mut builder = Request::builder()
+            .method("GET")
+            .uri("/api/drafts")
+            .header("host", "localhost")
+            .header("cookie", &session);
+        if let Some(site) = site {
+            builder = builder.header("sec-fetch-site", site);
+        }
+        if let Some(client) = client {
+            builder = builder.header("x-studio-client", client);
+        }
+        let response = app.clone().oneshot(builder.body(Body::empty())?).await?;
+        assert_eq!(
+            response.status(),
+            expected,
+            "site={site:?} client={client:?}"
+        );
+    }
+    // An explicit header, including mixed-case names, must never acquire an additional same-origin default.
+    assert_eq!(
+        request(
+            app,
+            "GET",
+            "/api/drafts",
+            Value::Null,
+            &[("cookie", &session), ("SeC-FeTcH-SiTe", "cross-site")],
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    Ok(())
+}
 
 #[tokio::test]
 async fn configured_key_is_enforced_and_legacy_key_session_dies_on_rotation()
@@ -22,14 +80,14 @@ async fn configured_key_is_enforced_and_legacy_key_session_dies_on_rotation()
         app.clone(),
         "POST",
         "/api/session",
-        json!({"key":"owner-secret"}),
+        json!({"key":"owner-secret-at-least-thirty-two-characters"}),
         &[],
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, json!({"name":null,"level":"admin"}));
     let session = cookie(&headers);
-    assert!(!session.contains("owner-secret"));
+    assert!(!session.contains("owner-secret-at-least-thirty-two-characters"));
     assert!(headers["set-cookie"].to_str()?.contains("HttpOnly"));
     assert_eq!(
         request(
@@ -80,7 +138,7 @@ async fn editor_session_cookie_is_httponly_and_logout_ends_it() -> TestResult {
         app.clone(),
         "POST",
         "/api/session",
-        json!({"key":"owner-secret"}),
+        json!({"key":"owner-secret-at-least-thirty-two-characters"}),
         &[],
     )
     .await;
@@ -90,7 +148,7 @@ async fn editor_session_cookie_is_httponly_and_logout_ends_it() -> TestResult {
         .and_then(|value| value.to_str().ok())
         .ok_or("set-cookie")?;
     assert!(raw.contains("rs_session="));
-    assert!(!raw.contains("owner-secret"));
+    assert!(!raw.contains("owner-secret-at-least-thirty-two-characters"));
     assert!(raw.contains("HttpOnly"));
     assert!(raw.contains("SameSite=Strict"));
     assert!(!raw.contains("Secure"));
@@ -133,7 +191,7 @@ async fn editor_session_cookie_is_httponly_and_logout_ends_it() -> TestResult {
         app,
         "POST",
         "/api/session",
-        json!({"key":"owner-secret"}),
+        json!({"key":"owner-secret-at-least-thirty-two-characters"}),
         &[("x-forwarded-proto", "https")],
     )
     .await;

@@ -203,7 +203,7 @@ export class RsCodeEditor extends LitElement {
     const a = from ?? range?.from ?? fallback?.selectionStart ?? 0;
     const b = to ?? range?.to ?? fallback?.selectionEnd ?? a;
     const selected = from === undefined ? this.value.slice(a, b) : '';
-    const text = snip.replace('$SEL$', selected);
+    const text = snip.replace('$SEL$', () => selected);
     const caret = snip.includes('$SEL$') && !selected ? a + snip.indexOf('$SEL$') : a + text.length;
     if (this.view) {
       this.view.dispatch({ changes: { from: a, to: b, insert: text }, selection: { anchor: caret }, userEvent: 'input' });

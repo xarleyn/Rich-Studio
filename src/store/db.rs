@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, ErrorCode, OpenFlags, Row};
@@ -29,6 +29,9 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../app/store/migrations/0015_post_templates.sql"),
     include_str!("../../app/store/migrations/0016_bot_dialog.sql"),
     include_str!("../../app/store/migrations/0017_owner_sessions.sql"),
+    include_str!("../../app/store/migrations/0018_outcome_unknown.sql"),
+    include_str!("../../app/store/migrations/0019_comment_failed_at.sql"),
+    include_str!("../../app/store/migrations/0020_reply_errors.sql"),
 ];
 
 /// Immutable SQL travels with the executable; no source checkout is needed at runtime.
@@ -63,6 +66,7 @@ const JSON_FIELDS: &[&str] = &[
     "reactions",
     "clicks",
     "poll_results",
+    "reply_errors",
     "chat_ids",
     "topics",
     "rights",
@@ -157,18 +161,48 @@ pub fn migrate_steps(
     connection: &mut Connection,
     migrations: &[String],
 ) -> Result<(), MigrationError> {
-    connection.execute_batch("pragma journal_mode = WAL;")?;
-    connection.execute_batch(SCHEMA)?;
-    let existing: Vec<String> = connection
-        .prepare("pragma table_info(posts)")?
-        .query_map([], |row| row.get(1))?
-        .collect::<Result<_, _>>()?;
-    for (column, declaration) in EXTRA_COLUMNS {
-        if !existing.iter().any(|existing| existing == column) {
-            connection.execute_batch(&format!(
-                "alter table posts add column {column} {declaration}"
-            ))?;
+    // SQLite can return SQLITE_BUSY immediately while two fresh connections
+    // change journal mode, despite busy_timeout. No migration has started yet,
+    // so a bounded retry of this local pragma is safe.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match connection.execute_batch("pragma journal_mode = WAL;") {
+            Err(rusqlite::Error::SqliteFailure(code, _))
+                if matches!(
+                    code.code,
+                    ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked
+                ) && Instant::now() < deadline =>
+            {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            result => {
+                result?;
+                break;
+            }
         }
+    }
+    let initial: i64 = connection.query_row("pragma user_version", [], |row| row.get(0))?;
+    if initial == 0 {
+        // Different workers may open the same fresh database together. Take the
+        // write lock before inspecting columns or deciding which migration to run.
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let current: i64 = transaction.query_row("pragma user_version", [], |row| row.get(0))?;
+        if current == 0 {
+            transaction.execute_batch(SCHEMA)?;
+            let existing: Vec<String> = transaction
+                .prepare("pragma table_info(posts)")?
+                .query_map([], |row| row.get(1))?
+                .collect::<Result<_, _>>()?;
+            for (column, declaration) in EXTRA_COLUMNS {
+                if !existing.iter().any(|existing| existing == column) {
+                    transaction.execute_batch(&format!(
+                        "alter table posts add column {column} {declaration}"
+                    ))?;
+                }
+            }
+        }
+        transaction.commit()?;
     }
     let version: i64 = connection.query_row("pragma user_version", [], |row| row.get(0))?;
     let version = usize::try_from(version).map_err(|_| {
@@ -181,7 +215,18 @@ pub fn migrate_steps(
         )));
     }
     for (index, step) in migrations.iter().enumerate().skip(version) {
-        let transaction = connection.transaction()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let current: i64 = transaction.query_row("pragma user_version", [], |row| row.get(0))?;
+        if current > index as i64 {
+            transaction.commit()?;
+            continue;
+        }
+        if current != index as i64 {
+            return Err(StoreError::Migration(
+                "database schema changed while migrating".to_owned(),
+            ));
+        }
         transaction.execute_batch(step)?;
         transaction.execute_batch(&format!("pragma user_version = {};", index + 1))?;
         transaction.commit()?;
@@ -194,6 +239,7 @@ pub fn decode_row(row: &Row<'_>) -> Result<Map<String, Value>, rusqlite::Error> 
     for (index, name) in row.as_ref().column_names().enumerate() {
         let value = match row.get_ref(index)? {
             ValueRef::Null => Value::Null,
+            ValueRef::Integer(value) if name == "outcome_unknown" => Value::Bool(value != 0),
             ValueRef::Integer(value) => Value::Number(value.into()),
             ValueRef::Real(value) => Number::from_f64(value).map_or(Value::Null, Value::Number),
             ValueRef::Text(value) => {

@@ -154,7 +154,7 @@ pub fn list(
     chat: Option<&str>,
 ) -> Result<Vec<Value>, StoreError> {
     let connection = database(context)?;
-    let mut query = connection.prepare("select id,draft_id,chat_id,message_id,status,scheduled_at,sent_at,error,created_at,kind,actor,version,pinned,comment_status,reactions,clicks,poll_results,payload,json_extract(payload,'$.poll.question') as poll_question from posts where (? is null or status=?) and (? is null or chat_id=? or chat_num=?) order by coalesce(scheduled_at,sent_at,created_at) desc,rowid desc limit ?")?;
+    let mut query = connection.prepare("select id,draft_id,chat_id,message_id,status,scheduled_at,sent_at,error,outcome_unknown,created_at,kind,actor,version,pinned,comment_status,comment_failed_at,reactions,clicks,reply_errors,poll_results,payload,json_extract(payload,'$.poll.question') as poll_question from posts where (? is null or status=?) and (? is null or chat_id=? or chat_num=?) order by coalesce(scheduled_at,sent_at,created_at) desc,rowid desc limit ?")?;
     Ok(query
         .query_map(params![status, status, chat, chat, chat, limit], |row| {
             decode_row(row).map(Value::Object)

@@ -84,6 +84,7 @@ try {
   console.log(`Rust browser fixture: ${studioOrigin}; logs and isolated data: ${work}`);
   const suite = launch('browser', process.execPath, ['tests/e2e_ui.mjs'], {
     ...environment, BASE: studioOrigin, MOCK: mockOrigin, RICH_STUDIO_BINARY: installed,
+    DATA_DIR: join(work, 'data'),
     RICH_STUDIO_PYTHON: python, STUDIO_STATIC_DIR: join(root, 'app', 'static'),
     E2E_ONLY: process.env.E2E_ONLY || '', E2E_SLOW: process.env.E2E_SLOW || '',
   }, true);

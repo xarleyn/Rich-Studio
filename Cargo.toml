@@ -5,6 +5,11 @@ edition = "2024"
 rust-version = "1.99"
 publish = false
 
+# Keep line numbers while avoiding MSVC's PDB type-record limit with the large
+# Telegram client dependency graph. The test profile inherits this setting.
+[profile.dev]
+debug = 1
+
 [lints.rust]
 unsafe_code = "forbid"
 unused_must_use = "deny"
@@ -168,3 +173,19 @@ path = "tests/rust/api_contract/main.rs"
 [[test]]
 name = "regressions"
 path = "tests/rust/regressions/main.rs"
+
+[[test]]
+name = "upstream_reliability_sync"
+path = "tests/rust/upstream_reliability_sync.rs"
+
+[[test]]
+name = "upstream_bot_api_sync"
+path = "tests/rust/upstream_bot_api_sync.rs"
+
+[[test]]
+name = "upstream_api_sync"
+path = "tests/rust/upstream_api_sync.rs"
+
+[[test]]
+name = "upstream_forward_import"
+path = "tests/rust/upstream_forward_import.rs"

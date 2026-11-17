@@ -4,6 +4,7 @@
 
 mod draft;
 mod fields;
+mod html_safety;
 mod rules;
 mod substitute;
 
@@ -147,6 +148,9 @@ impl TemplateService {
             &rules.variable,
             &mut |text, path| rules.validate_source(text, path, &by_key),
         )?;
+        rules.validate_post_fields(&input.post, &by_key)?;
+        crate::telegram::uploads::check_uploads(&input.post, &self.context.media_dir, false)
+            .map_err(|error| TemplateError::Invalid(error.to_string()))?;
         if id.is_some() && input.version.is_none() {
             return invalid("Для обновления передайте version прочитанного шаблона.");
         }

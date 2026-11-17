@@ -507,6 +507,119 @@
   "source": "<h3>H3</h3><footer>подвал</footer><hr/><details open><summary>Открыто</summary><p>внутри</p></details><pre><code class=\"language-js\">let a = 1;</code></pre><pre>без языка</pre>",
   "spec": "Bot API 10.3"
  },
+ "html-detected-card-ton": {
+  "blocks": [
+   {
+    "text": [
+     "Карта 4242 4242 4242 4242, адрес TON ",
+     {
+      "address": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
+      "text": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
+      "type": "ton_address"
+     },
+     " и ",
+     {
+      "address": "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ",
+      "text": "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ",
+      "type": "ton_address"
+     }
+    ],
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "html",
+  "source": "<p>Карта 4242 4242 4242 4242, адрес TON EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c и UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ</p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-entities": {
+  "blocks": [
+   {
+    "text": [
+     "1 2 3—4 5&laquo;6 7&",
+     {
+      "hashtag": "X22",
+      "text": "#X22",
+      "type": "hashtag"
+     },
+     ";8"
+    ],
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "html",
+  "source": "<p>1&nbsp;2 3&mdash;4 5&laquo;6 7&#X22;8</p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-href-apos": {
+  "blocks": [
+   {
+    "text": {
+     "text": "ссылка",
+     "type": "url",
+     "url": "https://example.com/?q='x'"
+    },
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=&#x27;x&#x27;\">ссылка</a></p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-href-pct22": {
+  "blocks": [
+   {
+    "text": {
+     "text": "ссылка",
+     "type": "url",
+     "url": "https://example.com/?q=%22x%22"
+    },
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=%22x%22\">ссылка</a></p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-href-quot": {
+  "blocks": [
+   {
+    "text": "ссылка",
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=&quot;x&quot;\">ссылка</a></p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-href-space": {
+  "blocks": [
+   {
+    "text": "ссылка",
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=a b\">ссылка</a></p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-href-u2028": {
+  "blocks": [
+   {
+    "text": "ссылка",
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p><a href=\"https://example.com/?q=a&#x2028;b\">ссылка</a></p>",
+  "spec": "Bot API 10.4"
+ },
  "html-inline": {
   "blocks": [
    {
@@ -650,6 +763,29 @@
   "source": "<ol start=\"5\"><li>пять</li><li>шесть</li></ol><ul><li><input type=\"checkbox\" checked> да</li><li><input type=\"checkbox\"> нет</li></ul>",
   "spec": "Bot API 10.3"
  },
+ "html-math-nested": {
+  "blocks": [
+   {
+    "text": [
+     "Формула в формуле ",
+     {
+      "expression": "abc",
+      "type": "mathematical_expression"
+     },
+     " и в блоке"
+    ],
+    "type": "paragraph"
+   },
+   {
+    "expression": "x+y",
+    "type": "mathematical_expression"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p>Формула в формуле <tg-math>a<tg-math>b</tg-math>c</tg-math> и в блоке</p><tg-math-block>x+<tg-math>y</tg-math></tg-math-block>",
+  "spec": "Bot API 10.4"
+ },
  "html-math-time": {
   "blocks": [
    {
@@ -683,6 +819,67 @@
   "format": "html",
   "source": "<p>Формула <tg-math>a^2</tg-math></p><tg-math-block>\\sum_i i</tg-math-block><p><tg-time unix=\"1798761600\" format=\"wDT\">дата</tg-time> и <tg-time unix=\"1798761600\" format=\"r\"></tg-time></p>",
   "spec": "Bot API 10.3"
+ },
+ "html-numeric-entities": {
+  "blocks": [
+   {
+    "text": [
+     "A: A A A как есть: &",
+     {
+      "hashtag": "X41",
+      "text": "#X41",
+      "type": "hashtag"
+     },
+     "; &#65 &#; &",
+     {
+      "hashtag": "x",
+      "text": "#x",
+      "type": "hashtag"
+     },
+     ";"
+    ],
+    "type": "paragraph"
+   },
+   {
+    "text": "управляющие: a b c d e f g",
+    "type": "paragraph"
+   },
+   {
+    "text": "128…160: xxxx x",
+    "type": "paragraph"
+   },
+   {
+    "text": "в pre: a b c",
+    "type": "pre"
+   },
+   {
+    "text": {
+     "text": "в code: a b",
+     "type": "code"
+    },
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p>A: &#65; &#0000000000000065; &#x0000000000041; как есть: &#X41; &#65 &#; &#x;</p><p>управляющие: a&#0;b&#1;c&#9;d&#10;e&#13;f&#31;g</p><p>128…160: x&#128;x&#150;x&#159;x&#160;x</p><pre>в pre: a&#0;b&#9;c</pre><p><code>в code: a&#10;b</code></p>",
+  "spec": "Bot API 10.4"
+ },
+ "html-numeric-vanish": {
+  "blocks": [
+   {
+    "text": "первый абзац",
+    "type": "paragraph"
+   },
+   {
+    "text": "",
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p>первый абзац</p><p>второй a&#xD800;b</p>",
+  "spec": "Bot API 10.4"
  },
  "html-quotes": {
   "blocks": [
@@ -858,6 +1055,62 @@
   "source": "Текст без абзаца\nвторая строка<br>после br<p>абзац</p>хвост",
   "spec": "Bot API 10.3"
  },
+ "html-ton-checksum": {
+  "blocks": [
+   {
+    "text": [
+     "Неверная сумма EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9d и EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2X, верная ",
+     {
+      "address": "EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N",
+      "text": "EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N",
+      "type": "ton_address"
+     },
+     ". Base64 ",
+     {
+      "address": "EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E+qBcnt",
+      "text": "EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E+qBcnt",
+      "type": "ton_address"
+     },
+     " и base64url ",
+     {
+      "address": "EQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBcnt",
+      "text": "EQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBcnt",
+      "type": "ton_address"
+     },
+     ", смесь алфавитов ",
+     {
+      "address": "EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E-qBcnt",
+      "text": "EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E-qBcnt",
+      "type": "ton_address"
+     },
+     ". Workchain 1 ",
+     {
+      "address": "EQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEKA",
+      "text": "EQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEKA",
+      "type": "ton_address"
+     },
+     ". Masterchain ",
+     {
+      "address": "Ef8AW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBTal",
+      "text": "Ef8AW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBTal",
+      "type": "ton_address"
+     },
+     ", testnet ",
+     {
+      "address": "kQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBXJn",
+      "text": "kQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBXJn",
+      "type": "ton_address"
+     },
+     "."
+    ],
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "html",
+  "source": "<p>Неверная сумма EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9d и EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2X, верная EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N. Base64 EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E+qBcnt и base64url EQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBcnt, смесь алфавитов EQAAW7YRbMcifdgzjulEn/pVsAtmwRx30i2I4z6Z9E-qBcnt. Workchain 1 EQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEKA. Masterchain Ef8AW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBTal, testnet kQAAW7YRbMcifdgzjulEn_pVsAtmwRx30i2I4z6Z9E-qBXJn.</p>",
+  "spec": "Bot API 10.4"
+ },
  "md-breaks": {
   "blocks": [
    {
@@ -894,6 +1147,26 @@
   "format": "markdown",
   "source": "```python\nprint('hi')\n```\n\n    отступ код\n\n```\nбез языка\n```",
   "spec": "Bot API 10.3"
+ },
+ "md-entities": {
+  "blocks": [
+   {
+    "text": [
+     "1 2 3—4 5&laquo;6 7&",
+     {
+      "hashtag": "X22",
+      "text": "#X22",
+      "type": "hashtag"
+     },
+     ";8"
+    ],
+    "type": "paragraph"
+   }
+  ],
+  "captured_at": "2026-11-15",
+  "format": "markdown",
+  "source": "1&nbsp;2 3&mdash;4 5&laquo;6 7&#X22;8",
+  "spec": "Bot API 10.4"
  },
  "md-escape": {
   "blocks": [
@@ -959,6 +1232,39 @@
   "format": "markdown",
   "source": "Текст со сноской[^1].\n\n[^1]: Текст сноски.",
   "spec": "Bot API 10.3"
+ },
+ "md-heading-indent": {
+  "blocks": [
+   {
+    "size": 1,
+    "text": "h",
+    "type": "heading"
+   },
+   {
+    "text": "a&#xD800;b",
+    "type": "pre"
+   },
+   {
+    "type": "divider"
+   },
+   {
+    "text": "a&#xD800;b",
+    "type": "pre"
+   },
+   {
+    "size": 1,
+    "text": "h",
+    "type": "heading"
+   },
+   {
+    "text": "a&#xD800;b",
+    "type": "pre"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "markdown",
+  "source": "# h\n    a&#xD800;b\n\n***\n    a&#xD800;b\n\nh\n===\n    a&#xD800;b",
+  "spec": "Bot API 10.4"
  },
  "md-headings": {
   "blocks": [
@@ -1416,6 +1722,37 @@
   "format": "markdown",
   "source": "**жирный _курсив ||спойлер `код`||_** и ~~**зачёркнутый жирный**~~ и [**ссылка**](https://t.me)",
   "spec": "Bot API 10.3"
+ },
+ "md-numeric-entities": {
+  "blocks": [
+   {
+    "text": "A: A A и xxx",
+    "type": "paragraph"
+   },
+   {
+    "text": "",
+    "type": "paragraph"
+   },
+   {
+    "text": [
+     "третий ",
+     {
+      "text": "",
+      "type": "bold"
+     },
+     " конец"
+    ],
+    "type": "paragraph"
+   },
+   {
+    "text": "код &#65; &#xD800;",
+    "type": "pre"
+   }
+  ],
+  "captured_at": "2026-11-16",
+  "format": "markdown",
+  "source": "A: &#65; &#0000000000000065; и x&#128;x&#150;x\n\nвторой a&#xD800;b\n\nтретий **жирный&#1114112;** конец\n\n```\nкод &#65; &#xD800;\n```",
+  "spec": "Bot API 10.4"
  },
  "md-quote": {
   "blocks": [

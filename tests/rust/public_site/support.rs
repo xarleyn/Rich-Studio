@@ -39,7 +39,7 @@ pub(crate) fn settings_with(
         ("TG_BOT_TOKEN".to_owned(), "1:public-site-secret".to_owned()),
         (
             "STUDIO_API_KEY".to_owned(),
-            "private-operator-key".to_owned(),
+            "private-operator-key-at-least-32-characters".to_owned(),
         ),
         ("ALLOWED_HOSTS".to_owned(), "mirror.example".to_owned()),
         ("TG_API_BASE".to_owned(), "http://127.0.0.1:1".to_owned()),

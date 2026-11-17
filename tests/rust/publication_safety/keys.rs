@@ -76,11 +76,11 @@ async fn response_lost_after_accept_is_uncertain_and_never_resent()
 }
 
 #[tokio::test]
-async fn sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker()
+async fn sqlite_full_after_telegram_accept_keeps_the_key_and_repairs_without_resend()
 -> Result<(), Box<dyn std::error::Error>> {
     use rich_studio::{
         account_context::Role,
-        errors::{ServiceError, StoreError},
+        errors::ServiceError,
         services::{idempotency::Idempotency, in_flight, kinds, publisher::Publisher},
         store::{
             channels,
@@ -135,7 +135,7 @@ async fn sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker()
         })
         .await;
     assert!(
-        matches!(first, Err(ServiceError::Store(StoreError::StorageFull))),
+        matches!(&first, Err(ServiceError::MayHaveGone(detail)) if detail["published"] == true && detail["results"][0]["message_id"] == 20),
         "{first:?}"
     );
     let rows = posts::list(&context)?;
@@ -143,8 +143,8 @@ async fn sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker()
     assert_eq!(rows[0]["status"], "sending");
     assert_eq!(sent_count(&mut requests, "sendRichMessage"), 1);
     Store::connect(&context)?.execute_batch("drop trigger full_after_accept")?;
-    // Reopen the durable key and recover as a restarted process would. Neither
-    // operation may cause a second Telegram accept, even once the quota is free.
+    // Reopen the durable key: a confirmed publication is never sent again, even
+    // once the quota is free. This process still has Telegram's confirmation.
     let retry = Idempotency::new(context.clone())
         .run(Some("full-after-accept"), "send", &body, "test", || async {
             panic!("an uncertain send must never invoke its action again")
@@ -154,8 +154,11 @@ async fn sqlite_full_after_telegram_accept_keeps_the_key_and_restart_marker()
         matches!(retry, Err(ServiceError::MayHaveGone(_))),
         "{retry:?}"
     );
-    assert_eq!(in_flight::recover(&context)?, 1);
-    assert_eq!(posts::list(&context)?[0]["status"], "failed");
+    assert_eq!(in_flight::recover(&context)?, 0);
+    rich_studio::services::publisher::write_unrecorded(&context)?;
+    let repaired = posts::list(&context)?;
+    assert_eq!(repaired[0]["status"], "sent");
+    assert_eq!(repaired[0]["message_id"], 20);
     assert_eq!(sent_count(&mut requests, "sendRichMessage"), 0);
     Ok(())
 }

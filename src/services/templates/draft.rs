@@ -7,7 +7,7 @@ use crate::store::{drafts, templates as records};
 
 use super::fields::field_value;
 use super::rules::Rules;
-use super::substitute::{Mode, escape, substitute, visit};
+use super::substitute::{Mode, Modes, escape, substitute, visit};
 use super::{FillInput, TemplateError, TemplateField, TemplateService, invalid, version_valid};
 
 impl TemplateService {
@@ -41,7 +41,7 @@ impl TemplateService {
         for field in fields {
             let value = input.values.get(&field.key).unwrap_or(&field.default);
             field_value(&field, value, true)?;
-            for mode in [Mode::Plain, Mode::Html, Mode::Markdown] {
+            for mode in [Mode::Plain, Mode::Html, Mode::Markdown, Mode::MarkdownUrl] {
                 let text = escape(value, mode);
                 let size = records::encode(&Value::String(text.clone()))?.len() - 2;
                 replacements.insert((mode, field.key.clone()), (text, size));
@@ -49,6 +49,19 @@ impl TemplateService {
         }
         let rules = Rules::new()?;
         let payload = &template["payload"];
+        let mut filled_fields: Vec<TemplateField> =
+            serde_json::from_value(template["fields"].clone())
+                .map_err(|error| StoreError::Migration(error.to_string()))?;
+        for field in &mut filled_fields {
+            if let Some(value) = input.values.get(&field.key) {
+                field.default = value.clone();
+            }
+        }
+        let filled_by_key = filled_fields
+            .iter()
+            .map(|field| (field.key.as_str(), field))
+            .collect::<BTreeMap<_, _>>();
+        rules.validate_post_fields(payload, &filled_by_key)?;
         let mut size = records::encode(payload)?.len() as i64;
         visit(
             payload,
@@ -56,10 +69,16 @@ impl TemplateService {
             0,
             &rules.variable,
             &mut |text, path| {
-                let mode = Mode::for_path(path);
+                let modes = Modes::new(path, text);
                 for capture in rules.variable.captures_iter(text) {
+                    let matched = capture.get(0).ok_or_else(|| {
+                        StoreError::Migration("missing variable match".to_owned())
+                    })?;
                     let replacement = replacements
-                        .get(&(mode, capture[1].to_owned()))
+                        .get(&(
+                            modes.at(matched.start(), matched.end()),
+                            capture[1].to_owned(),
+                        ))
                         .ok_or_else(|| {
                             TemplateError::Invalid(format!(
                                 "Опишите поля для переменных: {}",
@@ -78,6 +97,8 @@ impl TemplateService {
         }
         let mut post = payload.clone();
         substitute(&mut post, &mut Vec::new(), &rules.variable, &replacements)?;
+        crate::telegram::uploads::check_uploads(&post, &self.context.media_dir, false)
+            .map_err(|error| TemplateError::Invalid(error.to_string()))?;
         let title = if input.title.trim().is_empty() {
             template["title"]
                 .as_str()

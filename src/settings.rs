@@ -301,6 +301,12 @@ impl Settings {
         );
         let public_address = url::Url::parse(&public_url).ok();
         if mode == "server" {
+            if !api_key.is_empty() && api_key.chars().count() < 32 {
+                problems.push(
+                    "STUDIO_MODE=server: STUDIO_API_KEY должен быть не короче 32 символов"
+                        .to_owned(),
+                );
+            }
             if public_address.as_ref().is_none_or(|url| {
                 url.scheme() != "https"
                     || url.host_str().is_none()

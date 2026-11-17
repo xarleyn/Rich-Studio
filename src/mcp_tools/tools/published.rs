@@ -74,18 +74,21 @@ async fn dispatch(state: AppState, name: &str, arguments: Value) -> Result<Value
         state.transport(),
         &state.settings,
         state.spec.read().await.clone(),
-    );
+    )
+    .with_loop_status(state.loop_status.clone());
     if name == "list_posts" {
         let limit = arguments["limit"].as_i64().unwrap_or(20);
         if !(1..=100).contains(&limit) {
             return Err(ServiceError::BadRequest("limit: от 1 до 100".to_owned()));
         }
+        let role = state.loop_status.read().await.role.clone();
         return blocking::run(&state.account, move |context| {
-            Ok(json!(listing::list_posts(
+            Ok(json!(listing::list_posts_with_role(
                 context,
                 limit,
                 arguments["status"].as_str(),
-                arguments["chat_id"].as_str()
+                arguments["chat_id"].as_str(),
+                &role,
             )?))
         })
         .await;

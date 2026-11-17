@@ -1,6 +1,7 @@
 import { tr, dateLocale } from './i18n.js';
 // Editing a published or scheduled post: the draft is its working copy, <rs-edit-bar> says which post it is.
 import { api } from './api.js';
+import { showTarget } from './channels.js';
 import { closeDialog, openDialog } from './dialogs.js';
 import { $, act, h, toast } from './dom.js';
 import { openDraft, saveDraft, setDraft } from './drafts.js';
@@ -36,6 +37,7 @@ export async function followDraft(d) {
 
 export function leaveEditing() {
   editing.value = null;
+  showTarget(); // a new post goes where the header says: the topic of the edited post's forum stays there
   dirty.value = true; saveState.value = tr('есть изменения');
   saveDraft(true).catch((e) => toast(e.message, 'err'));
 }
@@ -90,7 +92,7 @@ export function reschedulePost(p) {
 /** Earlier versions of the post: what each one changed, a small preview, and «В редактор» for any of them. */
 export async function showHistory(p) {
   const [now, versions] = await Promise.all([api('GET', '/api/posts/' + p.id), api('GET', `/api/posts/${p.id}/versions`)]);
-  const load = (payload) => { closeDialog(); loadPost(payload); changed(); toast(tr('Загружено в редактор. «Обновить пост» вернёт его в канал'), 'ok'); };
+  const load = (payload) => { closeDialog(); loadPost(payload, true); changed(); toast(tr('Загружено в редактор. «Обновить пост» вернёт его в канал'), 'ok'); };
   // newest first: each entry is compared with the one it replaced
   const all = [{ label: now.status === 'sent' ? tr('Сейчас в канале') : tr('Сейчас в очереди'), meta: '', payload: now.payload },
     ...versions.map((v) => ({ label: tr('До замены ') + when(v.replaced_at), meta: v.actor && v.actor !== 'ui' ? v.actor : '', payload: v.payload }))];

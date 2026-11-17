@@ -143,7 +143,10 @@ pub(crate) fn settings(dir: &TempDir, base: &str) -> Settings {
         ),
         ("TG_BOT_TOKEN".to_owned(), "1:fixture".to_owned()),
         ("TG_DEFAULT_CHAT".to_owned(), "@test_channel".to_owned()),
-        ("STUDIO_API_KEY".to_owned(), "owner-secret".to_owned()),
+        (
+            "STUDIO_API_KEY".to_owned(),
+            "owner-secret-at-least-thirty-two-characters".to_owned(),
+        ),
         ("STUDIO_BACKGROUND".to_owned(), "off".to_owned()),
     ]))
     .unwrap_or_else(|e| panic!("settings {e}"));
@@ -235,7 +238,10 @@ pub(crate) async fn request_with(
         .header("mcp-protocol-version", "2025-06-18")
         .header("content-type", "application/json");
     builder = if session {
-        builder.header("cookie", format!("rs_session={credential}"))
+        // This branch models the editor; token clients below do not invent browser metadata.
+        builder
+            .header("cookie", format!("rs_session={credential}"))
+            .header("sec-fetch-site", "same-origin")
     } else {
         builder.header("authorization", format!("Bearer {credential}"))
     };

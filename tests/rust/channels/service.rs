@@ -89,7 +89,7 @@ async fn channels_remember_rights_topics_and_default() -> Result<(), Box<dyn std
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     let (status, checked) =
-        http_request(app.clone(), "GET", "/api/check?chat_id=@other", None, &[]).await;
+        http_request(app.clone(), "POST", "/api/check?chat_id=@other", None, &[]).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(checked["channel"]["chat_id"], "@other");
     let (_, listed) = http_request(app, "GET", "/api/channels", None, &[]).await;
@@ -221,7 +221,7 @@ async fn check_endpoint_uses_default_chat_when_query_is_missing_or_empty()
     let dir = TempDir::new()?;
     let app = build_router(AppState::new(settings(&dir, &chat_server().await)));
     for uri in ["/api/check", "/api/check?chat_id="] {
-        let (status, checked) = http_request(app.clone(), "GET", uri, None, &[]).await;
+        let (status, checked) = http_request(app.clone(), "POST", uri, None, &[]).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(checked["channel"]["chat_id"], "@main");
         assert_eq!(checked["can_post"], true);

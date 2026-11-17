@@ -446,7 +446,14 @@ async fn server_mode_refuses_to_start_without_a_token() -> TestResult {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     drop(listener);
-    let mut server = Server(server_command(&data, Some(address.port()), Some("k")).spawn()?);
+    let mut server = Server(
+        server_command(
+            &data,
+            Some(address.port()),
+            Some("server-secret-at-least-thirty-two-characters"),
+        )
+        .spawn()?,
+    );
     let client = reqwest::Client::builder()
         .no_proxy()
         .timeout(Duration::from_secs(2))

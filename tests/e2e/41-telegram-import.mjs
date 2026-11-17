@@ -54,7 +54,7 @@ export default async function ({ page, check, BASE, applyJson, push }) {
   await page.click('#mode-tabs [data-mode=markdown]');
   await page.click('#btn-save');
   await page.waitForFunction(() => document.querySelector('#save-state').textContent.startsWith('сохранено'));
-  const saved = await (await page.request.get(BASE + '/api/drafts/' + draft.id)).json();
+  const saved = await (await page.request.get(BASE + '/api/drafts/' + draft.id, { headers: { 'X-Studio-Client': 'ui' } })).json();
   check('Saving edits preserves import provenance', saved.payload._studio.import_source.url === 'https://t.me/simple_agi/203');
   check('Imported draft keeps provenance and unapplied JSON together', saved.payload._studio.buffers.json === '{"rich_message":' && saved.payload.rich_message.markdown.includes('Импортированный пост'));
   await page.unroute('**/api/imports/telegram');

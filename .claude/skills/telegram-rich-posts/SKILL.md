@@ -5,6 +5,8 @@ description: Write, check, preview and publish Telegram channel posts with Rich 
 
 # Telegram rich posts
 
+An MCP-only client can read this same instruction from `skill://telegram-rich-posts/SKILL.md` or request the `telegram-rich-posts` prompt. The server embeds the maintained file, so this works without repository access.
+
 To connect a hosted instance from a shared URL, read its `/llms.txt` and `/agents.md`; the installable service skill is `/skills/richpost/SKILL.md`. Ask the human to issue their own personal token, normally with the draft role, and keep it in the client secret store or environment. Preserve other client settings. Verify `tools/list` and `studio_status` through the configured client before reporting setup complete. A saved config or a pending restart is not proof of a working connection.
 
 The bot's private `/start` enables publishing reports; `/notifications` selects all reports, errors only, or off, and `/stop` disables them. Reports are best effort and separate from API/MCP results: use `get_post`/`list_posts` as the source of publication state, and check the channel before retrying any uncertain send. `/status` shows only the Telegram sender's own account. Full behavior and delivery limits: `docs/BOT.md`.
@@ -29,7 +31,7 @@ Public accounts stop receiving new channel/group events when the user's admin ri
 
 Use this skill when the user wants to write, format, preview, publish, schedule or edit a Telegram post (usually in their channel), or asks what formatting the Bot API supports.
 
-Baseline knowledge below is for **Bot API 10.3 (24.08.2026)**. Telegram ships new formatting often, so step 1 is mandatory.
+Baseline knowledge below is for **Bot API 10.4 (09.11.2026)**. Telegram ships new formatting often, so step 1 is mandatory.
 
 ## 1. Check freshness first (every session)
 
@@ -45,7 +47,7 @@ curl -s https://raw.githubusercontent.com/PaulSonOfLars/telegram-bot-api-spec/ma
 ```
 
 - With the `rich-studio` MCP tools: `bot_api_status`, and `refresh_bot_api` to download the newest spec right now (the studio otherwise checks at startup and every 12 hours; a server studio answers `pinned`: its spec changes only with an image update, so say that instead of retrying). Both report `gaps`: blocks the editor has no Russian label or preview for yet. Such blocks still send fine; tell the user the preview may show them as a JSON stub.
-- If the version is newer than 10.3, read what changed before writing the post: `POST $S/api/spec/refresh` returns the diff (new types, fields, methods), and https://core.telegram.org/bots/api-changelog has the human description. Prefer the new features when they fit the user's goal and say which ones you used.
+- If the version is newer than 10.4, read what changed before writing the post: `POST $S/api/spec/refresh` returns the diff (new types, fields, methods), and https://core.telegram.org/bots/api-changelog has the human description. Prefer the new features when they fit the user's goal and say which ones you used.
 - Exact fields of any type or method, from the current spec:
   `curl -s $S/api/spec/type/InputRichBlockTable | jq` (or `jq '.types.InputRichBlockTable' api.json`).
 - The HTML/Markdown tag grammar is not in api.json. It lives in https://core.telegram.org/bots/api#rich-message-formatting-options. When a tag below is marked ⚠️ or the version is newer, check that section (WebFetch may truncate the page; per-type pages at https://docs.aiogram.dev mirror the spec).
@@ -60,6 +62,8 @@ workaround. Offer the editor's explicit forward-import flow or follow `docs/TELE
 MTProto setup; never ask the user to paste login codes, API hashes or sessions into chat. Keep the existing
 publication confirmation rules. The editor synchronizes supported imported representations when switching modes.
 
+A known owner's or signed-in account's deliberate private forward to the bot also creates an unpublished draft without a link ticket. Media file IDs remain in Telegram and preview as placeholders; bot-bound buttons are removed with warnings, while links and copy-text buttons remain. Albums combine only while the draft has not been edited. This is a user action: do not forward content through an agent as an undisclosed fallback. Locate the resulting draft with `list_drafts`, inspect its source notes and warnings, then preview it before any publication.
+
 `sendRichMessage(chat_id, rich_message, reply_markup?, disable_notification?, protect_content?, ...)`.
 `rich_message` (InputRichMessage) has **exactly one** of `html`, `markdown`, `blocks`, plus optional `media[]`, `is_rtl`, `skip_entity_detection`.
 Edit a published post: `editMessageText(chat_id, message_id, rich_message)`.
@@ -69,7 +73,7 @@ Which format:
 - **html**: covers everything, easiest to hand-edit.
 - **markdown**: GFM plus `||spoiler||`, `==marker==`, `$formula$` (Pandoc rules: `$5 и $10` is NOT a formula only because of the space and digit rules, check it), `$$block$$` on its own line, `[^1]` footnotes, and allowed HTML tags. Tables are always bordered and striped; `__x__` is bold, not underline; `~sub~` and `^sup^` do not exist (use `<sub>`, `<sup>`). A single line break inside a paragraph becomes a space: end the line with two spaces or `\` for a real break.
 
-## 3. Cheat sheet (10.3)
+## 3. Cheat sheet (10.4)
 
 Blocks (`type`): `paragraph{text}`, `heading{text,size 1-6}`, `pre{text,language?}`, `footer`, `divider`, `mathematical_expression{expression}` (LaTeX), `anchor{name}`, `list{items[{blocks,has_checkbox?,is_checked?,value?,type?}]}`, `blockquote{blocks,credit?}`, `expandable_blockquote{text,credit?}`, `pullquote{text,credit?}`, `collage{blocks,caption?}`, `slideshow{blocks,caption?}`, `table{cells[[{text?,is_header?,colspan?,rowspan?,align,valign}]],is_bordered?,is_striped?,is_compact?,caption?}`, `details{summary,blocks,is_open?}`, `map{location{latitude,longitude},zoom?,width?,height?,caption?}`, `buttons{buttons[1-8],align?}`, `photo|video|animation|audio|document|voice_note{<kind>: InputMedia*, caption?}`, `thinking` (drafts in private chats only).
 Captions are `{text, credit?}`. Table cell `align` (left/center/right) and `valign` (top/middle/bottom) are required.
@@ -89,9 +93,11 @@ Media: put `tg://photo?id=X` (video/audio/document/animation/voice_note) in html
 
 Buttons: `RichMessageButton{text, style?: primary|success|danger|link, exactly one of url|callback_data|login_url|switch_inline_query|switch_inline_query_chosen_chat|copy_text{text}|disabled{}}`. Keyboard under the post: normal `reply_markup.inline_keyboard`; a button `url` needs a host: Telegram rejects the whole post for `https://` alone, and validation reports it as an error.
 
-Channels: no ephemeral messages, no `message_effect_id`, no `thinking`/drafts, no `web_app` buttons (use a t.me link), `callback_data` needs a running bot. Bot API has no scheduling: use the studio scheduler.
+Channels: no ordinary ephemeral sends, no `message_effect_id`, no `thinking`/drafts, no `web_app` buttons (use a t.me link). Bot API 10.4 permits a private reply to a callback query in a channel; use the callback reply shape below. `callback_data` needs a running bot. Bot API has no scheduling: use the studio scheduler.
 
-Limits: 32 768 characters (client folds after ~8 000), 1-8 buttons per row, callback_data 1-64 bytes, map zoom 0-24. Unofficial: 50 media, 500 blocks, nesting 16.
+Validation checks rich text limits, table columns, block count, nesting, numeric ranges, `poll_after`, comments and callback replies. Strings approaching 35 000 UTF-8 bytes may be silently truncated by Telegram even when accepted: split long text into paragraphs. Fix reported errors and describe warnings; a local preview is not Telegram acceptance. Pass `chat_ids` to `validate_post` for restrictions of checked destination chats; over HTTP repeat `/api/validate?chat_ids=@channel` in the query, outside the post. Unknown fields remain intact and produce warnings.
+
+For a private rich answer to a button, use `callbacks: {key: {text?, show_alert?, reply: {rich_message: InputRichMessage, ephemeral_message_parameters?: {replace_callback_query_message: true}}}}`. Omit `replace_callback_query_message` for a separate private message. The server obtains `callback_query_id` from the actual press: never supply it, `receiver_user_id`, or a destination `chat_id` in the reply. Replies have one bounded attempt; a timeout or unknown result is not permission to resend. `reply_errors` in post listings reports delivery failures.
 
 ## 4. Workflow with Rich Studio (`$STUDIO_URL`, http://localhost:7424 by default; API docs at /docs; every route and MCP tool: docs/reference/ in the studio repo)
 
@@ -99,7 +105,7 @@ If the `rich-studio` MCP tools are available (`save_draft`, `preview_post`, `pub
 
 Live Photo and paid media are messages of their own (rich blocks cannot hold them): `send_media_post(kind="live_photo", params={live_photo: "upload:clip.mp4", photo: "upload:still.jpg", caption?})` or `send_media_post(kind="paid_media", params={star_count, media: [{type: "photo"|"video"|"live_photo", media: "upload:…", photo?}], caption?})` after the user confirms the price and the channel; upload the files first. Over HTTP: `POST $S/api/media-post` with `{kind, params, chat_id?, at?, pin?}`.
 
-HTML widgets (Bot API 10.4) are standalone messages with local interactivity. Start with `widget_validate(html)` (source ≤32 768 bytes without NUL; ≤4 096 after zlib), then `send_widget(widget={html, caption?, chat_data?, public_data?}, chat_id?)` after the user confirms. Studio currently supports autonomous widgets: `allow_queries=true` is rejected. Direct sends require a private chat, basic group or supergroup. Sending also requires an operator-configured Bot API endpoint supporting widgets; a mock success does not establish live delivery. See README → HTML widgets for beta setup.
+HTML widgets (Bot API 10.4) are standalone messages with local interactivity. Start with `widget_validate(html)` (source ≤32 768 bytes without NUL; ≤4 096 after zlib), then `send_widget(widget={html, caption?, chat_data?, public_data?}, chat_id?)` after the user confirms. Studio supports autonomous widgets: `allow_queries=true` is rejected. Telegram production permits sending them only to private chats and protects them from forwarding. An explicitly configured beta or compatible server may support more chat types; studio never changes endpoints automatically. A mock success does not establish live delivery.
 
 The HTML is immutable after sending. To edit state, call `get_post`, then `edit_widget_data(post_id, post_version=version, chat_data?, public_data?)`. Each data field is UTF-8 text up to 1 024 bytes without NUL. Send only changed keys: omission preserves, an empty string clears, and `null` is rejected. A stale version is an error: reread the post before deciding how to merge. Over HTTP: `POST $S/api/widget`, `POST $S/api/widget/validate`, `POST $S/api/posts/{id}/widget-data?post_version=<version>`.
 

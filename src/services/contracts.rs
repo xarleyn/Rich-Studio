@@ -11,8 +11,8 @@ pub fn http_document() -> Result<&'static Value, &'static str> {
         .map_err(|_| "invalid HTTP contract")
 }
 
-/// Pydantic models coerce their own primitive fields, apply defaults and ignore extra model
-/// attributes. Untyped Telegram dictionaries are an explicit boundary and remain unchanged.
+/// Model fields coerce primitives and apply defaults. Open post and Telegram
+/// dictionaries preserve unknown fields for newer Bot API versions.
 pub fn normalize(root: &Value, schema: &Value, value: &Value) -> Result<Value, String> {
     normalize_at(root, schema, value, "body", 0, true)
 }
@@ -108,6 +108,11 @@ fn normalize_at(
         _ => value.clone(),
     };
     if let Value::Object(fields) = &mut normalized {
+        if schema["title"] == "Post" && schema["properties"]["rich_message"].is_object() {
+            // Draft-only editor buffers never belong to a publication or its
+            // idempotency fingerprint. The arbitrary REST draft payload keeps them.
+            fields.remove("_studio");
+        }
         if let Some(properties) = schema["properties"].as_object() {
             if schema["additionalProperties"] == false {
                 if let Some(name) = fields.keys().find(|name| !properties.contains_key(*name)) {

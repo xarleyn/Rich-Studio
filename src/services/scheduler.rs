@@ -48,6 +48,15 @@ pub async fn run_due(
     at: i64,
     stopping: Arc<AtomicBool>,
 ) -> Result<usize, ServiceError> {
+    if let Err(error) = blocking::run(&context, super::publisher::write_unrecorded).await {
+        tracing::warn!(error=%error,"confirmed scheduled publications still await local bookkeeping");
+        if !super::publisher::unrecorded_ids(&context).is_empty() {
+            return Err(ServiceError::Conflict(
+                "Предыдущие публикации ждут записи в базу; новые отложенные посты не отправлялись."
+                    .to_owned(),
+            ));
+        }
+    }
     let due = blocking::run(&context, move |context| Ok(scheduler::due(context, at)?)).await?;
     let publisher = Publisher::new(
         context.clone(),
@@ -143,11 +152,13 @@ pub async fn run_due(
                     } if *wait > 0 => i64::try_from(*wait).ok(),
                     _ => None,
                 };
-                let (detail, event) = if matches!(error, TelegramError::NoAnswer(_)) {
+                let uncertain = matches!(error, TelegramError::NoAnswer(_));
+                let (detail, event) = if uncertain {
                     (format!("{error}. {MAY_HAVE_GONE}"), Some("uncertain"))
                 } else {
                     (error.to_string(), retry.map(|_| "retry"))
                 };
+                let detail = crate::logs::scrub(&state.settings, &detail);
                 blocking::run(&context, move |context| {
                     if let Some(wait) = retry {
                         scheduler::retry(
@@ -156,6 +167,8 @@ pub async fn run_due(
                             at.saturating_add(wait),
                             &format!("{detail}; повтор через {wait} с"),
                         )?;
+                    } else if uncertain {
+                        posts::mark_outcome_unknown(context, &id, &detail)?;
                     } else {
                         posts::mark_failed(context, &id, &detail)?;
                     }
@@ -168,7 +181,7 @@ pub async fn run_due(
         };
         let Some(message_id) = result["message_id"].as_i64() else {
             blocking::run(&context, move |context| {
-                Ok(posts::mark_failed(context, &id, MAY_HAVE_GONE)?)
+                Ok(posts::mark_outcome_unknown(context, &id, MAY_HAVE_GONE)?)
             })
             .await?;
             publisher
@@ -176,10 +189,19 @@ pub async fn run_due(
                 .await;
             continue;
         };
-        let sent = blocking::run(&context, move |context| {
-            Ok(posts::mark_sent(context, &id, message_id)?)
+        let saved_id = id.clone();
+        let saved = blocking::run(&context, move |context| {
+            Ok(posts::mark_sent(context, &saved_id, message_id)?)
         })
-        .await?;
+        .await;
+        let sent = match saved {
+            Ok(sent) => sent,
+            Err(error) => {
+                super::publisher::remember_confirmation(&context, &id, &result);
+                tracing::error!(event="send.unrecorded",post_id=%id,message_id,error=%error,"scheduled publication confirmed by Telegram but local record failed");
+                continue;
+            }
+        };
         // Failures after confirmation may add a warning, never restore the send to the queue.
         let warnings = publisher
             .after_send(
@@ -199,11 +221,12 @@ pub async fn run_due(
             .await;
         if !warnings.is_empty() {
             let id = sent["id"].as_str().unwrap_or_default().to_owned();
+            let warnings = crate::logs::scrub(&state.settings, &warnings.join("; "));
             blocking::run(&context, move |context| {
                 crate::store::db::Store::connect(context)?
                     .execute(
                         "update posts set error=? where id=?",
-                        rusqlite::params![warnings.join("; "), id],
+                        rusqlite::params![warnings, id],
                     )
                     .map_err(|error| crate::errors::StoreError::from_sqlite(error, context))?;
                 Ok(())

@@ -590,12 +590,16 @@
     "type": "object"
    },
    "Post": {
+    "additionalProperties": true,
     "properties": {
      "callbacks": {
       "additionalProperties": true,
-      "description": "Ответы на callback-кнопки: {callback_data: текст или {text, show_alert}}",
+      "description": "Ответы на callback-кнопки: {callback_data: текст или {text?, show_alert?, reply?: {rich_message, ephemeral_message_parameters?: {replace_callback_query_message?}}}}. Личный rich-ответ видит только нажавший кнопку (Bot API 10.4).",
       "title": "Callbacks",
-      "type": "object"
+      "type": "object",
+      "x-bot-api-types": [
+       "Object"
+      ]
      },
      "comment": {
       "anyOf": [
@@ -608,19 +612,28 @@
        }
       ],
       "description": "InputRichMessage первого комментария: студия ответит им на пересылку поста в группу обсуждения",
-      "title": "Comment"
+      "title": "Comment",
+      "x-bot-api-types": [
+       "InputRichMessage"
+      ]
      },
      "options": {
       "additionalProperties": true,
       "description": "Любые другие параметры sendRichMessage: disable_notification, protect_content…",
       "title": "Options",
-      "type": "object"
+      "type": "object",
+      "x-bot-api-types": [
+       "PostOptions"
+      ]
      },
      "pin": {
       "default": false,
       "description": "Закрепить пост после публикации",
       "title": "Pin",
-      "type": "boolean"
+      "type": "boolean",
+      "x-bot-api-types": [
+       "Boolean"
+      ]
      },
      "poll_after": {
       "anyOf": [
@@ -633,7 +646,10 @@
        }
       ],
       "description": "Параметры sendPoll (question, options…): опрос уйдёт в тот же чат сразу после поста; тема форума и disable_notification берутся из options поста, если в опросе их нет",
-      "title": "Poll After"
+      "title": "Poll After",
+      "x-bot-api-types": [
+       "PollAfter"
+      ]
      },
      "reply_markup": {
       "anyOf": [
@@ -646,13 +662,22 @@
        }
       ],
       "description": "InlineKeyboardMarkup под постом",
-      "title": "Reply Markup"
+      "title": "Reply Markup",
+      "x-bot-api-types": [
+       "InlineKeyboardMarkup",
+       "ReplyKeyboardMarkup",
+       "ReplyKeyboardRemove",
+       "ForceReply"
+      ]
      },
      "rich_message": {
       "additionalProperties": true,
       "description": "InputRichMessage: ровно одно из html / markdown / blocks, плюс media",
       "title": "Rich Message",
-      "type": "object"
+      "type": "object",
+      "x-bot-api-types": [
+       "InputRichMessage"
+      ]
      }
     },
     "required": [
@@ -1568,8 +1593,8 @@
    }
   },
   "/api/check": {
-   "get": {
-    "operationId": "check_api_check_get",
+   "post": {
+    "operationId": "check_api_check_post",
     "parameters": [
      {
       "in": "query",
@@ -2590,7 +2615,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -2603,7 +2628,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }
@@ -2777,7 +2802,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -2790,7 +2815,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }
@@ -2833,7 +2858,7 @@
   },
   "/api/posts": {
    "get": {
-    "description": "Для каждого поста: `title`, `thumb`, `link`, нажатия (`clicks`) и текст кнопки каждого `callback_data`\n(`buttons`). Отправка, которой Telegram отказал, — статус `failed` с ошибкой.",
+    "description": "Для каждого поста: `title`, `thumb`, `link`, нажатия (`clicks`) и текст кнопки каждого `callback_data`\n(`buttons`). Отправка, которой Telegram отказал, — статус `failed` с ошибкой.\n`comment_in_flight`: true — первый комментарий отправляется, false — активной отправки нет, null — процесс в резерве и не знает, кто отправляет комментарий со статусом sending.",
     "operationId": "list_posts_api_posts_get",
     "parameters": [
      {
@@ -3606,7 +3631,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -3619,7 +3644,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }
@@ -3683,7 +3708,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -3696,7 +3721,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }
@@ -3989,7 +4014,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -4002,7 +4027,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }
@@ -4452,6 +4477,20 @@
   "/api/validate": {
    "post": {
     "operationId": "validate_api_validate_post",
+    "parameters": [
+     {
+      "description": "Куда пойдёт пост: повторите параметр для нескольких чатов. Проверенные каналы дают предупреждения об ограничениях их типа; без параметра используется канал по умолчанию.",
+      "in": "query",
+      "name": "chat_ids",
+      "required": false,
+      "schema": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {
@@ -4490,7 +4529,7 @@
   },
   "/api/widget": {
    "post": {
-    "description": "Отдельное сообщение: HTML со встроенными CSS и JS. Только автономные виджеты: allow_queries=true отклоняется. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint студия автоматически не меняет. Прямая отправка: личный чат, обычная группа или супергруппа, без каналов. Лимиты: исходник 32 768 байт без NUL, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — строки по 1 024 байта UTF-8 без NUL.",
+    "description": "Отдельное сообщение: HTML со встроенными CSS и JS. Только автономные виджеты: allow_queries=true отклоняется. После отправки HTML неизменяем — меняются только данные (`editMessageWidgetData`). Нужен сервер Bot API 10.4 с поддержкой виджетов; endpoint студия автоматически не меняет. На production endpoint — только личный чат; совместимый или beta endpoint может разрешать группы и супергруппы. Каналы отклоняются. Лимиты: исходник 32 768 байт без NUL, после сжатия zlib level 9 — 4 096; `chat_data`/`public_data` — строки по 1 024 байта UTF-8 без NUL.",
     "operationId": "send_widget_api_widget_post",
     "parameters": [
      {
@@ -4512,7 +4551,7 @@
       }
      },
      {
-      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+      "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
       "in": "header",
       "name": "idempotency-key",
       "required": false,
@@ -4525,7 +4564,7 @@
          "type": "null"
         }
        ],
-       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Ключ живёт сутки.",
+       "description": "Повтор запроса с тем же ключом вернёт первый результат, а не опубликует пост второй раз. Завершённый ключ живёт сутки; pending и uncertain не истекают.",
        "title": "Idempotency-Key"
       }
      }

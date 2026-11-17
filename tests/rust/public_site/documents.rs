@@ -58,7 +58,7 @@ async fn public_documents_keep_exact_routes_head_metadata_and_configured_destina
             assert!(
                 !body.contains("attacker.invalid")
                     && !body.contains("public-site-secret")
-                    && !body.contains("private-operator-key")
+                    && !body.contains("private-operator-key-at-least-32-characters")
             );
             assert!(
                 !body.contains("__APP_URL__")
@@ -154,7 +154,10 @@ async fn agent_documents_do_not_expose_secrets_or_account_data() -> TestResult {
     let (app, _settings) = app_with(
         &directory,
         &[
-            ("STUDIO_API_KEY", "operator-secret-sentinel"),
+            (
+                "STUDIO_API_KEY",
+                "operator-secret-sentinel-at-least-32-characters",
+            ),
             ("TG_BOT_TOKEN", "999:BOT_SECRET_SENTINEL"),
             ("TG_IMPORT_API_ID", "12345"),
             ("TG_IMPORT_API_HASH", "import-secret-sentinel"),
@@ -201,7 +204,7 @@ async fn agent_documents_do_not_expose_secrets_or_account_data() -> TestResult {
         assert_eq!(status, StatusCode::OK, "{path}");
         assert_eq!(&authenticated, content, "{path} changed for a bearer token");
         for value in [
-            "operator-secret-sentinel",
+            "operator-secret-sentinel-at-least-32-characters",
             "999:BOT_SECRET_SENTINEL",
             "import-secret-sentinel",
             secret,
@@ -277,7 +280,10 @@ async fn private_installation_documents_work_behind_operator_auth() -> TestResul
         &directory,
         &[
             ("STUDIO_PUBLIC", "off"),
-            ("STUDIO_API_KEY", "private-studio-sentinel"),
+            (
+                "STUDIO_API_KEY",
+                "private-studio-sentinel-at-least-32-characters",
+            ),
             ("STUDIO_LANDING_URL", ""),
         ],
     )?;
@@ -289,7 +295,7 @@ async fn private_installation_documents_work_behind_operator_auth() -> TestResul
     assert_eq!(status, StatusCode::OK);
     let guide = body_text(&guide)?;
     assert!(guide.contains("Ask the operator"));
-    assert!(!guide.contains("private-studio-sentinel"));
+    assert!(!guide.contains("private-studio-sentinel-at-least-32-characters"));
     let (status, _, _) = get(app.clone(), "/api/drafts", "localhost").await?;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     Ok(())

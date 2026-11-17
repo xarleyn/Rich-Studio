@@ -60,19 +60,28 @@ pub(super) fn field_value(
         return invalid(format!("Заполните поле «{}».", field.label));
     }
     if !value.is_empty() && field.kind == "url" {
-        let valid = value.split_once("://").is_some_and(|(scheme, rest)| {
-            ["http", "https"].contains(&scheme.to_ascii_lowercase().as_str())
-                && !rest.starts_with('/')
-                && !rest.is_empty()
-        }) && url::Url::parse(value)
-            .is_ok_and(|parsed| parsed.host_str().is_some_and(|host| !host.is_empty()));
+        let valid = value
+            .strip_prefix("upload:")
+            .is_some_and(crate::telegram::uploads::valid_name)
+            || value.starts_with('#')
+            || value.starts_with('/') && !value.starts_with("//")
+            || url::Url::parse(value).is_ok_and(|parsed| match parsed.scheme() {
+                "http" | "https" => {
+                    value
+                        .split_once("://")
+                        .is_some_and(|(_, rest)| !rest.starts_with('/'))
+                        && parsed.host_str().is_some_and(|host| !host.is_empty())
+                }
+                "tg" | "mailto" | "tel" => true,
+                _ => false,
+            });
         if !valid
             || value
                 .chars()
                 .any(|ch| ch.is_whitespace() || ch.is_control() || "<>\"'\\".contains(ch))
         {
             return invalid(format!(
-                "Поле «{}»: укажите полную ссылку http:// или https:// без пробелов.",
+                "Поле «{}»: укажите ссылку http(s)://, tg://, mailto:, tel:, #якорь, /путь или upload:имя без пробелов.",
                 field.label
             ));
         }
