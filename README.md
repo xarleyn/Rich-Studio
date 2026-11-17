@@ -354,7 +354,7 @@ curl -s localhost:7424/api/send -H 'content-type: application/json' \
 **Проверка канала:**
 
 ```bash
-curl -s 'localhost:7424/api/check?chat_id=@my_channel'
+curl -s -X POST 'localhost:7424/api/check?chat_id=@my_channel'
 ```
 ```json
 {"bot": {"id": 42, "username": "studio_test_bot"},
