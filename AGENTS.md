@@ -86,5 +86,6 @@ make fmt                                        # автоисправление
 | skill для пользователя | `.claude/skills/telegram-rich-posts/SKILL.md` |
 | здоровье работающей студии (skill и субагент) | `.claude/skills/studio-health/SKILL.md`, `.claude/agents/studio-monitor.md` |
 | красный CI, PR Dependabot | `.claude/skills/ci-triage/SKILL.md` |
+| русский текст ясно и без канцелярита: документация, коммиты, PR, подписи | `.claude/skills/writing-clearly/SKILL.md` |
 
 Сообщения коммитов и описания PR пиши по-русски или по-английски, коротко: что видно снаружи и зачем.
