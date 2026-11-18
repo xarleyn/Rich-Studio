@@ -52,10 +52,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      # HTML export checks Telegram captures through the retained Python converter.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
+      - run: pip install --require-hashes -r requirements.lock
       - run: npm ci
       - run: npm run test:lock
       - run: npx eslint .
@@ -135,7 +142,8 @@ jobs:
         run: IMAGE=rich-studio node scripts/check-rust-container.mjs
       - name: image scan
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.58.1 image \
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/.trivyignore:ro" \
+            aquasec/trivy:0.58.1 image --ignorefile /.trivyignore \
             --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress rich-studio
 
   # Runs last: one external tgfake process, so it is kept out of the fast matrix.

@@ -29,6 +29,11 @@ export default async function ({ page, browser, check, BASE }) {
   check('Existing snippet buttons wrap the selection in the code editor', await value('html') === '<p><b>выделить</b></p>');
   await editor('html').locator('.cm-content').press('Control+z');
   check('Code undo is local and does not switch the post mode', await value('html') === '<p>выделить</p>' && await page.locator('[data-mode=html].on').count() === 1);
+  const literalSelection = '$$ $&';
+  await fill('html', '<p>' + literalSelection + '</p>');
+  await editor('html').evaluate((el, length) => el.view.dispatch({ selection: { anchor: 3, head: 3 + length } }), literalSelection.length);
+  await page.locator('#snip-html').getByRole('button', { name: 'Ж', exact: true }).click();
+  check('Snippet wrapping preserves dollar replacement sequences as literal selected text', await value('html') === '<p><b>' + literalSelection + '</b></p>');
 
   await fill('markdown', '/|');
   await editor('markdown').getByRole('button', { name: /Подсказки/ }).click();

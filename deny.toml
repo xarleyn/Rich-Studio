@@ -1,5 +1,13 @@
 [advisories]
-ignore = []
+# Maintenance advisory, not a patched chrono release: all chrono versions are
+# affected. rmcp 3.11.0 still requires chrono, so updating the SDK cannot remove it.
+# https://github.com/chronotope/chrono/issues/1768
+# https://github.com/modelcontextprotocol/rust-sdk/blob/rmcp-v3.11.0/crates/rmcp/Cargo.toml
+# Revisit by 2026-12-17; tests/rust/architecture.rs enforces the deadline because
+# the pinned cargo-deny 0.20.2 accepts only id/reason, without native expiry.
+ignore = [
+    { id = "RUSTSEC-2026-0543", reason = "Unmaintained chrono is required by rmcp and schemars; current upstream SDK still depends on it and no chrono upgrade resolves the advisory; review-by=2026-12-17" },
+]
 
 [bans]
 multiple-versions = "warn"

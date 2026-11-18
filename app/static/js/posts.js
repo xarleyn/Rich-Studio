@@ -1,7 +1,9 @@
 import { tr, dateLocale } from './i18n.js';
 // Published and scheduled posts.
 import { api } from './api.js';
+import { showTarget } from './channels.js';
 import { setDraft } from './drafts.js';
+import { openDialog } from './dialogs.js';
 import { $, h, toast } from './dom.js';
 import { autosave, buildPost, callbacksFor, flushSave, loadPost, updatesLabel } from './editor.js';
 import { resetHistory } from './history.js';
@@ -12,6 +14,32 @@ import { loadSuggested } from './suggested.js';
 import { showWidgetData } from './widget.js';
 
 // ---------- posts ----------
+const COMMENT_LABELS = { waiting: tr('ждёт пересылки в обсуждение'), sent: tr('опубликован'), failed: tr('ошибка'), skipped: tr('не будет: приём событий выключен') };
+const COMMENT_UNCONFIRMED = 'Студия не знает, дошёл ли комментарий: например, Telegram его принял, а база не приняла запись (в журнале событие send.unrecorded с message_id), или Telegram отказал, а сбой не записался (в журнале «could not record the failed first comment»). Посмотрите обсуждение под постом. После перезапуска студии комментарий станет «ошибка».';
+const COMMENT_ELSEWHERE = 'Этот процесс студии в резерве: первые комментарии отправляет другой, поэтому отсюда не видно, идёт запрос или он оборвался. Посмотрите обсуждение под постом и не публикуйте комментарий заново.';
+
+/** The first comment in the row. "sending" is a request under way (comment_in_flight), one nobody sends any more
+ * whose answer from Telegram the studio has not recorded (it may be in the discussion), or, in a standby, unknown
+ * @param {PostRow} p @returns {string | HTMLElement} */
+function commentNote(p) {
+  if (p.comment_status !== 'sending') return tr('комментарий: ') + (COMMENT_LABELS[p.comment_status] || p.comment_status);
+  if (p.comment_in_flight) return 'комментарий: отправляется';
+  if (p.comment_in_flight === null) return h('span', { title: COMMENT_ELSEWHERE, text: 'комментарий: отправляется или не подтверждён' });
+  return h('span', { class: 'unknown', title: COMMENT_UNCONFIRMED, text: 'комментарий: не подтверждён, мог уйти; не публикуйте заново, проверьте обсуждение' });
+}
+
+/** The thumbnail's src only when the browser goes to a file of the uploads with it, /media/<name>. The server gives
+ * one only for a file that is there (services/listing.py thumb); this is the second line (#213). The path is read as
+ * the browser resolves it: «/media/../api/x», «/media/%2e%2e/api/x» and «/media\..\api\x» are /api/x, while a name
+ * with «..» inside, «a..b.png», is an upload's
+ * @param {unknown} t @returns {string | null} */
+function thumbSrc(t) {
+  if (typeof t !== 'string' || !t.startsWith('/media/')) return null;
+  let u;
+  try { u = new URL(t, document.baseURI); } catch (e) { return null; }
+  return u.origin === location.origin && /^\/media\/[^/]+$/.test(u.pathname) ? t : null;
+}
+
 export async function loadPosts() {
   const only = /** @type {HTMLSelectElement} */ ($('#posts-filter')).value;
   S.posts = await api('GET', '/api/posts');
@@ -22,32 +50,37 @@ export async function loadPosts() {
   const u = S.updates;
   $('#updates-state').replaceChildren(h('span', { class: u && u.state === 'ok' ? 'ok' : 'w', title: (u && u.error) || '', text: tr('Приём событий: ') + updatesLabel() }),
     h('span', { class: 'muted', text: tr(' · нажатия кнопок, первые комментарии, реакции, итоги опросов, вступления, предложенные посты') }));
-  const shown = S.posts.filter((p) => !only || p.status === only);
+  // «Не вышли» are the refusals; a send whose outcome is unknown may be in the channel and has a filter of its own
+  const shown = S.posts.filter((p) => !only || (only === 'unknown' ? p.outcome_unknown : p.status === only && !p.outcome_unknown));
   ul.replaceChildren(...shown.map((p) => {
     const when = (p.status === 'scheduled' && p.scheduled_at) || p.sent_at || p.created_at;
     const kind = kindOf(p);
     // a poll, Live Photo or paid media is a message of its own: it does not open in the post editor
     const own = !kind.editable;
     const sent = p.status === 'sent';
+    const unknown = p.status === 'failed' && p.outcome_unknown;
     const pr = p.poll_results;
     const stats = [
       p.pinned ? tr('📌 закреплён') : null,
       p.reactions && Object.keys(p.reactions).length ? Object.entries(p.reactions).map(([k, v]) => (k.startsWith('custom:') ? '★' : k === 'paid' ? '⭐' : k) + ' ' + v).join('  ') : null,
       p.clicks && Object.keys(p.clicks).length ? tr('нажатия: ') + Object.entries(p.clicks).map(([k, v]) => ((p.buttons && p.buttons[k]) || k) + ' ' + v).join(', ') : null,
-      p.comment_status ? tr('комментарий: ') + ({ waiting: tr('ждёт пересылки в обсуждение'), sent: tr('опубликован'), failed: tr('ошибка'), skipped: tr('не будет: приём событий выключен') }[p.comment_status] || p.comment_status) : null,
-      pr ? tr`голосов: ${pr.total}${pr.is_closed ? tr(' (закрыт)') : ''} · ` + pr.options.map((o) => `${o.text} ${o.voter_count}`).join(' / ') : null,
+      // rich replies to those presses that did not go (Bot API 10.4; the reason is in the log, callback.reply_failed)
+      p.reply_errors && Object.keys(p.reply_errors).length ? tr('rich-ответ не дошёл: ') + Object.entries(p.reply_errors).map(([k, v]) => ((p.buttons && p.buttons[k]) || k) + ' ' + v.n).join(', ') : null,
+      p.comment_status ? commentNote(p) : null,
+      pr ? `голосов: ${pr.total}${pr.is_closed ? tr(' (закрыт)') : ''} · ` + pr.options.map((o) => `${o.text} ${o.voter_count}`).join(' / ') : null,
     ].filter(Boolean);
     const call = async (method, path, body, ok) => { try { await api(method, path, body); toast(ok, 'ok'); } catch (e) { toast(e.message, 'err'); } loadPosts(); };
     const num = p.message_id ? '#' + p.message_id : '';
+    const thumb = thumbSrc(p.thumb);
     return h('li', { class: 'post-row' + (p.status === 'failed' ? ' failed' : '') },
       h('div', { class: 'post-head' },
-        p.thumb ? h('img', { class: 'thumb', src: p.thumb, alt: '', loading: 'lazy' }) : null,
+        thumb ? h('img', { class: 'thumb', src: thumb, alt: '', loading: 'lazy' }) : null,
         h('span', { class: 'post-title' + (p.title ? '' : ' muted'), text: p.title || tr('Без текста') })),
-      h('span', { class: 'meta' }, h('span', { class: 'status ' + p.status, text: STATUS_LABELS[p.status] || p.status }), kind.badge ? h('b', { text: kind.badge }) : null, p.actor && p.actor !== 'ui' ? h('span', { class: 'actor', title: tr('Кто отправил: не редактор, а API или агент'), text: p.actor }) : null, h('span', { class: 'chan', title: tr('Канал'), text: chatLabel(p.chat_id) }),
+      h('span', { class: 'meta' }, h('span', { class: 'status ' + (unknown ? 'unknown' : p.status), text: unknown ? tr('исход неизвестен') : STATUS_LABELS[p.status] || p.status }), kind.badge ? h('b', { text: kind.badge }) : null, p.actor && p.actor !== 'ui' ? h('span', { class: 'actor', title: tr('Кто отправил: не редактор, а API или агент'), text: p.actor }) : null, h('span', { class: 'chan', title: tr('Канал'), text: chatLabel(p.chat_id) }),
         p.link ? h('a', { href: p.link, target: '_blank', rel: 'noopener', title: tr('Открыть в Telegram'), text: num }) : num),
       h('span', { class: 'meta', text: new Date(when * 1000).toLocaleString(dateLocale, { dateStyle: 'short', timeStyle: 'short' }) }),
-      p.error ? h('span', { class: 'small post-error', text: (p.status === 'failed' ? tr('Не вышел: ') : '') + p.error }) : null,
-      stats.length ? h('span', { class: 'meta stats', text: stats.join(' · ') }) : null,
+      p.error ? h('span', { class: 'small post-error' + (unknown ? ' unknown' : ''), text: (p.status === 'failed' && !unknown ? tr('Не вышел: ') : '') + p.error }) : null,
+      stats.length ? h('span', { class: 'meta stats' }, stats.flatMap((s, i) => (i ? [' · ', s] : [s]))) : null,
       h('span', { class: 'acts' },
         !own && ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'ghost small-btn', text: tr('Править'), title: tr('Открыть пост в редакторе; «Обновить пост» над редактором заменит его'), onclick: () => editPost(p).catch((e) => toast(e.message, 'err')) }) : null,
         !own && !['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'ghost small-btn', text: tr('Открыть'), title: tr('Копия поста новым черновиком'), onclick: () => openCopy(p) }) : null,
@@ -58,10 +91,10 @@ export async function loadPosts() {
           if (!confirm(kb.length ? tr`Поставить под пост ${kb.flat().length} кнопок из редактора?` : tr('В редакторе нет кнопок. Убрать кнопки из поста?'))) return;
           call('POST', `/api/posts/${p.id}/buttons`, { reply_markup: kb.length ? { inline_keyboard: kb } : null, callbacks: callbacksFor(kb) }, tr('Кнопки обновлены')).then(() => refreshEditing(p.id));
         } }) : null,
+        p.kind === 'widget' && ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'ghost small-btn', text: tr('Данные'), title: tr('Изменить данные виджета (chat_data, public_data); HTML после отправки неизменяем'), onclick: () => showWidgetData(p) }) : null,
         sent ? h('button', { class: 'ghost small-btn', text: p.pinned ? tr('Открепить') : tr('Закрепить'), onclick: () => p.pinned ? call('DELETE', `/api/posts/${p.id}/pin`, undefined, tr('Откреплено')) : call('POST', `/api/posts/${p.id}/pin`, { disable_notification: true }, tr('Закреплено без уведомления')) }) : null,
         kind.stoppable && sent && !(pr && pr.is_closed) ? h('button', { class: 'ghost small-btn', text: tr('Закрыть опрос'), onclick: () => { if (confirm(tr('Закрыть опрос? Голосовать больше будет нельзя.'))) call('POST', `/api/posts/${p.id}/stop-poll`, undefined, tr('Опрос закрыт')); } }) : null,
-        p.kind === 'widget' && ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'ghost small-btn', text: tr('Данные'), title: tr('Изменить данные виджета (chat_data, public_data); HTML после отправки неизменяем'), onclick: () => showWidgetData(p) }) : null,
-        p.status === 'failed' ? h('button', { class: 'ghost small-btn', text: tr('Убрать'), title: tr('Убрать запись из списка; в канале этого поста нет'), onclick: () => call('DELETE', '/api/posts/' + p.id, undefined, tr('Убрано из списка')) }) : null,
+        p.status === 'failed' ? h('button', { class: 'ghost small-btn', text: tr('Убрать'), title: unknown ? tr('Пост мог уйти: сначала проверьте канал') : tr('Убрать запись из списка; в канале этого поста нет'), onclick: () => unknown ? removeUnknown(p, () => call('DELETE', '/api/posts/' + p.id, undefined, tr('Убрано из списка'))) : call('DELETE', '/api/posts/' + p.id, undefined, tr('Убрано из списка')) }) : null,
         ['sent', 'scheduled', 'missed'].includes(p.status) ? h('button', { class: 'danger small-btn', text: p.status === 'sent' ? tr('Удалить') : tr('Отменить'), onclick: async () => {
           if (!confirm(p.status === 'sent' ? tr('Удалить пост из канала? Это нельзя отменить.') : tr('Отменить отложенную публикацию?'))) return;
           try { await api('DELETE', '/api/posts/' + p.id); toast(tr('Готово'), 'ok'); } catch (e) { toast(e.message, 'err'); }
@@ -71,6 +104,20 @@ export async function loadPosts() {
   if (!shown.length) ul.append(h('li', { class: 'muted small', text: only ? tr('Таких постов нет.') : tr('Здесь появятся опубликованные, отложенные и неудачные посты.') }));
 }
 
+// a send whose outcome is unknown leaves the list (and the health report) only by this step: the person says they
+// looked at the channel. The studio's own dialog, not confirm(): its text is the instruction, also on a phone
+function removeUnknown(p, remove) {
+  openDialog([
+    h('h3', { text: tr('Пост мог уйти в ') + chatLabel(p.chat_id) }),
+    h('p', { text: tr('Проверьте канал. Если пост там, отправлять его снова не нужно; если вы уже отправили его заново и вышло два поста, лишний удалите в Telegram: этого сообщения студия не знает и удалить его не может.') }),
+    h('p', { text: tr('Если поста нет, отправьте черновик заново: повторная отправка эту запись не убирает.') }),
+    h('p', { class: 'muted small', text: tr('Убрать — значит убрать только запись из списка и из проверки студии (/api/health); в канале ничего не изменится.') }),
+  ], [
+    h('button', { class: 'ghost', value: 'cancel', text: tr('Отмена') }),
+    h('button', { class: 'danger', value: 'ok', text: tr('Я проверил канал, убрать'), onclick: remove }),
+  ]);
+}
+
 // the post as a new draft; the open draft is saved first, so nothing typed is lost
 async function openCopy(p) {
   try {
@@ -78,7 +125,10 @@ async function openCopy(p) {
     const full = await api('GET', '/api/posts/' + p.id);
     setDraft(null, null); editing.value = null;
     $('#title').value = tr('Копия поста ') + (p.message_id || '');
+    // the copy is the post sent again: to its own chat, with its forum topic
+    /** @type {HTMLInputElement} */ ($('#chat')).value = String(full.chat_id);
     loadPost(full.payload);
+    showTarget();
     resetHistory();
     dirty.value = true; saveState.value = tr('есть изменения');
     autosave();

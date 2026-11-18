@@ -66,7 +66,7 @@ pub async fn check(ScopedState(state): ScopedState, Json(body): Json<Value>) -> 
     }
 }
 
-#[utoipa::path(get, path = "/api/check", operation_id = "check_api_check_get", summary = "Бот админ канала? Есть права на публикацию? Канал запоминается с названием", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+#[utoipa::path(post, path = "/api/check", operation_id = "check_api_check_post", summary = "Бот админ канала? Есть права на публикацию? Канал запоминается с названием", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn check_query(
     ScopedState(state): ScopedState,
     Query(query): Query<ChatQuery>,

@@ -135,13 +135,21 @@ pub fn scrub(settings: &Settings, text: &str) -> String {
     ] {
         if !secret.is_empty() {
             text = text.replace(secret, "<secret>");
+            let encoded: String = url::form_urlencoded::byte_serialize(secret.as_bytes()).collect();
+            // URLs may encode separators with either hex case, including a token's
+            // colon. Keep the secret's letters case-sensitive while normalizing %HH.
+            let lower_hex = lower_percent_hex(&encoded);
+            for variant in [&encoded, &lower_hex] {
+                text = text.replace(variant, "<secret>");
+                text = text.replace(&variant.replace('%', "%25"), "<secret>");
+            }
         }
     }
     static PATTERNS: OnceLock<Result<Vec<Regex>, regex::Error>> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
         [
             r"/bot[0-9]{1,12}(?::|%3[Aa])[A-Za-z0-9_-]+",
-            r"\b[0-9]{5,12}:[A-Za-z0-9_-]{30,}",
+            r"\b[0-9]{5,12}(?::|%3[Aa])[A-Za-z0-9_-]{30,}",
             r#"(?i)Bearer\s+[^\s\"'<>]+"#,
             r"\brsu?_[A-Za-z0-9_-]{20,}",
         ]
@@ -156,6 +164,23 @@ pub fn scrub(settings: &Settings, text: &str) -> String {
         text = pattern.replace_all(&text, "<secret>").into_owned();
     }
     text
+}
+
+fn lower_percent_hex(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut encoded = 0;
+    for character in value.chars() {
+        if character == '%' {
+            encoded = 2;
+            output.push(character);
+        } else if encoded > 0 {
+            output.push(character.to_ascii_lowercase());
+            encoded -= 1;
+        } else {
+            output.push(character);
+        }
+    }
+    output
 }
 
 fn sensitive(key: &str) -> bool {

@@ -204,6 +204,29 @@ pub fn list_posts(
     status: Option<&str>,
     chat: Option<&str>,
 ) -> Result<Vec<Value>, ServiceError> {
+    list_posts_with_role(context, limit, status, chat, "standby")
+}
+
+pub fn comment_in_flight(context: &AccountContext, record: &Value, role: &str) -> Value {
+    if record["comment_status"] != "sending" {
+        return json!(false);
+    }
+    if role == "standby" {
+        return Value::Null;
+    }
+    json!(super::in_flight::comment_contains(
+        context,
+        record["id"].as_str().unwrap_or_default(),
+    ))
+}
+
+pub fn list_posts_with_role(
+    context: &AccountContext,
+    limit: i64,
+    status: Option<&str>,
+    chat: Option<&str>,
+    role: &str,
+) -> Result<Vec<Value>, ServiceError> {
     let mut records = editing::list(context, limit, status, chat)?;
     for record in &mut records {
         record["chat_title"] = channel_title(context, &record["chat_id"])?;
@@ -216,6 +239,7 @@ pub fn list_posts(
         record["buttons"] = button_texts(&payload, record["kind"].as_str())?;
         record["link"] = json!(link(&record["chat_id"], &record["message_id"]));
         record["pinned"] = json!(record["pinned"].as_i64().unwrap_or(0) != 0);
+        record["comment_in_flight"] = comment_in_flight(context, record, role);
     }
     Ok(records)
 }

@@ -21,7 +21,7 @@ export const RT_LABELS = {
   bold: tr('Жирный'), italic: tr('Курсив'), underline: tr('Подчёркнутый'), strikethrough: tr('Зачёркнутый'), spoiler: tr('Спойлер'),
   date_time: tr('Дата и время'), text_mention: tr('Упоминание по id'), subscript: tr('Нижний индекс'), superscript: tr('Верхний индекс'),
   marked: tr('Маркер'), code: tr('Код'), custom_emoji: tr('Кастомный эмодзи'), mathematical_expression: tr('Формула'), url: tr('Ссылка'),
-  email_address: 'E-mail', phone_number: tr('Телефон'), bank_card_number: tr('Номер карты'), mention: tr('@упоминание'),
+  email_address: 'E-mail', phone_number: tr('Телефон'), bank_card_number: tr('Номер карты'), ton_address: tr('Адрес TON'), mention: tr('@упоминание'),
   hashtag: tr('#хэштег'), cashtag: tr('$кэштег'), bot_command: tr('/команда'), button: tr('Кнопка в тексте'), anchor: tr('Якорь'),
   anchor_link: tr('Ссылка на якорь'), reference: tr('Сноска'), reference_link: tr('Ссылка на сноску'),
 };
@@ -34,7 +34,7 @@ export const FIELD_LABELS = {
   has_checkbox: tr('Чекбокс'), is_checked: tr('Отмечен'), value: tr('Номер'), latitude: tr('Широта'), longitude: tr('Долгота'),
   media: tr('Файл'), has_spoiler: tr('Под спойлером'), unix_time: tr('Unix-время'), date_time_format: tr('Формат'),
   custom_emoji_id: tr('id эмодзи'), alternative_text: tr('Замена'), user: tr('Пользователь'), anchor_name: tr('Якорь'),
-  reference_name: tr('Сноска'), username: 'username', hashtag: tr('Хэштег'),
+  reference_name: tr('Сноска'), username: 'username', hashtag: tr('Хэштег'), address: tr('Адрес'),
   photo: tr('Фото'), video: tr('Видео'), animation: 'GIF', audio: tr('Аудио'), document: tr('Файл'), voice_note: tr('Голосовое'),
 };
 // Placeholders in Russian; the English description from the spec stays in the field's tooltip

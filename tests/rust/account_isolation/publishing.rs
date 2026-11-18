@@ -154,7 +154,11 @@ async fn cross_account_reply_source_is_refused() -> TestResult {
             .await;
             assert_eq!(
                 response.status,
-                StatusCode::FORBIDDEN,
+                if encoded {
+                    StatusCode::UNPROCESSABLE_ENTITY
+                } else {
+                    StatusCode::FORBIDDEN
+                },
                 "{path} encoded={encoded}: {}",
                 response.text()
             );

@@ -42,7 +42,7 @@ pub(super) fn telegram(settings: &Settings, metrics: &Metrics, updates: &Updates
                 error["method"].as_str().unwrap_or("Telegram"),
                 error["error"].as_str().unwrap_or_default()
             ),
-            Some("проверьте связь с api.telegram.org и права бота (GET /api/check)"),
+            Some("проверьте связь с api.telegram.org и права бота (POST /api/check)"),
         );
         result["details"] = details;
         return result;

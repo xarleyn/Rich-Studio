@@ -7,6 +7,33 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const LAYERS: &[&str] = &["api", "mcp_tools", "services", "store", "telegram", "spec"];
+
+#[test]
+fn chrono_maintenance_exception_expires() -> Result<(), Box<dyn std::error::Error>> {
+    let policy = include_str!("../../deny.toml");
+    let Some(exception) = policy
+        .lines()
+        .find(|line| line.contains("id = \"RUSTSEC-2026-0543\""))
+    else {
+        return Ok(());
+    };
+    let marker = "review-by=";
+    let start = exception
+        .find(marker)
+        .ok_or("chrono exception needs review-by=YYYY-MM-DD")?
+        + marker.len();
+    let deadline = exception
+        .get(start..start + 10)
+        .ok_or("invalid advisory deadline")?;
+    let format = time::format_description::parse_borrowed::<2>("[year]-[month]-[day]")?;
+    let deadline = time::Date::parse(deadline, &format)?;
+    assert!(
+        time::OffsetDateTime::now_utc().date() <= deadline,
+        "RUSTSEC-2026-0543 exception expired: remove chrono through an upstream SDK update or review the dependency explicitly"
+    );
+    Ok(())
+}
+
 const SHARED: &[&str] = &[
     "settings",
     "account_context",

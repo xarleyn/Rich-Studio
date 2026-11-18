@@ -40,7 +40,7 @@ app.MapPost("/bot{token}/{method}", async Task<IResult> (HttpContext context, st
     var (body, files) = await ReadBody(context.Request);
     // getUpdates is a poll, not a Bot API call the tests look for in GET /log.
     if (method == "getUpdates") return Results.Json(await mock.GetUpdates(body));
-    return Results.Json(mock.RecordAndAnswer(method, body, files));
+    return Results.Json(await mock.RecordAndAnswer(method, body, files, context.RequestAborted));
 });
 app.MapPost("/push", async Task<IResult> (HttpContext context) =>
     Results.Json(mock.Push(await ReadJsonObject(context.Request))));
@@ -50,6 +50,16 @@ app.MapPost("/fail", async Task<IResult> (HttpContext context) =>
     return Results.Json(new JsonObject { ["ok"] = true });
 });
 app.MapGet("/log", () => Results.Json(mock.Log()));
+app.MapPost("/hold", async Task<IResult> (HttpContext context) =>
+{
+    mock.Hold(await ReadJsonObject(context.Request));
+    return Results.Json(new JsonObject { ["ok"] = true });
+});
+app.MapPost("/release", async Task<IResult> (HttpContext context) =>
+{
+    mock.Release(await ReadJsonObject(context.Request));
+    return Results.Json(new JsonObject { ["ok"] = true });
+});
 app.MapGet("/file/bot{token}/{**path}", (string path) =>
 {
     var file = mock.EmojiFile(path);
@@ -91,7 +101,7 @@ static async Task<(JsonObject Body, Dictionary<string, JsonArray> Files)> ReadBo
         foreach (var file in form.Files)
             files[file.Name] = new JsonArray(JsonValue.Create(file.FileName), JsonValue.Create(file.Length));
         // multipart sends rich_message and reply_markup as JSON strings, not objects
-        foreach (var key in new[] { "rich_message", "reply_markup" })
+        foreach (var key in new[] { "rich_message", "reply_markup", "ephemeral_message_parameters" })
             if (body[key] is JsonValue value && value.TryGetValue<string>(out var text))
                 body[key] = JsonNode.Parse(text);
         return (body, files);
@@ -119,6 +129,7 @@ sealed class FakeTelegram
         "answerWidgetQuery",
         "approveSuggestedPost",
         "declineSuggestedPost",
+        "setMessageReaction",
     };
 
     private static readonly HashSet<string> InviteMethods = new(StringComparer.Ordinal)
@@ -208,6 +219,7 @@ sealed class FakeTelegram
     private readonly List<JsonObject> updates = [];
     private readonly Dictionary<string, JsonNode> fail = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonNode> failCode = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TaskCompletionSource> held = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonObject> messages = new(StringComparer.Ordinal); // chat_id + message_id -> content
     private readonly Dictionary<string, JsonObject> links = new(StringComparer.Ordinal); // invite_link -> ChatInviteLink
     private readonly Dictionary<(string Format, string Source), JsonNode> parsedCache = [];
@@ -229,13 +241,36 @@ sealed class FakeTelegram
         }
     }
 
-    public JsonObject RecordAndAnswer(string method, JsonObject body, Dictionary<string, JsonArray> files)
+    public async Task<JsonObject> RecordAndAnswer(string method, JsonObject body, Dictionary<string, JsonArray> files, CancellationToken cancellationToken)
     {
+        Task? released;
         lock (gate)
         {
             calls.Add(new Call(method, body, files));
-            return AnswerLocked(method, body);
+            released = held.TryGetValue(method, out var signal) ? signal.Task : null;
         }
+        // The request is in /log while held, so a test can observe an actual
+        // in-flight call. Bound a forgotten hold without creating timer tasks.
+        if (released is not null)
+        {
+            try { await released.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken); }
+            catch (TimeoutException) { Release(new JsonObject { ["method"] = method }); }
+        }
+        lock (gate) { return AnswerLocked(method, body); }
+    }
+
+    public void Hold(JsonObject request)
+    {
+        var method = RequiredString(request, "method");
+        lock (gate)
+            held.TryAdd(method, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+    }
+
+    public void Release(JsonObject request)
+    {
+        var method = RequiredString(request, "method");
+        lock (gate)
+            if (held.Remove(method, out var released)) released.TrySetResult();
     }
 
     public JsonArray Log()
@@ -405,6 +440,17 @@ sealed class FakeTelegram
             case "sendRichMessage":
             case "sendPoll":
             {
+                if (method == "sendRichMessage" && body["ephemeral_message_parameters"] is JsonObject ephemeral
+                    && Truthy(ephemeral["callback_query_id"]) && !Truthy(ephemeral["receiver_user_id"]))
+                {
+                    nextId += 1;
+                    var reply = Message(0);
+                    reply["ephemeral_message_id"] = nextId;
+                    reply["receiver_user"] = new JsonObject { ["id"] = 7, ["is_bot"] = false, ["first_name"] = "U" };
+                    reply["rich_message"] = new JsonObject { ["blocks"] = ParsedBlocks(body["rich_message"]) };
+                    return Ok(reply);
+                }
+                if (!Truthy(body["chat_id"])) return Error(400, "Bad Request: chat_id is empty");
                 nextId += 1;
                 var message = Message(nextId);
                 messages[MessageKey(body["chat_id"], nextId)] = Content(body);

@@ -1,5 +1,6 @@
 //! Official MCP Streamable HTTP adapter. Every request receives its authenticated account scope.
 pub mod preview_app;
+mod skill;
 pub mod tools;
 
 use crate::AppState;
@@ -49,13 +50,19 @@ impl ServerHandler for Studio {
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
+                .enable_prompts()
                 .build(),
         )
         .with_server_info(
             Implementation::new("rich-studio", env!("CARGO_PKG_VERSION")).with_title("Rich Studio"),
         );
         if let Ok(contract) = contract() {
-            info = info.with_instructions(contract.instructions.clone());
+            info = info.with_instructions(format!(
+                "Полная инструкция по rich-постам: ресурс {} или prompt {}. {}",
+                skill::URI,
+                skill::NAME,
+                contract.instructions
+            ));
         }
         info
     }
@@ -86,6 +93,7 @@ impl ServerHandler for Studio {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         let state = scoped(&context)?;
+        let settings = state.settings.clone();
         let name = request.name.as_ref();
         let tool = self
             .get_tool(name)
@@ -113,7 +121,9 @@ impl ServerHandler for Studio {
                 }
                 result
             }
-            Err(error) => CallToolResult::error(vec![ContentBlock::text(error)]),
+            Err(error) => CallToolResult::error(vec![ContentBlock::text(crate::logs::scrub(
+                &settings, &error,
+            ))]),
         };
         Ok(result.into())
     }
@@ -126,7 +136,11 @@ impl ServerHandler for Studio {
         let resource = Resource::new(preview_app::URI, "Предпросмотр поста")
             .with_description("Пост так, как его покажет Telegram")
             .with_mime_type("text/html;profile=mcp-app");
-        Ok(ListResourcesResult::with_all_items(vec![resource]))
+        let skill = Resource::new(skill::URI, skill::NAME)
+            .with_title(skill::TITLE)
+            .with_description(skill::description())
+            .with_mime_type("text/markdown");
+        Ok(ListResourcesResult::with_all_items(vec![resource, skill]))
     }
     async fn read_resource(
         &self,
@@ -134,6 +148,12 @@ impl ServerHandler for Studio {
         context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
         scoped(&context)?;
+        if request.uri == skill::URI {
+            return Ok(ReadResourceResult::new(vec![
+                ResourceContents::text(skill::TEXT, skill::URI).with_mime_type("text/markdown"),
+            ])
+            .into());
+        }
         if request.uri != preview_app::URI {
             return Err(ErrorData::invalid_params("resource not found", None));
         }
@@ -144,6 +164,27 @@ impl ServerHandler for Studio {
                 json!({"prefersBorder":false,"csp":{"connectDomains":[],"resourceDomains":[]}}),
             )])));
         Ok(ReadResourceResult::new(vec![content]).into())
+    }
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, ErrorData> {
+        scoped(&context)?;
+        Ok(ListPromptsResult::with_all_items(vec![
+            Prompt::new(skill::NAME, Some(skill::description()), None).with_title(skill::TITLE),
+        ]))
+    }
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResponse, ErrorData> {
+        scoped(&context)?;
+        if request.name != skill::NAME {
+            return Err(ErrorData::invalid_params("prompt not found", None));
+        }
+        Ok(GetPromptResult::new(vec![PromptMessage::new_text(Role::User, skill::TEXT)]).into())
     }
 }
 pub fn router(state: &AppState) -> Router<AppState> {
@@ -202,8 +243,14 @@ pub async fn dispatch(state: AppState, name: &str, mut arguments: Value) -> Resu
         | "save_post_template"
         | "draft_from_template" => tools::templates::call(state, name, arguments).await,
         "validate_post" => {
-            let spec = state.spec.read().await;
-            Ok(tools::bot_api::validate(&spec, &arguments["post"]))
+            let chats = arguments
+                .get("chat_ids")
+                .filter(|value| !value.is_null())
+                .map(|value| serde_json::from_value::<Vec<String>>(value.clone()))
+                .transpose()
+                .map_err(|error| error.to_string())?;
+            crate::services::validation_context::check(&state, &arguments["post"], chats, None)
+                .await
         }
         "bot_api_status" => {
             let spec = state.spec.read().await;
@@ -254,10 +301,8 @@ async fn preview(state: AppState, arguments: Value) -> Result<Value, String> {
     if post.is_null() {
         return Err("передайте post или draft_id".to_owned());
     }
-    let validation = {
-        let spec = state.spec.read().await;
-        tools::bot_api::validate(&spec, &post)
-    };
+    let validation =
+        crate::services::validation_context::check(&state, &post, None, draft_id.clone()).await?;
     let mut result = json!({"post":post,"validation":validation});
     if let (Some(version), Some(id)) = (version, draft_id) {
         result["version"] = version;

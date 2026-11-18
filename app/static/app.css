@@ -17,8 +17,7 @@
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; display: flex; flex-direction: column; }
 button { font: inherit; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
-button.ghost, a.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); border-radius: 8px; text-decoration: none; }
-a.btn.ghost { display: inline-block; }
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); border-radius: 8px; }
 button.ghost:hover { border-color: var(--accent); }
 button.primary { font-weight: 600; }
 button.danger { background: transparent; color: var(--err); border-color: var(--border); }
@@ -35,8 +34,10 @@ code { background: var(--soft); padding: 0 4px; border-radius: 4px; font-size: 1
 .brand { font-weight: 700; color: var(--accent); margin-right: 4px; }
 .title-input { width: 190px; flex: 0 1 170px; min-width: 100px; font-weight: 600; }
 .chat-input { width: 150px; flex: 0 1 150px; text-overflow: ellipsis; min-width: 100px; }
-.chat-btn { flex: 0 0 auto; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topic-select { flex: 0 0 auto; max-width: 150px; font-size: 12px; }
+/* the channel button shrinks too (its label ends in «…»), or a long channel title in a header of one row pushes «▾»
+   off the screen at 1280–1400 px */
+.chat-btn { flex: 0 1 auto; min-width: 120px; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-select { flex: 0 0 auto; font-size: 12px; }
 .channels { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow: auto; }
 .channel { border: 1px solid var(--border); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 .channel.on { border-color: var(--accent); }
@@ -113,6 +114,7 @@ dialog .ok { color: var(--ok); } dialog .w { color: var(--warn); }
 .list li:hover { background: var(--soft); }
 .list li.on { background: var(--chip); }
 .list li .meta { font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.list li .meta.stats { display: block; } /* one line of text: a note with its own hint wraps like the words around it */
 .list li .acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
 .post-head { display: flex; gap: 8px; align-items: center; }
 .post-head .thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; flex: none; }
@@ -121,6 +123,7 @@ dialog .ok { color: var(--ok); } dialog .w { color: var(--warn); }
 #posts-filter { margin: 0 0 6px; font-size: 12px; }
 .status { padding: 0 6px; border-radius: 999px; font-size: 11px; background: var(--soft); }
 .status.sent { color: var(--ok); } .status.failed { color: var(--err); } .status.scheduled, .status.missed { color: var(--warn); }
+.status.unknown, .post-error.unknown, .stats .unknown { color: var(--warn); }
 .actor { padding: 0 6px; border-radius: 999px; font-size: 11px; border: 1px solid var(--soft); }
 .upload { display: block; text-align: center; border: 1px dashed var(--accent); color: var(--accent); border-radius: 8px; padding: 10px; cursor: pointer; }
 .uploads li { flex-direction: row; align-items: center; gap: 8px; }
@@ -129,7 +132,34 @@ dialog .ok { color: var(--ok); } dialog .w { color: var(--warn); }
 .uploads .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
 
 .pane { margin-top: 10px; }
+/* above the blocks: «В HTML» (js/html-export.js) */
+.pane-tools { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.pane-tools[hidden] { display: none; }
+.pane-tools + .pane { margin-top: 6px; }
+.export-problems { margin: 0; padding-left: 18px; font-size: 13px; }
+.export-problems li { margin-bottom: 3px; overflow-wrap: anywhere; }
+.export-diff { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 12px; }
+.export-diff code { overflow-wrap: anywhere; }
 textarea.code { width: 100%; min-height: 380px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size: 2; resize: vertical; }
+/* CodeMirror over the source textareas (code-editor.js); its own theme is in the script */
+.cm-box .cm-editor { width: 100%; }
+.source-tools { margin: 4px 0 6px; gap: 4px 12px; }
+.source-tools label { margin: 0; gap: 4px; }
+/* the JSON tab holds text not applied yet: a dot on the tab, and a bar when the post changed after it */
+.mode-tabs button.pending::after { content: " •"; color: var(--warn); }
+.json-stale { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 6px; padding: 6px 10px; font-size: 13px;
+  color: var(--warn); border: 1px solid var(--warn); border-radius: 8px; background: var(--panel); }
+.json-stale[hidden] { display: none; }
+.json-stale span { flex: 1 1 260px; }
+/* a narrow editor (a phone; three columns on a laptop) has no room for the check pill next to the four tabs:
+   it stands above them on the right, the tabs keep their line */
+@media (max-width: 700px), (min-width: 1101px) and (max-width: 1360px) {
+  .mode-tabs { flex-wrap: wrap; }
+  .mode-tabs .check-pill { order: -2; margin-left: auto; padding: 2px 4px 0; }
+  .mode-tabs .grow { order: -1; flex-basis: 100%; }
+  #mode-hint { display: none; }
+}
+@media (max-width: 700px) { .mode-tabs button[data-mode] { padding: 8px; } }
 .snip-bar { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
 .snip-group { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 .snip-group > span { font-size: 11px; color: var(--muted); margin-right: 2px; }
@@ -230,6 +260,8 @@ label.stack input { width: 100%; }
 .kb-row > .obj { flex: 1 1 240px; }
 /* a button card is narrow: short labels leave room for «Ответ на нажатие» */
 .kb-btn .field { grid-template-columns: 72px minmax(0, 1fr) auto; }
+/* what Telegram refuses on the button in the chats the post goes to (chat-rules.js) */
+.kb-refused p { margin: 4px 0 0; padding: 4px 8px; border-left: 3px solid var(--warn); color: var(--warn); overflow-wrap: anywhere; }
 
 .validation { margin-top: 12px; font-size: 13px; }
 .validation .ok { color: var(--ok); }
@@ -257,6 +289,12 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
 .cb-answer { margin-top: 4px; }
 .cb-answer input[type=text] { flex: 1; }
+.cb-answer .w { color: var(--warn); }
+/* the rich reply in a button card: one line, the dialog holds the rest */
+.cb-reply > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reply-preview { max-height: 46vh; overflow: auto; border-radius: 8px; }
+.reply-issues ul { margin: 4px 0; padding-left: 18px; font-size: 13px; }
+.reply-issues .e { color: var(--err); }
 #updates-state { margin: 0 4px 8px; }
 #updates-state .ok { color: var(--ok); } #updates-state .w { color: var(--warn); }
 .pf { margin: 6px 0; }
@@ -300,3 +338,4 @@ a.btn.small-btn { padding: 3px 8px; font-size: 13px; }
 .connect-channel { border: 1px solid var(--border); border-radius: 12px; background: var(--soft); padding: 14px; margin: 12px 0; }
 .connect-channel p:first-child { margin-top: 0; }
 @media(max-width: 560px) { .login-screen { padding: 16px; } .login-card { padding: 24px; } .account-menu { max-width: 90px; } }
+input[type=number]:invalid { border-color: var(--err); }

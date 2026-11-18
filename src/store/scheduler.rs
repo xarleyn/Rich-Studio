@@ -53,7 +53,7 @@ pub fn recover_ids(context: &AccountContext, keep: &[String]) -> Result<Vec<Stri
     for id in ids {
         if !keep.contains(&id) {
             let changed = tx.execute(
-                "update posts set status='failed',error=? where id=? and status='sending'",
+                "update posts set status='failed',error=?,outcome_unknown=1 where id=? and status='sending'",
                 params![INTERRUPTED_SEND, id],
             )?;
             if changed == 1 {

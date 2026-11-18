@@ -43,8 +43,9 @@
     if (!media) return null;
     const m = typeof media === 'string' ? media : media.media;
     if (typeof m !== 'string') return null;
-    if (m.startsWith('upload:')) return (ctx.mediaBase || '') + '/media/' + encodeURIComponent(m.slice(7));
-    if (/^https?:\/\//i.test(m) && safeUrl(m)) return m;
+    // one file in the media folder: «upload:..» was /media/.., the page itself
+    if (m.startsWith('upload:')) return /^\.{0,2}$|[/\\]/.test(m.slice(7)) ? null : (ctx.mediaBase || '') + '/media/' + encodeURIComponent(m.slice(7));
+    if (/^https?:\/\//i.test(m) && fileUrl(m)) return m;
     return null; // file_id or attach:// cannot be previewed
   }
 
@@ -53,18 +54,25 @@
     const label = typeof media === 'object' && media ? media.media : media;
     const spoiler = media && media.has_spoiler;
     let node;
-    if (!src) {
-      node = el('div', { class: 'tg-media-ph' }, el('span', { class: 'tg-media-kind', text: kindLabel(kind) }), el('small', { text: label || uiText('нет файла') }));
-    } else if (kind === 'photo') {
+    if (!src && typeof label === 'string' && label && !/^[a-z][a-z0-9+.-]*:/i.test(label)) {
+      // a file_id (a forwarded post, /api/raw): the file is in Telegram, the page cannot fetch it without the bot token
+      node = el('div', { class: 'tg-media-ph', title: label }, el('span', { class: 'tg-media-kind', text: kindLabel(kind) + ' из Telegram' }), el('small', { text: 'уйдёт с постом, в предпросмотре не показывается' }));
+    } else if (!src) {
+      node = el('div', { class: 'tg-media-ph' }, el('span', { class: 'tg-media-kind', text: kindLabel(kind) }), el('small', { text: label || 'нет файла' }));
+    } else if (kind === 'photo' || (kind === 'animation' && /\.gif(?:[?#]|$)/i.test(src))) {
+      // a GIF plays only in <img>; Telegram shows an animation playing by itself in a loop, without controls
       node = el('img', { src, alt: '', loading: 'lazy' });
     } else if (kind === 'video' || kind === 'animation') {
-      node = el('video', { src, controls: kind === 'video', autoplay: kind === 'animation', loop: kind === 'animation', muted: true, playsinline: true });
+      node = el('video', { src, controls: kind === 'video', autoplay: kind === 'animation', loop: kind === 'animation', playsinline: true });
+      // autoplay policy looks at the property; the muted attribute only sets the default after parsing
+      node.defaultMuted = node.muted = true;
     } else if (kind === 'audio' || kind === 'voice_note' || kind === 'voice') {
       node = el('audio', { src, controls: true });
     } else {
       node = el('a', { class: 'tg-doc', href: src, target: '_blank', rel: 'noopener' }, el('span', { class: 'tg-doc-ico', text: '📄' }), (() => { const last = src.split('/').pop() || ''; try { return decodeURIComponent(last); } catch (e) { return last; } })());
     }
-    const wrap = el('div', { class: 'tg-media tg-media-' + kind + (spoiler ? ' tg-media-spoiler' : '') }, node);
+    // tg-gif: the «GIF» label over a playing animation (the placeholder names the kind by itself)
+    const wrap = el('div', { class: 'tg-media tg-media-' + kind + (src && kind === 'animation' ? ' tg-gif' : '') + (spoiler ? ' tg-media-spoiler' : '') }, node);
     if (spoiler) wrap.addEventListener('click', () => wrap.classList.remove('tg-media-spoiler'));
     if (extra) wrap.append(extra);
     return wrap;
@@ -75,10 +83,72 @@
   }
 
   // ---------- math ----------
+  // How deep a formula may be (issue #228). KaTeX draws 130 levels of \frac, \sqrt, x^{…} or \colorbox in milliseconds,
+  // and Chromium crashes the tab laying them out: a box in a box for each level (.vlist-t, \llap's .llap), 827 bytes.
+  // Deeper than MAX_FORMULA_DEPTH, a formula is drawn as KaTeX draws its errors: the source in red, why in the tooltip.
+  // Its levels are counted in the source before KaTeX ({ }, \left…\right, \begin…\end, \bgroup, \begingroup; \{ \}
+  // are characters; app/spec/validator.py warns by the same count), and the boxes KaTeX made are counted after it:
+  // \def, a % comment, \verb nest them deeper than the source tells (258 bytes of \def are 256 levels)
+  const MAX_FORMULA_DEPTH = 64;
+  const TEX_TOKEN = /\\(?:[a-zA-Z]+|[\s\S])|[{}]/g;
+  const TEX_OPENS = new Set(['{', '\\left', '\\begin', '\\bgroup', '\\begingroup']);
+  const TEX_CLOSES = new Set(['}', '\\right', '\\end', '\\egroup', '\\endgroup']);
+  const FORMULA_BOX = '.vlist-t, .llap, .rlap, .clap';
+  /** @param {string} expr */
+  function formulaDepth(expr) {
+    let depth = 0, most = 0;
+    for (const [t] of expr.matchAll(TEX_TOKEN)) {
+      if (TEX_OPENS.has(t)) most = Math.max(most, ++depth);
+      else if (TEX_CLOSES.has(t) && depth) depth--;
+    }
+    return most;
+  }
+  /** whether KaTeX nested its boxes deeper than MAX_FORMULA_DEPTH @param {Element} e @param {number} depth */
+  function boxedDeeper(e, depth) {
+    // not e.children: a live collection of each element of each formula, that the browser keeps up to date on every
+    // change of the page after it (12 500 formulas went from 0.1 s to 5 s)
+    for (let c = e.firstElementChild; c; c = c.nextElementSibling) {
+      const d = depth + (c.matches(FORMULA_BOX) ? 1 : 0);
+      if (d > MAX_FORMULA_DEPTH || boxedDeeper(c, d)) return true;
+    }
+    return false;
+  }
+  // Groups the source count misses (a % comment, \verb|}|, \def) make no boxes but a group in a group all the same,
+  // and their layout grows as the cube of their levels (security review of #230): 600 levels of {\text{v}%} round an x
+  // took 3.5 s, 1000 levels 16 s, 1000 of \vbox{%} 28 s. KaTeX's MathML copy has an element for each such level: 64
+  // levels of x^{…}, \frac or \left are about 68 elements deep in it, an array about 4 a level
+  const MAX_MATHML_DEPTH = 5 * MAX_FORMULA_DEPTH;
+  // Chromium on Windows can crash laying out 16 nested superscripts although their source is below the 64-level
+  // TeX limit. Bound the HTML KaTeX produced while it is detached, before any browser lays out that subtree. This
+  // structural budget leaves a margin below that observed crash and applies to macros and arrays too.
+  const MAX_FORMULA_HTML_DEPTH = 80;
+  /** whether the elements in e go deeper than `left` levels more @param {Element} e @param {number} left */
+  function deeperThan(e, left) {
+    if (left < 0) return true;
+    for (let c = e.firstElementChild; c; c = c.nextElementSibling) if (deeperThan(c, left - 1)) return true;
+    return false;
+  }
+  /** a formula too deep, as KaTeX writes its own errors (errorColor) @param {HTMLElement} span @param {string} expr */
+  function tooDeep(span, expr, layout = false) {
+    const title = layout ? 'Разметка формулы слишком глубока для безопасного предпросмотра: исходник сохранён'
+      : `Формула глубже ${MAX_FORMULA_DEPTH} уровней вложенности: предпросмотр её не рисует`;
+    const error = el('span', { class: 'katex-error', title, text: expr });
+    error.style.color = '#cc0000';
+    span.replaceChildren(error);
+    return span;
+  }
   function math(expr, display) {
     const span = el(display ? 'div' : 'span', { class: display ? 'tg-math-block' : 'tg-math' });
     if (global.katex) {
-      try { global.katex.render(expr, span, { displayMode: !!display, throwOnError: false }); return span; } catch (e) { /* fall through */ }
+      if (formulaDepth(expr) > MAX_FORMULA_DEPTH) return tooDeep(span, expr);
+      // the span is not in the document yet: what KaTeX made too deep is never laid out
+      try {
+        global.katex.render(expr, span, { displayMode: !!display, throwOnError: false });
+        const html = span.querySelector('.katex-html');
+        if (html && deeperThan(html, MAX_FORMULA_HTML_DEPTH)) return tooDeep(span, expr, true);
+        const mathml = span.querySelector('.katex-mathml');
+        return boxedDeeper(span, 0) || (mathml && deeperThan(mathml, MAX_MATHML_DEPTH)) ? tooDeep(span, expr) : span;
+      } catch (e) { /* fall through */ }
     }
     span.textContent = expr;
     return span;
@@ -108,14 +178,20 @@
   }
 
   // ---------- buttons ----------
+  // a class name made of a string of the post: one word or nothing, else «x tg-cell-empty» puts any class of tg.css on
+  // the element (one that hides it, too)
+  const word = (v) => (typeof v === 'string' && /^[a-z_]+$/.test(v) ? v : '');
+
   function buttonEl(b, ctx) {
     if (!b || typeof b !== 'object') return null;
     const action = ['url', 'callback_data', 'web_app', 'login_url', 'switch_inline_query', 'switch_inline_query_current_chat', 'switch_inline_query_chosen_chat', 'copy_text', 'disabled', 'pay', 'callback_game'].find((k) => b[k] !== undefined);
     const icon = { url: '↗', copy_text: '⧉', switch_inline_query: '↪', switch_inline_query_chosen_chat: '↪', login_url: '🔑', web_app: '▣' }[action] || '';
-    const title = action === 'url' ? b.url : action === 'copy_text' ? uiText('Копирует: ') + (b.copy_text && b.copy_text.text) : action === 'callback_data' ? 'callback: ' + b.callback_data : action || uiText('без действия');
-    const btn = el('span', { class: 'tg-btn' + (b.style ? ' tg-btn-' + b.style : '') + (action === 'disabled' ? ' tg-btn-disabled' : ''), title },
+    const title = action === 'url' ? b.url : action === 'copy_text' ? 'Копирует: ' + (b.copy_text && b.copy_text.text) : action === 'callback_data' ? 'callback: ' + b.callback_data : action || 'без действия';
+    const btn = el('span', { class: 'tg-btn' + (word(b.style) ? ' tg-btn-' + b.style : '') + (action === 'disabled' ? ' tg-btn-disabled' : ''), title },
       renderRT(b.text, ctx), icon ? el('span', { class: 'tg-btn-ico', text: icon }) : null);
-    if (action === 'url' && b.url && /^https?:\/\//i.test(b.url) && safeUrl(b.url)) btn.addEventListener('click', () => window.open(b.url, '_blank', 'noopener'));
+    // the scheme as the check reads it (safeUrl gives the address back as written, a space in front included)
+    const go = action === 'url' && typeof b.url === 'string' && safeUrl(b.url) ? asRead(b.url) : '';
+    if (/^https?:\/\//i.test(go)) btn.addEventListener('click', () => window.open(go, '_blank', 'noopener'));
     return btn;
   }
 
@@ -135,11 +211,12 @@
     const inner = () => renderRT(rt.text, ctx);
     if (WRAP[t]) frag.append(el(WRAP[t], {}, inner()));
     else if (t === 'spoiler') frag.append(spoilerEl(inner()));
-    else if (t === 'url') frag.append(el('a', { href: safeUrl(rt.url), target: '_blank', rel: 'noopener', title: rt.url }, inner()));
+    else if (t === 'url') frag.append(linkDropped(rt.url) ? inner() : el('a', { href: safeUrl(tgAddress(rt.url)), target: '_blank', rel: 'noopener', title: rt.url }, inner()));
     else if (t === 'text_mention') frag.append(el('a', { class: 'tg-link', title: 'id ' + (rt.user && rt.user.id) }, inner()));
     else if (t === 'email_address') frag.append(el('a', { href: 'mailto:' + rt.email_address }, inner()));
     else if (t === 'phone_number') frag.append(el('a', { href: 'tel:' + rt.phone_number }, inner()));
     else if (['mention', 'hashtag', 'cashtag', 'bot_command', 'bank_card_number'].includes(t)) frag.append(el('span', { class: 'tg-link' }, inner()));
+    else if (t === 'ton_address') frag.append(tonEl(inner(), rt.address || ''));
     else if (t === 'date_time') frag.append(el('span', { class: 'tg-time', title: formatTime(rt.unix_time, 'wDT') + uiText(' (у читателя: его часовой пояс)') }, rt.text ? inner() : formatTime(rt.unix_time, rt.date_time_format)));
     else if (t === 'custom_emoji') frag.append(emojiEl(rt, ctx));
     else if (t === 'mathematical_expression') frag.append(math(rt.expression || '', false));
@@ -151,6 +228,9 @@
     else frag.append(unknown(uiText('текст: ') + t, rt.text !== undefined ? inner() : JSON.stringify(rt)));
     return frag;
   }
+
+  // a TON address reads as a link; the address itself only in the title
+  const tonEl = (content, address) => el('span', { class: 'tg-link tg-ton', title: 'Адрес TON: ' + address }, content);
 
   function spoilerEl(content) {
     const s = el('span', { class: 'tg-spoiler' }, content);
@@ -234,7 +314,7 @@
     switch (b.type) {
       case 'paragraph': return el('p', {}, rt(b.text));
       case 'heading': return el('h' + Math.min(6, Math.max(1, b.size || 1)), {}, rt(b.text));
-      case 'pre': return el('pre', { 'data-lang': b.language || null }, el('code', {}, rt(b.text)));
+      case 'pre': return codeBox(el('pre', { 'data-lang': b.language || null }, el('code', {}, rt(b.text))), b.language);
       case 'footer': return el('footer', {}, rt(b.text));
       case 'divider': return el('hr');
       case 'mathematical_expression': return math(b.expression || '', true);
@@ -263,7 +343,7 @@
         return d;
       }
       case 'map': return el('figure', { class: 'tg-map-fig' }, mapEl(b.location && b.location.latitude, b.location && b.location.longitude, b.zoom, b.width, b.height), caption(b.caption, ctx));
-      case 'buttons': return el('div', { class: 'tg-btn-row tg-align-' + (b.align || 'center') }, (b.buttons || []).map((x) => buttonEl(x, ctx)));
+      case 'buttons': return el('div', { class: 'tg-btn-row tg-align-' + (word(b.align) || 'center') }, (b.buttons || []).map((x) => buttonEl(x, ctx)));
       case 'photo': case 'video': case 'animation': case 'audio': case 'document': case 'voice_note':
         return el('figure', {}, mediaEl(b.type, b[b.type], ctx), caption(b.caption, ctx));
       default:
@@ -272,69 +352,329 @@
     }
   }
 
+  // A code block as Telegram Desktop draws it: a bar on the left, a header with the language (without one, «копировать»)
+  // and a copy icon. CSS writes the header from data-lang, so the post's text (outline, history, reply dialog) stays
+  // only the code.
+  // No syntax highlighting: docs/decisions/0022-code-block-without-highlighting.md
+  function codeBox(pre, lang) {
+    const copy = el('span', { class: 'tg-pre-copy', role: 'button', tabindex: 0, title: 'Копировать', 'aria-label': 'Копировать код' });
+    const head = el('div', { class: 'tg-pre-head', 'data-lang': lang || null }, copy);
+    const copyCode = () => {
+      const done = () => { head.classList.add('tg-copied'); setTimeout(() => head.classList.remove('tg-copied'), 1500); };
+      try { navigator.clipboard.writeText(codeText(pre)).then(done, () => {}); } catch (e) { /* no clipboard here (an MCP host's sandbox) */ }
+    };
+    // the click is the icon's: it must not also fold an expandable quote or open a spoiler around the code
+    copy.addEventListener('click', (ev) => { ev.stopPropagation(); copyCode(); });
+    copy.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); copyCode(); } });
+    return el('div', { class: 'tg-pre' }, head, pre);
+  }
+
+  // The code as the reader sees it, so that is what goes to the clipboard (issue #201): <pre>ls -la<details><summary>
+  // </summary>; curl … | sh</details></pre> shows «ls -la». Not drawn, so not copied: what a closed <details> holds past
+  // its summary, the fallback inside <video> and <audio>, a closed spoiler (a blot until it is opened), what CSS hides
+  // (display: none, visibility: hidden); of a formula only what KaTeX draws, without its MathML copy for screen readers.
+  // Not seen, so not copied either (issue #206): what is out of view of the code box or of a box in it that cuts off
+  // what it holds (seenIn): the lines of a folded quote past the third, the slides not turned to, what a formula moves
+  // out (\kern{-300em}, \mathllap, \smash{\raisebox{300em}{…}}); text a formula draws in all but the colour of what is
+  // behind it (\phantom, \color{white} on the day theme). How Telegram copies such code was not measured: what is seen
+  // is what is copied. Line breaks as the browser's innerText puts them: a <br>, a block (a paragraph two), a table
+  // row; a tab between cells. A stack in a formula reads from the top: \frac{a}{b} is «ab». innerText itself would copy
+  // the MathML, \phantom, a spoiler's own text, what is out of view and KaTeX's layout as lines.
+  // Not seen either (issue #228): text under what a formula paints over it (covers, below).
+  function codeText(pre) {
+    let s = '', breaks = 0;
+    const put = (t) => { if (!t) return; if (s && breaks) s += '\n'.repeat(breaks); breaks = 0; s += t; };
+    const range = document.createRange();
+    /** @param {DOMRect} r @param {Box} b */
+    const inside = (r, b) => r.left >= b.left - 1 && r.right <= b.right + 1 && r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
+    /** @param {DOMRect} r @param {Box} b */
+    const outside = (r, b) => r.right < b.left || r.left > b.right || r.bottom < b.top || r.top > b.bottom;
+    /** more than a pixel of each in the other @param {DOMRect} r @param {Box} b */
+    const overlaps = (r, b) => r.right > b.left + 1 && r.left < b.right - 1 && r.bottom > b.top + 1 && r.top < b.bottom - 1;
+    /** @param {DOMRect} r @param {Box} b */
+    const centred = (r, b) => {
+      const x = (r.left + r.right) / 2, y = (r.top + r.bottom) / 2;
+      return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+    };
+    // What a formula paints over text (issue #228): \llap{\colorbox{фон}{\phantom{…}}} over text before it, a \rule, a
+    // thick fraction line (\genfrac, \above), anywhere in the post: a formula after the code is raised over it with
+    // \smash{\raisebox{…}{…}}. A cover hides the text under it when painted after it, as CSS paints: a positioned element
+    // (KaTeX's .base, the box itself, the code box) after the text in the flow around it, positioned elements in the
+    // order of the page, in one of them its own text in that order too. Only boxes: what a glyph covers (█ in the colour
+    // of the background) its box does not tell
+    const root = pre.closest('.tg-body') || pre;
+    /** the positioned element the text or the element is painted with, null: the flow of the post @param {Element | null} e */
+    const paneOf = (e) => {
+      for (; e && e !== root; e = e.parentElement) if (getComputedStyle(e).position !== 'static') return e;
+      return null;
+    };
+    // A cover is seen only inside the boxes around it that cut off what they hold, where they are scrolled to now: raised
+    // out of a folded quote, a table or a slide it hides nothing, and lowered in a formula block it does not reach the
+    // code below from what the block scrolls to (security review of #230). The boxes around the code cut it and the
+    // code alike: not looked at. Each box once
+    /** @type {Map<Element, Box>} */
+    const clips = new Map();
+    /** @param {Element | null} a @returns {Box} */
+    const clipOf = (a) => {
+      if (!a || a.contains(pre)) return ALL;
+      let b = clips.get(a);
+      if (!b) clips.set(a, b = seenIn(clipOf(a.parentElement), /** @type {HTMLElement} */ (a), getComputedStyle(a), false));
+      return b;
+    };
+    // no least size: thin rules one on another hide text as well as one thick
+    const covers = [...root.querySelectorAll(COVERS)].flatMap((e) => {
+      const css = getComputedStyle(e);
+      const color = rgba(e.matches('.colorbox, .fcolorbox') ? css.backgroundColor : e.matches('.rule') ? css.borderTopColor : css.borderBottomColor);
+      const box = e.getBoundingClientRect(), seen = clipOf(e.parentElement);
+      /** @type {Box} */
+      const r = { left: Math.max(box.left, seen.left), right: Math.min(box.right, seen.right), top: Math.max(box.top, seen.top), bottom: Math.min(box.bottom, seen.bottom) };
+      return css.visibility === 'visible' && color && color[3] && r.right > r.left && r.bottom > r.top ? [{ e, r, color, pane: paneOf(e) }] : [];
+    }).sort((a, b) => a.r.top - b.r.top);
+    // by their top edge: a text looks only at the covers that start at most the tallest one above it, not at all of
+    // them (1600 lines with a fraction each: 0.6 s)
+    const tallest = covers.reduce((h, c) => Math.max(h, c.r.bottom - c.r.top), 0);
+    /** the first cover whose top is at y or below @param {number} y */
+    const firstFrom = (y) => {
+      let lo = 0, hi = covers.length;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (covers[m].r.top < y) lo = m + 1; else hi = m; }
+      return lo;
+    };
+    const follows = (a, z) => !!(a.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING);
+    /** the covers painted over a text that is painted with `pane` @param {Text} t @param {Element | null} pane */
+    const coversOf = (t, pane) => {
+      if (!covers.length) return [];
+      range.selectNodeContents(t);
+      const b = range.getBoundingClientRect();
+      const found = [];
+      for (let i = firstFrom(b.top + 1 - tallest), end = firstFrom(b.bottom - 1); i < end; i++) {
+        const c = covers[i];
+        if (overlaps(b, c.r) && !c.e.contains(t) && (c.pane === pane ? follows(t, c.e) : !pane || (!!c.pane && follows(pane, c.pane)))) found.push(c);
+      }
+      return found;
+    };
+    // what of a text is in view: all of it or none at once, else by halves down to a character, which is in view by its
+    // middle; a text the browser lays out nowhere is not drawn. Each look costs as much as the whole text: a code box
+    // that cuts a few lines (a folded quote) takes tens of looks, past `looks` what is left undecided is not copied, so
+    // thousands of lines across the edge of a slide do not hang the page (issue #198). Under covers (`over`) a character
+    // is not seen when its middle is under those that leave it in all but the colour of what is behind it there
+    let looks = 2000;
+    /** @param {Text} t @param {Box} box @param {{ r: Box, color: number[] }[]} over @param {string} color @param {number[]} behind */
+    const seenText = (t, box, over, color, behind) => {
+      /** @param {{ color: number[] }[]} cs */
+      const hides = (cs) => cs.length > 0
+        && faint(cs.reduce((u, c) => layer(c.color, u), layer(color, behind)), cs.reduce((u, c) => layer(c.color, u), behind));
+      const part = (i, j) => {
+        if (j - i < t.data.length && --looks < 0) return '';
+        range.setStart(t, i);
+        range.setEnd(t, j);
+        const rects = [...range.getClientRects()];
+        if (!rects.length) return '';
+        if (rects.every((r) => inside(r, box) && !over.some((c) => overlaps(r, c.r)))) return t.data.slice(i, j);
+        if (j - i === 1) return rects.some((r) => centred(r, box) && !hides(over.filter((c) => centred(r, c.r)))) ? t.data.slice(i, j) : '';
+        if (rects.every((r) => outside(r, box) || hides(over.filter((c) => inside(r, c.r))))) return '';
+        let m = (i + j) >> 1;
+        if (/[\udc00-\udfff]/.test(t.data[m]) && m + 1 < j) m++; // not between the halves of one character
+        return part(i, m) + part(m, j);
+      };
+      return part(0, t.data.length);
+    };
+    /** @param {Node} n @param {boolean} math @param {Box} box what of the page is seen there @param {number[]} behind the background there @param {Element | null} pane what it is painted with (paneOf) */
+    const walk = (n, math, box, behind, pane) => {
+      if (n.nodeType === 3) {
+        const css = getComputedStyle(/** @type {Element} */ (n.parentNode));
+        // in a formula the post sets the colours (\color, \colorbox)
+        if (/^(hidden|collapse)$/.test(css.visibility) || (math && faint(css.color, behind))) return;
+        const t = seenText(/** @type {Text} */ (n), box, coversOf(/** @type {Text} */ (n), pane), css.color, behind);
+        // KaTeX puts zero-width spaces between the rows of a superscript or a fraction
+        put(math ? t.replace(/\u200b/g, '') : t);
+        return;
+      }
+      const e = /** @type {HTMLElement} */ (n);
+      if (n.nodeType !== 1 || e.localName === 'video' || e.localName === 'audio' || e.classList.contains('katex-mathml')) return;
+      if (e.classList.contains('tg-spoiler') && !e.classList.contains('tg-spoiler-open')) return;
+      // the <br>'s own rects: a range round it is found by its place among its parent's children, from the first one
+      // each time (6000 lines of code in blocks are 6000 <br>)
+      if (e.localName === 'br') {
+        if ([...e.getClientRects()].some((r) => centred(r, box))) put('\n');
+        return;
+      }
+      const css = getComputedStyle(e);
+      if (css.display === 'none') return;
+      // KaTeX lays a formula out with blocks and tables of its own: it reads as one line of what it draws
+      const lines = math ? 0 : e.localName === 'p' ? 2 : css.display && !/^(inline|contents|table-cell|ruby)/.test(css.display) ? 1 : 0;
+      breaks = Math.max(breaks, lines);
+      const inner = math || e.classList.contains('katex-html');
+      // the background from the code box down, element by element: looked up from each formula, it went through all the
+      // tags above it every time
+      let under = layer(css.backgroundColor, behind);
+      // \colorbox and \fcolorbox are a layer of their own in the stack that holds them, under what they hold
+      const colorbox = math && e.classList.contains('vlist') && e.querySelector(':scope > * > .colorbox, :scope > * > .fcolorbox');
+      if (colorbox) under = layer(getComputedStyle(colorbox).backgroundColor, under);
+      /** @type {Node[]} */
+      let kids = [...e.childNodes];
+      if (e.localName === 'details' && !(/** @type {HTMLDetailsElement} */ (e)).open) kids = kids.filter((c) => c.nodeName === 'SUMMARY').slice(0, 1);
+      // KaTeX writes a stack (a fraction, limits, a superscript over a subscript) from the bottom up
+      else if (math && e.classList.contains('vlist')) {
+        const top = new Map(kids.map((c) => [c, c.nodeType === 1 ? /** @type {Element} */ (c).getBoundingClientRect().top : 0]));
+        kids.sort((a, b) => (top.get(a) || 0) - (top.get(b) || 0));
+      }
+      const seen = seenIn(box, e, css);
+      kids.forEach((c) => walk(c, inner, seen, under, css.position === 'static' ? pane : e));
+      breaks = Math.max(breaks, lines);
+      if (!math && css.display === 'table-cell' && e.nextElementSibling) put('\t');
+    };
+    // what of the code is seen: the boxes of the post around it cut it too (code in a folded quote), then the code box
+    // itself
+    const around = [];
+    for (let a = pre.parentElement; a && !a.classList.contains('tg-body'); a = a.parentElement) around.unshift(a);
+    const box = [...around, pre].reduce((b, a) => seenIn(b, a, getComputedStyle(a)), ALL);
+    const behind = backdrop(pre);
+    const pane = paneOf(pre);
+    pre.childNodes.forEach((c) => walk(c, false, box, behind, pane));
+    return s;
+  }
+  // what a formula paints that may cover text (codeText): of KaTeX's drawing, not of its MathML copy
+  const COVERS = ['colorbox', 'fcolorbox', 'rule', 'frac-line'].map((c) => '.katex-html .' + c).join(', ');
+
+  /** @typedef {{ left: number, right: number, top: number, bottom: number }} Box */
+  const ALL = { left: -Infinity, right: Infinity, top: -Infinity, bottom: Infinity };
+  const NONE = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+  // What of the page is seen inside an element, from what is seen around it (box). A box that cuts off what it holds
+  // shows it in its padding box only; one the reader scrolls shows besides all it scrolls to there. Never what is before
+  // the start of its scrolling: left of a box written left to right, right of one written right to left, above any. A
+  // slideshow turns its slides: the one in view is seen, not all it scrolls to. Without `scrolled`, only what is in view
+  // now
+  /** @param {Box} box @param {HTMLElement} e @param {CSSStyleDeclaration} css @param {boolean} [scrolled] @returns {Box} */
+  function seenIn(box, e, css, scrolled = true) {
+    if (css.overflowX === 'visible' && css.overflowY === 'visible') return box;
+    const r = e.getBoundingClientRect();
+    const x = r.left + e.clientLeft, y = r.top + e.clientTop;
+    const b = { ...box };
+    if (css.overflowX !== 'visible') { b.left = Math.max(b.left, x); b.right = Math.min(b.right, x + e.clientWidth); }
+    if (css.overflowY !== 'visible') { b.top = Math.max(b.top, y); b.bottom = Math.min(b.bottom, y + e.clientHeight); }
+    // nothing of it is seen, an edge of no width too (the next slide starts right on the slideshow's edge): nothing
+    // to scroll into view either
+    if (b.right - b.left < 1 || b.bottom - b.top < 1) return NONE;
+    const scrolls = (v) => scrolled && /^(auto|scroll)$/.test(v) && !e.classList.contains('tg-slides');
+    if (scrolls(css.overflowX)) {
+      const more = e.scrollWidth - e.clientWidth;
+      if (css.direction === 'rtl') { b.left -= more + e.scrollLeft; b.right -= e.scrollLeft; } else { b.left -= e.scrollLeft; b.right += more - e.scrollLeft; }
+    }
+    if (scrolls(css.overflowY)) { b.top -= e.scrollTop; b.bottom += e.scrollHeight - e.clientHeight - e.scrollTop; }
+    return b;
+  }
+
+  // A colour as CSS gives it, [r, g, b, alpha]: a colour of KaTeX is a name or #hex, so rgb() or rgba()
+  /** @param {string} c @returns {number[] | null} */
+  const rgba = (c) => {
+    const m = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/.exec(c);
+    return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+  };
+  /** a colour laid over an opaque one @param {string | number[] | null} top @param {number[]} under */
+  const layer = (top, under) => {
+    const c = typeof top === 'string' ? rgba(top) : top;
+    return c && c[3] ? [0, 1, 2].map((i) => c[i] * c[3] + under[i] * (1 - c[3])).concat(1) : under;
+  };
+  /** the background behind an element: its own and its parents' over the white of the page @param {Element | null} e */
+  function backdrop(e) {
+    const layers = [];
+    for (; e; e = e.parentElement) {
+      const c = rgba(getComputedStyle(e).backgroundColor);
+      if (c && c[3]) layers.push(c);
+      if (c && c[3] === 1) break;
+    }
+    return layers.reduceRight((under, c) => layer(c, under), [255, 255, 255, 1]);
+  }
+  /** @param {number[]} c */
+  const luminance = (c) => [0.2126, 0.7152, 0.0722].reduce((sum, k, i) => {
+    const v = c[i] / 255;
+    return sum + k * (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  }, 0);
+  // text in all but the colour behind it: a contrast under 1.5:1 (WCAG's ratio; white on the code of the day theme is
+  // 1.2, gray 3.4, transparent 1)
+  /** @param {string | number[]} color @param {number[]} behind */
+  function faint(color, behind) {
+    const [a, b] = [luminance(layer(color, behind)), luminance(behind)].sort((p, q) => q - p);
+    return (a + 0.05) / (b + 0.05) < 1.5;
+  }
+
   function expandable(content, cite) {
     const q = el('blockquote', { class: 'tg-expandable tg-collapsed' }, content, cite);
     q.addEventListener('click', () => q.classList.toggle('tg-collapsed'));
     return q;
   }
 
+  // Slides turn by touch (native scroll), by a click on a dot, by ← → on the focused slides and by
+  // dragging with the mouse. Moves are physical (scroll deltas), so RTL posts turn the right way too.
   function slideshow(contentFrag, cap) {
-    const track = el('div', {
-      class: 'tg-slides', tabindex: 0, role: 'group',
-      'aria-label': uiText('Слайдшоу: стрелки, перетаскивание мышью или точки под слайдами'),
-    }, contentFrag);
+    const track = el('div', { class: 'tg-slides' }, contentFrag);
     track.querySelectorAll('img').forEach((img) => (img.draggable = false));
     const count = track.children.length;
-    const dots = el('div', { class: 'tg-dots' });
+    // nothing to turn in a single slide: no focus stop, no hint about arrows
+    if (count > 1) Object.entries({ tabindex: 0, role: 'group', 'aria-label': 'Слайдшоу: листается стрелками ← →, мышью и точками' }).forEach(([k, v]) => track.setAttribute(k, String(v)));
+    const dots = el('div', { class: 'tg-dots', 'aria-hidden': 'true' });
     for (let i = 0; i < count; i++) dots.append(el('span', { class: i ? '' : 'on' }));
-    const current = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
-    const slide = (i) => {
-      const j = Math.max(0, Math.min(count - 1, i));
-      if (j !== current()) track.scrollTo({ left: j * track.clientWidth, behavior: 'smooth' });
-    };
+    const by = (left) => track.scrollBy({ left, behavior: 'smooth' });
+    track.addEventListener('scroll', () => {
+      const i = Math.round(Math.abs(track.scrollLeft) / Math.max(1, track.clientWidth));
+      [...dots.children].forEach((d, j) => d.classList.toggle('on', j === i));
+    });
     dots.addEventListener('click', (ev) => {
-      if (!(ev.target instanceof Element)) return;
-      const i = [...dots.children].indexOf(ev.target);
-      if (i < 0) return;
-      slide(i);
+      const s = track.children[[...dots.children].indexOf(/** @type {Element} */ (ev.target))];
+      if (s) by(s.getBoundingClientRect().left - track.getBoundingClientRect().left);
       track.focus({ preventScroll: true });
     });
-    track.addEventListener('scroll', () => {
-      const i = current();
-      [...dots.children].forEach((d, j) => d.className = j === i ? 'on' : '');
-    });
     track.addEventListener('keydown', (ev) => {
-      if (ev.key === 'ArrowLeft') slide(current() - 1);
-      else if (ev.key === 'ArrowRight') slide(current() + 1);
-      else return;
+      const step = ev.key === 'ArrowLeft' ? -1 : ev.key === 'ArrowRight' ? 1 : 0;
+      if (!step || ev.target !== track) return; // arrows inside a slide (video controls) stay theirs
       ev.preventDefault();
+      track.scrollBy({ left: step * track.clientWidth }); // at once: a smooth turn would eat a quick second press
     });
-    // Mouse drag for desktop; touch already scrolls natively (overflow-x + scroll snap).
-    /** @type {{ x: number; left: number; moved: boolean } | null} */
+    // While dragging snapping is off; the click that ends a drag is swallowed, so it does not open
+    // a spoiler or start a video under the pointer
+    /** @type {{ x: number, left: number, dx: number, moved: boolean } | null} */
     let drag = null;
+    let swallow = false;
+    track.addEventListener('dragstart', (ev) => ev.preventDefault());
     track.addEventListener('pointerdown', (ev) => {
-      if (ev.pointerType !== 'mouse' || ev.button !== 0 || count < 2) return;
-      drag = { x: ev.clientX, left: track.scrollLeft, moved: false };
+      swallow = false;
+      if (ev.pointerType === 'mouse' && ev.button === 0 && count > 1) drag = { x: ev.clientX, left: track.scrollLeft, dx: 0, moved: false };
     });
     track.addEventListener('pointermove', (ev) => {
       if (!drag) return;
-      const dx = ev.clientX - drag.x;
-      if (!drag.moved && Math.abs(dx) < 5) return;
-      drag.moved = true;
-      track.classList.add('dragging');
-      if (ev.isTrusted) track.setPointerCapture(ev.pointerId);
-      track.scrollLeft = drag.left - dx;
-      ev.preventDefault();
+      if (!(ev.buttons & 1)) { end(); return; } // the button went up where we did not see it
+      drag.dx = ev.clientX - drag.x;
+      if (!drag.moved) {
+        if (Math.abs(drag.dx) < 5) return;
+        drag.moved = true;
+        track.classList.add('tg-dragging');
+        track.setPointerCapture(ev.pointerId);
+      }
+      track.scrollLeft = drag.left - drag.dx;
     });
-    const endDrag = () => {
-      if (!drag) return;
-      const moved = drag.moved;
+    const end = () => {
+      const d = drag;
       drag = null;
-      track.classList.remove('dragging');
-      if (moved) slide(current());
+      if (!d || !d.moved) return;
+      swallow = true;
+      setTimeout(() => { swallow = false; });
+      // to the nearest slide, or to the next one when the drag went a fifth of a slide, as a swipe does
+      const w = track.clientWidth, from = track.scrollLeft;
+      let to = Math.round(from / w) * w;
+      if (to === Math.round(d.left / w) * w && Math.abs(d.dx) > w / 5) to -= Math.sign(d.dx) * w;
+      // snapping comes back once the slide is in place: turned on midway it jumps to the nearest slide
+      const t0 = performance.now();
+      const step = (now) => {
+        if (drag && drag.moved) return; // a new drag took over
+        const k = Math.min(1, (now - t0) / 200);
+        track.scrollLeft = from + (to - from) * (1 - (1 - k) ** 3);
+        if (k < 1) requestAnimationFrame(step); else track.classList.remove('tg-dragging');
+      };
+      requestAnimationFrame(step);
     };
-    track.addEventListener('pointerup', endDrag);
-    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('pointerup', end);
+    track.addEventListener('pointercancel', end);
+    track.addEventListener('click', (ev) => { if (swallow) { swallow = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
     return el('figure', { class: 'tg-slideshow' }, track, count > 1 ? dots : null, cap);
   }
 
@@ -346,7 +686,14 @@
       const tr = el('tr');
       (row || []).forEach((c) => {
         c = c || {};
-        const cell = el(c.is_header ? 'th' : 'td', { colspan: c.colspan > 1 ? c.colspan : null, rowspan: c.rowspan > 1 ? c.rowspan : null, style: `text-align:${c.align || 'left'};vertical-align:${c.valign || 'top'}`, class: c.text === undefined ? 'tg-cell-empty' : null }, renderRT(c.text, ctx));
+        const cell = el(c.is_header ? 'th' : 'td', { colspan: c.colspan > 1 ? c.colspan : null, rowspan: c.rowspan > 1 ? c.rowspan : null, class: c.text === undefined ? 'tg-cell-empty' : null }, renderRT(c.text, ctx));
+        // through CSSOM, a value of one property: written into the style attribute, «left;position:fixed;…» was CSS
+        // of its own and covered the studio page over the shadow root (issue #201). A value CSS does not take is the
+        // default, as the check warns about it
+        cell.style.textAlign = c.align || 'left';
+        cell.style.textAlign ||= 'left';
+        cell.style.verticalAlign = c.valign || 'top';
+        cell.style.verticalAlign ||= 'top';
         tr.append(cell);
       });
       body.append(tr);
@@ -392,16 +739,38 @@
   const URL_ATTRS = new Set(['href', 'src', 'url', 'poster']);
   const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'tg:', 'mailto:', 'tel:']);
 
+  // The address is checked as the browser reads it: it takes tabs and line breaks out anywhere (URL standard) and in an
+  // http(s) address reads «\» as «/». The check also trims every space, so nothing in front hides a scheme or a «//».
+  // What goes into href is the address as written: Telegram keeps U+FEFF in it, at the end too (measured, issue #174),
+  // and off the ends the browser itself takes only C0 controls and spaces. A #name is no address: the preview finds
+  // its reference or anchor itself (transformHtml), by the name trimmed, as before #192.
+  const asRead = (v) => v.replace(/[\t\n\r]/g, '').trim();
   function safeUrl(v) {
     if (typeof v !== 'string') return null;
-    const s = v.trim();
+    const s = asRead(v);
     if (!s) return null;
     if (s.startsWith('#')) return s;
-    if (s.startsWith('/') && !s.startsWith('//')) return s; // same-origin (uploaded media)
+    // «/\evil.example» and «\/evil.example» are «//evil.example», another site (issue #192)
+    if (/^[/\\]{2}/.test(s)) return null;
+    if (s.startsWith('/')) return v; // same-origin (uploaded media)
     try {
       const u = new URL(s);
-      return SAFE_PROTOCOLS.has(u.protocol) ? s : null;
+      return SAFE_PROTOCOLS.has(u.protocol) ? v : null;
     } catch (e) { return null; }
+  }
+
+  // A src or poster the preview loads by itself, with the cookies of the page it is drawn on: on the studio that is a
+  // request on the person's behalf (<img src="/api/check?chat_id=@x">, issue #201). So of the studio's own addresses
+  // only its files go, /media/ (app/api/media.py), as the browser resolves the path: «/media/../api/x» and
+  // «/media\..\api\x» are /api/x. Another site's address goes as before.
+  function fileUrl(v) {
+    const s = safeUrl(v);
+    if (s === null) return null;
+    const here = /^https?:$/.test(location.protocol) ? location.href : 'https://studio.invalid/';
+    let u;
+    try { u = new URL(s, here); } catch (e) { return null; }
+    if (!/^https?:$/.test(u.protocol)) return s; // tg://, mailto: and tel: load nothing
+    return u.origin !== new URL(here).origin || u.pathname.startsWith('/media/') ? s : null;
   }
 
   function sanitize(root) {
@@ -414,28 +783,40 @@
       if (!isTg && !ALLOWED_TAGS.has(tag)) { n.replaceWith(...n.childNodes); return; }
       [...n.attributes].forEach((a) => {
         const name = a.name.toLowerCase();
-        const keep = name !== 'style' && !name.startsWith('on') && !name.includes(':') &&
-          (isTg ? true : ALLOWED_ATTRS.has(name) || (name === 'class' && tag === 'code' && /^language-[\w+#-]+$/.test(a.value)));
+        // a name is an anchor, <a name>; on <img> it is a property of document: <img name="documentElement"> replaced
+        // document.documentElement on /render and in the MCP app (issue #201)
+        // the style of <tg-button> is its colour (primary, danger…), a word that names a class (word), never CSS
+        const keep = (name !== 'style' || (tag === 'tg-button' && word(a.value) !== '')) && !name.startsWith('on') && !name.includes(':') &&
+          (isTg ? true : (ALLOWED_ATTRS.has(name) && (name !== 'name' || tag === 'a')) || (name === 'class' && tag === 'code' && /^language-[\w+#-]+$/.test(a.value)));
         if (!keep) { n.removeAttribute(a.name); return; }
-        if (URL_ATTRS.has(name) && !(name === 'src' && /^tg:/.test(a.value)) && safeUrl(a.value) === null) n.removeAttribute(a.name);
+        if (URL_ATTRS.has(name) && !(name === 'src' && /^tg:/.test(a.value)) && (name === 'src' || name === 'poster' ? fileUrl(a.value) : safeUrl(a.value)) === null) { if (name === 'url') n.setAttribute(a.name, ''); else n.removeAttribute(a.name); }
       });
       if (tag === 'input' && (n.getAttribute('type') || '').toLowerCase() !== 'checkbox') n.remove();
     });
   }
 
+  // what kind the file is, its entry in media says, not the link: the docs give only tg://photo, video, audio and
+  // document, so a GIF (InputMediaAnimation) comes as tg://video and a voice note (InputMediaVoiceNote) as tg://audio
+  const MEDIA_KINDS = new Set(['photo', 'video', 'animation', 'audio', 'document', 'voice_note']);
   function mediaFromSrc(src, ctx) {
     const m = /^tg:\/\/(photo|video|audio|document|animation|voice(?:_note)?)\?id=([\w\-.]+)/.exec(src || '');
     if (!m) return null;
     const item = (ctx.mediaList || []).find((x) => x && x.id === m[2]);
-    return { kind: m[1] === 'voice' ? 'voice_note' : m[1], media: item ? item.media : null, id: m[2] };
+    const media = item ? item.media : null;
+    const type = media && typeof media === 'object' ? media.type : null;
+    return { kind: MEDIA_KINDS.has(type) ? type : m[1] === 'voice' ? 'voice_note' : m[1], media, id: m[2] };
   }
 
   function transformHtml(root, ctx) {
     sanitize(root);
-    const walk = (node) => {
-      [...node.childNodes].forEach((c) => { if (c.nodeType === 1) walk(c); });
-      if (node === root || node.nodeType !== 1) return;
-      const tag = node.tagName.toLowerCase();
+    const walk = (node, inPre) => {
+      const tag = node === root ? '' : node.tagName.toLowerCase();
+      // a formula is its text, taken before anything in it is drawn, and a tag in it is not drawn by itself: drawn
+      // first, a formula in a formula gave the outer one the text of the inner one as KaTeX drew it, three times longer
+      // on every level (12 levels: 52 s, issue #198)
+      if (tag === 'tg-math' || tag === 'tg-math-block') { node.replaceWith(math(node.textContent, tag === 'tg-math-block')); return; }
+      [...node.childNodes].forEach((c) => { if (c.nodeType === 1) walk(c, inPre || tag === 'pre'); });
+      if (node === root) return;
       /** @type {HTMLElement | null} */
       let rep = null;
       const attr = (n) => node.getAttribute(n);
@@ -450,21 +831,19 @@
         if (!node.textContent.trim()) { node.remove(); return; }
         rep = el('span', { class: 'tg-time', title: formatTime(u, 'wDT') + uiText(' (у читателя: его часовой пояс)') }, kids());
       }
-      else if (tag === 'tg-collage') {
+      else if (tag === 'tg-collage' || tag === 'tg-slideshow') {
+        // the caption goes under the media, wherever it was written: it is neither a cell nor a slide
         const caps = kids().filter((k) => k.nodeType === 1 && k.tagName.toLowerCase() === 'figcaption');
-        rep = el('figure', { class: 'tg-collage' }, el('div', { class: 'tg-collage-grid' }, kids().filter((k) => !caps.includes(k))), caps);
-      }
-      else if (tag === 'tg-slideshow') {
-        const caps = kids().filter((k) => k.nodeType === 1 && k.tagName.toLowerCase() === 'figcaption');
-        rep = slideshow(kids().filter((k) => !caps.includes(k)), caps[0] || null);
+        const items = kids().filter((k) => !caps.includes(k));
+        rep = tag === 'tg-slideshow' ? slideshow(items, caps) : el('figure', { class: 'tg-collage' }, el('div', { class: 'tg-collage-grid' }, items), caps);
       }
       else if (tag === 'tg-map') rep = mapEl(attr('lat') ?? attr('latitude'), attr('long') ?? attr('lon') ?? attr('longitude'), attr('zoom'), attr('width'), attr('height'));
       else if (tag === 'tg-thinking') rep = el('div', { class: 'tg-thinking' }, kids());
       else if (tag === 'tg-reference') rep = el('span', { class: 'tg-ref', id: 'ref-' + attr('name') }, kids());
-      else if (tag === 'tg-button-row') rep = el('div', { class: 'tg-btn-row tg-align-' + (attr('align') || 'center') }, kids().filter((k) => k.nodeType !== 3));
+      else if (tag === 'tg-button-row') rep = el('div', { class: 'tg-btn-row tg-align-' + (word(attr('align')) || 'center') }, kids().filter((k) => k.nodeType !== 3));
       else if (tag === 'tg-button') {
         const b = { text: node.textContent, style: attr('style') || undefined };
-        const type = attr('type') || (attr('url') ? 'url' : 'callback_data');
+        const type = attr('type') || (attr('url') !== null && attr('url') !== undefined ? 'url' : 'callback_data');
         if (type === 'url') b.url = safeUrl(attr('url')) || ''; else if (type === 'copy_text') b.copy_text = { text: attr('text') }; else if (type === 'disabled') b.disabled = {}; else b[type] = attr('data') || attr(type) || '';
         rep = buttonEl(b, ctx);
       } else if (tag === 'tg-document' || ((tag === 'img' || tag === 'video' || tag === 'audio') && /^tg:/.test(attr('src') || ''))) {
@@ -490,19 +869,36 @@
         node.classList.add('tg-task'); node.firstElementChild.disabled = true;
       } else if (tag === 'a' && attr('name') && !attr('href')) {
         rep = el('a', { name: attr('name'), id: 'anchor-' + attr('name'), class: 'tg-anchor' });
+      } else if (tag === 'a' && (linkDropped(attr('href')) || attr('href')?.includes('\u2028'))) {
+        // Telegram drops a link whose address has a ", a space… in it (LINK_DROPS) and keeps only its text, and so it
+        // does over a U+2028 here: tgEntities took the typed ones out of the address (hrefTyped), this one is an entity
+        node.replaceWith(...kids()); return;
       } else if (tag === 'a' && attr('href')) {
-        // #name links are resolved after the walk, when all anchors and references are known
-        if (!attr('href').startsWith('#')) { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener'); }
+        // a U+2028 typed as it is went out before the browser read the address, so the sanitizer saw the address as
+        // it is: «/U+2028/x» typed is «//x», a link to another site
+        const href = safeUrl(attr('href'));
+        if (href === null) node.removeAttribute('href');
+        else {
+          node.setAttribute('href', href);
+          // #name links are resolved after the walk, when all anchors and references are known
+          if (!href.startsWith('#')) { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener'); }
+        }
       } else if (tag === 'pre') {
+        // a <pre> in a code block is part of its code, not a box of its own: each moved all that was under it into its
+        // box, and 6000 of them took a second (issue #198)
+        if (inPre) return;
         const lang = node.querySelector('code[class*="language-"]');
         const m = lang && /language-([\w+#-]+)/.exec(lang.className);
         if (m) node.dataset.lang = m[1];
+        const parent = node.parentNode, next = node.nextSibling;
+        parent.insertBefore(codeBox(node, m && m[1]), next); // codeBox takes the <pre> out to put it under its header
+        return;
       } else if (tag.startsWith('tg-')) {
         rep = unknown(uiText('тег <') + tag + '>', kids());
       }
       if (rep) node.replaceWith(rep);
     };
-    walk(root);
+    walk(root, false);
     // <a href="#x"> is a footnote link when a <tg-reference name="x"> exists, an anchor link when
     // an <a name="x"> exists, and an ordinary link otherwise
     const refs = new Set([...root.querySelectorAll('.tg-ref')].map((n) => n.id.slice(4)));
@@ -540,6 +936,144 @@
       if (inline) run.push(n); else flush(n);
     });
     flush(null);
+  }
+
+  // The named entities Telegram decodes, in html and markdown alike (all 2125 names of HTML5 measured, PR #173; the
+  // same table is TG_ENTITIES in app/spec/validator.py), and numeric ones with a small x. Every other «&…» (&laquo;,
+  // &NBSP;, &nbsp without «;», &#X22;) stays as typed: the browser gets it as text.
+  // Numeric ones as Telegram makes them, not as a browser does (measured on Bot API 10.4, 2026-11-16, issue #174;
+  // tests/telegram_parse/numeric_entities.json): digits without a limit; 0…31 a space, but &#10; in <pre> a line break;
+  // 128…159 the same code point (a browser reads them by windows-1252: &#128; «€», &#150; «–»); a surrogate or a
+  // number past U+10FFFF erases the whole text it stands in, up to the nearest tag (a heading or a quote left without
+  // text, and Telegram refuses the post). In a markdown code fence they stay as typed, as markdown-it leaves them.
+  const TG_ENTITIES = { amp: '&', apos: "'", copy: '©', gt: '>', hellip: '…', ldquo: '“', lsquo: '‘', lt: '<', mdash: '—',
+    nbsp: '\u00a0', ndash: '–', quot: '"', rdquo: '”', reg: '®', rsquo: '’', trade: '™' };
+  const ENTITY_SRC = `&(?:(${Object.keys(TG_ENTITIES).join('|')})|#([0-9]+)|#x([0-9a-fA-F]+));`;
+  const ENTITY_AT = new RegExp(ENTITY_SRC, 'y');
+  const ENTITY_OR_AMP = new RegExp(ENTITY_SRC + '|&', 'g');
+  // past U+10FFFF every number is the same, so a long one is not read; zeros in front do not count
+  const codeOf = (dec, hex) => {
+    const digits = (dec ?? hex).replace(/^0+(?=.)/, '');
+    return digits.length > 8 ? 0x110000 : parseInt(digits, dec !== undefined ? 10 : 16);
+  };
+  /** What Telegram makes of the numeric entity n; null: it erases the text the entity stands in */
+  function tgChar(n, pre) {
+    if (n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff)) return null;
+    if (n < 32) return n === 10 && pre ? '\n' : ' ';
+    return String.fromCodePoint(n);
+  }
+  const vanishes = (s) => [...s.matchAll(ENTITY_OR_AMP)].some((m) => (m[2] ?? m[3]) !== undefined && tgChar(codeOf(m[2], m[3]), false) === null);
+  // A tag, to tell the text of html from its tags (the same source as HTML_TAG_RE in app/spec/validator.py, which says
+  // why it is linear): a piece of text between two tags is what Telegram erases for an entity it makes no character of
+  const TAG = /<\/?[A-Za-z](?=([^\s/<>]*))\1(?:[^<>"']|"[^"<]*"|'[^'<]*')*>/g;
+  // An attribute of a tag, its name and its value as written (the same source as ATTR_RE in app/spec/validator.py):
+  // the spaces around it are the ASCII ones of html, so a U+2028 is part of a value without quotes, as for the browser
+  const ATTR_RE = /(?<=[\t\n\f\r "'/])([^\t\n\f\r "'=/>]+)(?:[\t\n\f\r ]*=[\t\n\f\r ]*("[^"]*"|'[^']*'|[^\t\n\f\r >]*))?/g;
+  // <a href> as Telegram reads it: a U+2028 typed as it is it takes out of the address before it decodes the entities,
+  // so one that an entity makes (&#x2028;, &#8232;) stays there, and over it Telegram drops the link (measured, issue
+  // #195; the same rule is tg_href in app/spec/validator.py). In <tg-button url> that was not measured.
+  function hrefTyped(tag) {
+    if (!tag.includes('\u2028') || !/^<a[\t\n\f\r /]/i.test(tag)) return tag;
+    for (const m of tag.matchAll(ATTR_RE)) {
+      if (m[1].toLowerCase() !== 'href') continue;
+      const value = m[2] || '', end = (m.index || 0) + m[0].length;
+      return tag.slice(0, end - value.length) + value.replace(/\u2028/g, '') + tag.slice(end);
+    }
+    return tag;
+  }
+  // html as the browser must get it to read the entities as Telegram does: a numeric one is the character Telegram
+  // makes (an entity again where it would be markup), in a tag too, but one that erases text stays as typed there (not
+  // measured in attributes); 128…159 go as the characters themselves, as entities the browser would read them by
+  // windows-1252; every other «&» is text
+  function tgEntities(src) {
+    let out = '', at = 0, pre = 0;
+    const put = (s, inTag) => s.replace(ENTITY_OR_AMP, (m, name, dec, hex) => {
+      if (name) return m;
+      if (dec === undefined && hex === undefined) return '&amp;';
+      const n = codeOf(dec, hex);
+      const c = tgChar(n, !inTag && pre > 0);
+      if (c === null) return '&amp;' + m.slice(1);
+      if (n >= 128 && n < 160) return c;
+      if (c === ' ') return inTag ? '&#32;' : ' ';
+      return c === '\n' ? '&#10;' : `&#x${n.toString(16)};`;
+    });
+    const text = (s) => (vanishes(s) ? '' : put(s, false));
+    for (const m of src.matchAll(TAG)) {
+      out += text(src.slice(at, m.index)) + put(hrefTyped(m[0]), true);
+      const p = /^<(\/?)pre[\s/>]/i.exec(m[0]);
+      if (p) pre = Math.max(0, pre + (p[1] ? -1 : 1));
+      at = (m.index || 0) + m[0].length;
+    }
+    return out + text(src.slice(at));
+  }
+
+  // A link address as Telegram takes it, its entities decoded (measured on Bot API 10.4, 2026-11-16, issue #174; the
+  // same set is LINK_DROPS in app/spec/validator.py): over a " < > space or control character, U+0085, U+00A0, U+2003,
+  // U+3000 or U+200B in it Telegram drops the link and keeps its text, in html and in blocks alike; U+2028 typed as it
+  // is it takes out of the address (tgAddress, in html hrefTyped), and over one an entity makes in html it drops the
+  // link (issue #195). A button looks the same with any address: Telegram refuses the post over a bad one, and the
+  // check says so. js/html-export.js writes these characters %-encoded (percentAddress).
+  // eslint-disable-next-line no-control-regex -- the control characters are the point
+  const LINK_DROPS = /["<>\u0000-\u0020\u0085\u00a0\u2003\u3000\u200b]/;
+  const linkDropped = (url) => typeof url === 'string' && LINK_DROPS.test(url);
+  const tgAddress = (url) => (typeof url === 'string' ? url.replace(/\u2028/g, '') : url);
+  /** @param {string} url the address that goes through: what makes Telegram drop a link %-encoded, U+2028 out */
+  const percentAddress = (url) => tgAddress(url).replace(new RegExp(LINK_DROPS.source, 'g'), encodeURIComponent);
+
+  // ---------- TON addresses Telegram finds in the text ----------
+  // A user-friendly TON address: 48 characters of base64 and base64url, a mix of both too, for 36 bytes, that is flags,
+  // workchain, a 32-byte hash and the CRC16-XMODEM of those 34 bytes, big-endian. Telegram finds one in the text of a
+  // post by itself, in html, markdown and the strings of blocks alike, with a right checksum, flags 0x11, 0x51, 0x91 or
+  // 0xd1 (EQ…, UQ…, kQ…, 0Q…) and any workchain (measured for #172 and #195; captured html-detected-card-ton and
+  // html-ton-checksum). js/html-export.js checks ton_address texts with the same function.
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const TON_FORM = /^[\w+/-]{48}$/;
+  const TON_FLAGS = new Set([0x11, 0x51, 0x91, 0xd1]); // bounceable or not, on the main net or the test one
+  function isTonAddress(s) {
+    if (typeof s !== 'string' || !TON_FORM.test(s)) return false;
+    const six = (c) => (c === '-' || c === '+' ? 62 : c === '_' || c === '/' ? 63 : B64.indexOf(c));
+    const bytes = [];
+    for (let i = 0; i < 48; i += 4) {
+      const n = (six(s[i]) << 18) | (six(s[i + 1]) << 12) | (six(s[i + 2]) << 6) | six(s[i + 3]);
+      bytes.push(n >> 16, (n >> 8) & 255, n & 255);
+    }
+    // the workchain (bytes[1]) is any: 1, 2, 0x7f, −128 and −1 (Ef8…) were found alike
+    if (!TON_FLAGS.has(bytes[0])) return false;
+    let crc = 0;
+    for (const b of bytes.slice(0, 34)) {
+      crc ^= b << 8;
+      for (let k = 0; k < 8; k++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+    return crc === bytes[34] * 256 + bytes[35];
+  }
+
+  // Unless skip_entity_detection is on. Not inside code, links, formulas and other elements that already are something
+  // else. A card number with spaces Telegram does not find, and the preview finds no card numbers at all.
+  const TON_IN_TEXT = /(?<![\w+/-])[\w+/-]{48}(?![\w+/-])/g;
+  const NO_DETECTION = 'a, code, pre, .tg-link, .tg-math, .tg-math-block, .tg-time, .tg-emoji, .tg-btn, .tg-media, .tg-unknown-block';
+  function findTon(root) {
+    // Telegram reads neighbouring strings of RichText as one text: ['EQAA…', '…M9c'] is one address
+    root.normalize();
+    /** @type {Text[]} */
+    const texts = [];
+    // what is under such an element is skipped whole: closest() from every piece of text went up through all the tags
+    // above it (issue #198)
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.nodeType === 3 ? NodeFilter.FILTER_ACCEPT : /** @type {Element} */ (n).matches(NO_DETECTION) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP),
+    });
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) texts.push(/** @type {Text} */ (n));
+    texts.forEach((n) => {
+      const s = n.data;
+      /** @type {(string | Node)[]} */
+      const parts = [];
+      let at = 0;
+      for (const m of s.matchAll(TON_IN_TEXT)) {
+        if (!isTonAddress(m[0])) continue;
+        parts.push(s.slice(at, m.index), tonEl(m[0], m[0]));
+        at = (m.index || 0) + m[0].length;
+      }
+      if (at) n.replaceWith(...[...parts, s.slice(at)].filter((p) => p !== ''));
+    });
   }
 
   function renderHtml(src, ctx) {
@@ -593,10 +1127,14 @@
       return true;
     }
     if (/\s/.test(s[start + 1] || ' ')) return false;
+    // whether a $ closes depends on it alone, not on the opening one: when none closes an earlier $ up to the end, none
+    // closes this one either. Without it every $ looked to the end again: 34 KB of «$1» took 2.7 s (issue #198)
+    const open = state.tgMathUnclosedInline;
+    if (open && open[0] <= start && state.posMax <= open[1]) return false;
     let end = start + 1;
     for (;;) {
       end = s.indexOf('$', end + 1);
-      if (end < 0 || end >= state.posMax) return false;
+      if (end < 0 || end >= state.posMax) { state.tgMathUnclosedInline = [start, state.posMax]; return false; }
       if (!/\s/.test(s[end - 1]) && !/\d/.test(s[end + 1] || '')) break;
     }
     if (!silent) state.push('html_inline', '', 0).content = '<tg-math>' + esc(s.slice(start + 1, end)) + '</tg-math>';
@@ -612,13 +1150,17 @@
     let body = first.slice(2), last = startLine;
     if (body.trimEnd().endsWith('$$') && body.trim().length > 2) body = body.trimEnd().slice(0, -2);
     else {
+      // no line up to endLine closes an earlier $$, so none closes this one either: without it every $$ line looked
+      // to the end again (issue #192)
+      const open = state.tgMathUnclosed;
+      if (open && open[0] < startLine && endLine <= open[1]) return false;
       const parts = [body];
       for (last = startLine + 1; last < endLine; last++) {
         const l = line(last);
         if (l.trimEnd().endsWith('$$')) { parts.push(l.trimEnd().slice(0, -2)); break; }
         parts.push(l);
       }
-      if (last >= endLine) return false;
+      if (last >= endLine) { state.tgMathUnclosed = [startLine, endLine]; return false; }
       body = parts.join('\n');
     }
     if (silent) return true;
@@ -632,7 +1174,7 @@
   // [^label]: text definitions are collected and printed as a footer, [^label] becomes a numbered link
   function footnoteDef(state, startLine, endLine, silent) {
     const s = state.src.slice(state.bMarks[startLine] + state.tShift[startLine], state.eMarks[startLine]);
-    const m = /^\[\^([^\]\s]+)\]:\s*(.*)$/.exec(s);
+    const m = /^\[\^([^[\]\s]+)\]:\s*(.*)$/.exec(s);
     if (!m) return false;
     if (silent) return true;
     const parts = [m[2]];
@@ -644,8 +1186,9 @@
     state.line = n;
     return true;
   }
+  // a label has no «[» (as a link label), so a run of «[^» is looked through once, not from each one (issue #192)
   function footnoteRef(state, silent) {
-    const m = /^\[\^([^\]\s]+)\]/.exec(state.src.slice(state.pos, state.posMax));
+    const m = /^\[\^([^[\]\s]+)\]/.exec(state.src.slice(state.pos, state.posMax));
     const notes = state.env.footnotes;
     if (!m || !notes || !Object.hasOwn(notes, m[1])) return false;
     if (!silent) {
@@ -676,9 +1219,37 @@
     return true;
   }
 
+  // markdown-it knows every entity of HTML5; Telegram's markdown only the ones its HTML does, numbers the same way
+  function entity(state, silent) {
+    if (state.src.charCodeAt(state.pos) !== 0x26) return false;
+    ENTITY_AT.lastIndex = state.pos;
+    const m = ENTITY_AT.exec(state.src);
+    if (!m) return false;
+    if (!silent) {
+      const c = m[1] ? TG_ENTITIES[m[1]] : tgChar(codeOf(m[2], m[3]), false);
+      // one that erases its text goes on into the HTML as typed, and reading the HTML erases the text around it
+      if (c === null) state.push('html_inline', '', 0).content = m[0];
+      else state.pending += c;
+    }
+    state.pos += m[0].length;
+    return true;
+  }
+
   function markdownParser() {
     const m = /** @type {any} */ (global.markdownit)({ html: true, linkify: true, breaks: false });
     m.inline.ruler.at('text', text);
+    m.inline.ruler.at('entity', entity);
+    // in a link address Telegram decodes no entity at all ([x](…?q=&quot;x&quot;) keeps «&quot;», measured):
+    // markdown-it's own reading decodes them, so the address is taken as written, with only its \-escapes undone
+    const destination = m.helpers.parseLinkDestination;
+    m.helpers.parseLinkDestination = (str, start, max) => {
+      const res = destination(str, start, max);
+      if (res.ok) {
+        const raw = str.slice(start, res.pos);
+        res.str = (raw.startsWith('<') && raw.endsWith('>') ? raw.slice(1, -1) : raw).replace(/\\([!-/:-@[-`{-~])/g, '$1');
+      }
+      return res;
+    };
     m.inline.ruler.before('emphasis', 'tg_spoiler', pairRule('tg_spoiler', 0x7c, '<tg-spoiler>', '</tg-spoiler>'));
     m.inline.ruler.before('emphasis', 'tg_mark', pairRule('tg_mark', 0x3d, '<mark>', '</mark>'));
     m.inline.ruler.after('escape', 'tg_math', inlineMath);
@@ -710,7 +1281,9 @@
       const f = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
       if (f) { if (!fence) fence = f[1][0]; else if (f[1][0] === fence) fence = null; continue; }
       if (fence || !/^\s*\|/.test(lines[i]) || !DELIM_ROW.test(lines[i + 1] || '')) continue;
-      for (let j = i; j < lines.length && /^\s*\|/.test(lines[j]); j++) if (j !== i + 1) lines[j] = lines[j].replace(/(?<!\\)\|(?:\|)+/g, '|');
+      let j = i;
+      for (; j < lines.length && /^\s*\|/.test(lines[j]); j++) if (j !== i + 1) lines[j] = lines[j].replace(/(?<!\\)\|(?:\|)+/g, '|');
+      i = j - 1; // the rows of this table are done: from each of them it was read again to its end (issue #192)
     }
     return lines.join('\n');
   }
@@ -728,7 +1301,7 @@
     return html;
   }
 
-  function renderMarkdown(src, ctx) { return renderHtml(markdownHtml(src), ctx); }
+  function renderMarkdown(src, ctx) { return renderHtml(tgEntities(markdownHtml(src)), ctx); }
 
   // ---------- message ----------
   function render(post, opts) {
@@ -738,9 +1311,12 @@
     const body = el('div', { class: 'tg-body', dir: rm.is_rtl ? 'rtl' : null });
     try {
       if (rm.blocks) body.append(renderBlocks(rm.blocks, ctx));
-      else if (rm.html) body.append(renderHtml(rm.html, ctx));
+      else if (rm.html) body.append(renderHtml(tgEntities(rm.html), ctx));
       else if (rm.markdown) body.append(renderMarkdown(rm.markdown, ctx));
-      else body.append(el('p', { class: 'tg-empty', text: uiText('Пустой пост') }));
+      else body.append(el('p', { class: 'tg-empty', text: 'Пустой пост' }));
+      // blocks Telegram answered with went through its detection already: an address it left as text is text, so
+      // whoever draws them (the parse check, test:parity) passes skip_entity_detection
+      if (!rm.skip_entity_detection) findTon(body);
     } catch (e) {
       body.append(el('pre', { class: 'tg-error', text: uiText('Ошибка рендера: ') + e.message }));
     }
@@ -764,6 +1340,9 @@
     const INLINE = { B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', INS: 'u', S: 's', DEL: 's', STRIKE: 's', MARK: 'mark', SUB: 'sub', SUP: 'sup', CODE: 'code', CITE: 'cite', CAPTION: 'caption', SUMMARY: 'summary', FOOTER: 'footer', HR: 'hr', BR: 'br' };
     const BLOCK = { P: 'p', H1: 'h1', H2: 'h2', H3: 'h3', H4: 'h4', H5: 'h5', H6: 'h6', UL: 'ul', OL: 'ol', TR: 'tr' };
     const out = [];
+    // the place of each item in its list, counted once for the list: indexOf for every item was quadratic (issue #198)
+    /** @type {Map<Element, number>} */
+    const place = new Map();
     const text = (s) => { s = s.replace(/\s+/g, ' '); if (s) out.push(s); };
     const walk = (n) => {
       if (n.nodeType === 3) { text(n.textContent); return; }
@@ -780,6 +1359,7 @@
       else if (c.contains('tg-pullquote')) tag = 'pullquote';
       else if (c.contains('tg-time')) tag = 'time';
       else if (c.contains('tg-ref')) tag = 'ref';
+      else if (c.contains('tg-ton')) tag = 'ton'; // a ton_address, or an address Telegram finds in the text
       else if (c.contains('tg-anchor')) { out.push('<anchor>'); return; }
       else if (n.tagName === 'A') {
         const href = n.getAttribute('href') || '';
@@ -795,7 +1375,8 @@
       else if (n.tagName === 'LI') {
         const box = n.querySelector(':scope > input[type=checkbox]');
         const list = n.parentElement;
-        const num = list.tagName === 'OL' ? ' ' + (n.getAttribute('value') || (parseInt(list.getAttribute('start') || '1', 10) + [...list.children].indexOf(n))) : '';
+        if (list.tagName === 'OL' && !place.has(n)) [...list.children].forEach((c, i) => place.set(c, i));
+        const num = list.tagName === 'OL' ? ' ' + (n.getAttribute('value') || (parseInt(list.getAttribute('start') || '1', 10) + (place.get(n) ?? 0))) : '';
         tag = 'li' + (box ? (box.checked ? ' [x]' : ' [ ]') : '') + num;
       } else if (n.tagName === 'INPUT') return;
       else if (n.tagName === 'P' && n.parentElement.tagName === 'LI') tag = null; // same look with or without the paragraph
@@ -810,5 +1391,6 @@
     return out.join('').replace(/ +/g, ' ').replace(/<br> /g, '<br>').replace(/ <\/pre>/g, '</pre>').replace(/ ?(<math-block:[^>]*>|<hr>|<anchor>) ?/g, '$1').trim().replace(/ ?(<\/?(?:p|h\d|li[^>]*|ul|ol|blockquote|tr|t[hd][^>]*|table[^>]*|footer|summary|details[^>]*|pre[^>]*|caption|cite|pullquote|expandable)>) ?/g, '$1');
   }
 
-  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline, setLocale, markdownHtml };
+  global.RichRender = { render, renderRT, renderBlocks, formatTime, mediaSrc, safeUrl, outline, setLocale, markdownHtml,
+    isTonAddress, percentAddress, tgEntities: TG_ENTITIES, tgChar, entityCode: codeOf };
 })(window);

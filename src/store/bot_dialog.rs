@@ -100,7 +100,7 @@ pub fn expire_comments(
         .prepare("select id from posts where comment_status='waiting' and sent_at<?")?
         .query_map([before], |row| row.get(0))?
         .collect::<Result<Vec<String>, _>>()?;
-    tx.execute("update posts set comment_status='failed',error=coalesce(error || '; ','') || ? where comment_status='waiting' and sent_at<?",params![error,before])?;
+    tx.execute("update posts set comment_status='failed',comment_failed_at=?,error=coalesce(error || '; ','') || ? where comment_status='waiting' and sent_at<?",params![auth::now(),error,before])?;
     tx.commit()
         .map_err(|e| StoreError::from_sqlite(e, context))?;
     Ok(ids)
@@ -170,10 +170,10 @@ pub fn comment(
     message: Option<i64>,
     error: Option<&str>,
 ) -> Result<(), StoreError> {
-    Store::connect(context)?.execute("update posts set comment_status=?,comment_message_id=?,error=case when ? is null then error else coalesce(error || '; ','') || ? end where id=?",params![if error.is_some(){"failed"}else{"sent"},message,error,error,id]).map_err(|e|StoreError::from_sqlite(e,context))?;
+    Store::connect(context)?.execute("update posts set comment_status=?,comment_message_id=?,comment_failed_at=?,error=case when ? is null then error else coalesce(error || '; ','') || ? end where id=?",params![if error.is_some(){"failed"}else{"sent"},message,error.map(|_| auth::now()),error,error,id]).map_err(|e|StoreError::from_sqlite(e,context))?;
     Ok(())
 }
 pub fn recover_comments(context: &AccountContext) -> Result<(), StoreError> {
-    Store::connect(context)?.execute("update posts set comment_status='failed',error=coalesce(error || '; ','') || 'Комментарий мог уйти: отправка прервалась. Проверьте обсуждение перед повтором.' where comment_status='sending'",[])?;
+    Store::connect(context)?.execute("update posts set comment_status='failed',comment_failed_at=?,error=coalesce(error || '; ','') || 'Комментарий мог уйти: отправка прервалась. Проверьте обсуждение перед повтором.' where comment_status='sending'",[auth::now()])?;
     Ok(())
 }

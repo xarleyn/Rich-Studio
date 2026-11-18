@@ -8,64 +8,109 @@ import { saveDraft } from './drafts.js';
 import { renderBlocksPane } from './forms.js';
 import { convertFormats } from './formats.js';
 import { recordHistory } from './history.js';
+import { exportToHtml } from './html-export.js';
 import { readIssue, reveal } from './issues.js';
 import { renderKeyboard } from './keyboard.js';
 import { plural } from './labels.js';
 import { renderMedia } from './media.js';
-import { chats, dark, dirty, parsed, S, saveState, showParsed } from './state.js';
+import { channelOf, chats, dark, dirty, parsed, S, saveState, showParsed, target, topicHome } from './state.js';
 
 // ---------- change tracking ----------
 export const refreshPreview = debounce(() => { renderPreview(); validate(); }, 250);
 // a new post becomes a draft on its first change, so a reload or a crashed tab never loses it
 export const autosave = debounce(() => { if (dirty.value && !S.conflict) saveDraft(true).catch((e) => toast(tr('Автосохранение не удалось: ') + e.message, 'err')); }, 2500);
 export async function flushSave() { if (dirty.value && !S.conflict) await saveDraft(true); }
-export function changed() { dirty.value = true; saveState.value = tr('есть изменения'); refreshPreview(); autosave(); recordHistory(); }
+export function changed() { dirty.value = true; saveState.value = tr('есть изменения'); refreshPreview(); autosave(); recordHistory(); if (S.mode === 'json') renderJson(); }
 
 export function buildPost() {
   const rm = {};
   if (S.format === 'blocks') rm.blocks = S.buf.blocks;
   else rm[S.format] = S.buf[S.format];
-  if (S.media.length) rm.media = S.media;
-  for (const [k, v] of Object.entries(S.flags)) if (v) rm[k] = v;
+  // InputRichMessage.media lists the files of tg:// links in html/markdown; blocks hold their files themselves
+  if (S.media.length && S.format !== 'blocks') rm.media = S.media;
+  // a flag goes as it came, false and "" too (AGENTS.md rule 1): a checkbox the person clears takes its flag out
+  for (const [k, v] of Object.entries(S.flags)) if (v !== undefined) rm[k] = v;
   const post = { rich_message: rm, options: {} };
   const kb = S.keyboard.filter((r) => r.length);
-  if (kb.length) post.reply_markup = { inline_keyboard: kb };
-  for (const [k, v] of Object.entries(S.options)) if (v !== false && v !== '' && v !== undefined) post.options[k] = v;
+  // the rest of reply_markup (a reply keyboard, its options) stays as it came; the form edits inline_keyboard
+  if (kb.length || Object.keys(S.extra.markup).length) post.reply_markup = { ...S.extra.markup, ...(kb.length && { inline_keyboard: kb }) };
+  for (const [k, v] of Object.entries(S.options)) if (v !== undefined) post.options[k] = v;
   if (S.extra.pin) post.pin = true;
-  if (S.extra.comment.trim()) post.comment = { html: S.extra.comment };
-  else if (S.extra.commentObj) post.comment = S.extra.commentObj;
+  // the comment's other fields (skip_entity_detection, is_rtl, media…) stay with its HTML; with them it is not dropped
+  // when its HTML is emptied: the check says what is missing
+  const c = S.extra.comment;
+  if (c.trim() || commentFields().length) post.comment = { ...S.extra.commentBase, html: c };
+  else if (S.extra.commentObj !== null) post.comment = S.extra.commentObj;
   if (S.extra.poll) post.poll_after = S.extra.poll;
-  const cbs = callbacksFor(kb);
-  if (Object.keys(cbs).length) post.callbacks = cbs;
-  return post;
+  // every answer as it came: the buttons of the text (a <tg-button>, a «Кнопки» block) have theirs here too. The editor
+  // does not read the text for buttons: the check does (services/callbacks.buttons) and warns about an answer no button
+  // has; removing a button of the keyboard in the form takes its answer out (keyboard.js)
+  if (Object.keys(S.extra.callbacks).length) post.callbacks = S.extra.callbacks;
+  // the fields the editor does not read go as they came, last: the check warns about them, as the API would
+  return Object.assign(post, S.unknown);
 }
 
-// answers only for callback buttons that are still on the keyboard
+/** The answers of the buttons under the post, as they are. «Кнопки» at a published post sends only these: the server
+ * replaces only the answers of the keyboard the post had and keeps every other one (posts.set_buttons). */
 export function callbacksFor(kb) {
   const out = {};
   for (const row of kb) for (const b of row) {
-    const a = b.callback_data !== undefined && S.extra.callbacks[b.callback_data];
-    if (a && (typeof a === 'string' ? a : a.text)) out[b.callback_data] = a;
+    const k = b.callback_data;
+    if (typeof k === 'string' && Object.hasOwn(S.extra.callbacks, k)) out[k] = S.extra.callbacks[k];
   }
   return out;
 }
 
-// Drafts keep the text of every mode, not only the one that is sent
+/** The fields of the first comment besides its HTML: the form shows only the HTML, these go with it as they came. */
+const commentFields = () => Object.keys(S.extra.commentBase).filter((k) => k !== 'html');
+
+// Drafts keep the text of every mode, not only the one that is sent, and the JSON not applied yet;
+// the rest of `_studio` is someone else's (an imported post's source and warnings) and goes back as it came
 export function draftPayload() {
-  return { ...buildPost(), _studio: { ...S.importMeta, ...(!S.legacyFormats ? { format_sync: 1 } : {}), ...(S.formatBackup ? { previous_buffers: S.formatBackup } : {}), format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown,
-    ...(S.pendingJson !== null ? { json: S.pendingJson } : {}) } } };
+  return { ...buildPost(), _studio: { ...S.notes, ...S.importMeta, ...(!S.legacyFormats ? { format_sync: 1 } : {}), ...(S.formatBackup ? { previous_buffers: S.formatBackup } : {}), format: S.format, buffers: { blocks: S.buf.blocks, html: S.buf.html, markdown: S.buf.markdown,
+    ...(S.format === 'blocks' && S.media.length ? { media: S.media } : {}), ...(S.pendingJson !== null ? { json: S.pendingJson } : {}) }, ...(S.json ? { json: S.json } : {}) } };
 }
 
-export function loadPost(post) {
+// the keys of `_studio` the editor writes itself; any other one is a note of the draft
+const OWN_STUDIO = ['format', 'buffers', 'json', 'format_sync', 'previous_buffers'];
+
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/** Stable comparison across a save/reload: JSON object key order can change in the server's store. */
+export const jsonKey = (post) => JSON.stringify(post, (_key, value) => isObject(value)
+  ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
+/** The fields of the post loadPost reads into the form, each with the shape it reads; null is no value. Any other
+ * field (one of models.Post this list does not know yet among them), and a value of these the form cannot read, stays
+ * as it came in S.unknown and goes back with the post (AGENTS.md rule 1); the check says what is wrong with it, and
+ * for a field of this list a note above the editor says its part of the form changes nothing (unreadNote). A field
+ * shown in the form is read here, in loadPost and in buildPost. The comment takes any value (commentObj). */
+const READ = {
+  rich_message: isObject,
+  reply_markup: (v) => isObject(v) && (v.inline_keyboard === undefined || (Array.isArray(v.inline_keyboard) && v.inline_keyboard.every((r) => Array.isArray(r) && r.every(isObject)))),
+  options: isObject,
+  pin: (v) => typeof v === 'boolean',
+  comment: () => true,
+  callbacks: isObject,
+  poll_after: isObject,
+};
+
+/** @param {Json} post @param {boolean} [keepNotes] only the post changes (JSON applied, an earlier version):
+ * the open draft keeps its notes */
+export function loadPost(post, keepNotes = false) {
   post = clone(post || {});
   const studio = post._studio;
-  S.formatBackup = studio?.previous_buffers || null;
+  if (!keepNotes) S.formatBackup = studio?.previous_buffers || null;
   S.legacyFormats = !!studio?.buffers && !studio.format_sync;
   S.formatSnapshot = null;
-  S.importMeta = studio?.import_source ? { import_source: studio.import_source, import_warnings: studio.import_warnings || [] } : {};
   delete post._studio;
-  S.pendingJson = typeof studio?.buffers?.json === 'string' ? studio.buffers.json : null;
-  S.topicChat = undefined; // the loaded post's topic belongs to the channel it is opened with
+  if (!keepNotes) setNotes(studio);
+  // a field the form does not read (an agent's, a chat put into the post, a new field of models.Post) stays as it came
+  // (AGENTS.md rule 1): the check warns about it or refuses it, and the JSON tab shows it
+  S.unknown = {};
+  for (const [k, v] of Object.entries(post)) {
+    if (Object.hasOwn(READ, k) && (v === null || READ[k](v))) continue;
+    S.unknown[k] = v;
+    delete post[k];
+  }
   const rm = post.rich_message || {};
   S.buf = { blocks: [], html: '', markdown: '' };
   S.format = rm.blocks ? 'blocks' : rm.markdown !== undefined ? 'markdown' : rm.html !== undefined ? 'html' : 'blocks';
@@ -75,31 +120,37 @@ export function loadPost(post) {
   S.media = rm.media || [];
   S.flags = {};
   for (const [k, v] of Object.entries(rm)) if (!['blocks', 'html', 'markdown', 'media'].includes(k)) S.flags[k] = v;
-  S.keyboard = (post.reply_markup && post.reply_markup.inline_keyboard) || [];
+  const { inline_keyboard: kb, ...markup } = post.reply_markup || {};
+  S.keyboard = kb || [];
   S.options = post.options || {};
+  // the loaded post's topic belongs to where it leads now: in another chat showTarget drops it
+  S.topicChat = S.options.message_thread_id === undefined ? undefined : topicHome();
+  // a comment with its HTML as a string is edited in the form, its other fields kept; any other one stays as it came
   const c = post.comment;
-  S.extra = { pin: !!post.pin, comment: c && typeof c.html === 'string' ? c.html : '', commentObj: c && typeof c.html !== 'string' ? c : null, callbacks: post.callbacks || {}, poll: post.poll_after || null };
+  const html = isObject(c) && typeof c.html === 'string';
+  S.extra = { pin: !!post.pin, comment: html ? c.html : '', commentBase: html ? c : {}, commentObj: c !== undefined && c !== null && !html ? c : null, callbacks: post.callbacks || {}, poll: post.poll_after || null, markup };
   if (studio && studio.buffers) {
     const b = studio.buffers;
     if (Array.isArray(b.blocks) && !rm.blocks) S.buf.blocks = b.blocks;
     if (typeof b.html === 'string' && rm.html === undefined) S.buf.html = b.html;
     if (typeof b.markdown === 'string' && rm.markdown === undefined) S.buf.markdown = b.markdown;
+    if (Array.isArray(b.media) && !rm.media) S.media = b.media;
   }
+  const j = studio && studio.json;
+  S.pendingJson = typeof studio?.buffers?.json === 'string' ? studio.buffers.json : null;
+  S.json = j && typeof j.text === 'string' && typeof j.base === 'string' ? { text: j.text, base: j.base }
+    : S.pendingJson === null ? null : { text: S.pendingJson, base: jsonKey(buildPost()) };
+  if (S.json) { try { S.json.base = jsonKey(JSON.parse(S.json.base)); } catch { /* malformed metadata stays stale */ } }
+  S.pendingJson = S.json?.text ?? null;
   setMode(S.format, true);
+  renderNotes(); // with the fields of this post the form cannot read
   renderAll();
   // A new draft (even with identical text) must not inherit another draft's local text undo stack.
   ['html', 'markdown', 'json'].forEach((kind) => $('#src-' + kind).resetHistory());
 }
 
 export function renderAll() {
-  const info = $('#import-info');
-  info.hidden = !S.importMeta.import_source;
-  info.replaceChildren();
-  if (S.importMeta.import_source) {
-    info.append(h('span', { text: tr('Источник: ') + S.importMeta.import_source.url }));
-    for (const warning of S.importMeta.import_warnings || []) info.append(h('p', { text: warning }));
-    info.append(h('p', { class: 'muted', text: tr('Визуальный режим, HTML и Markdown преобразуются при переключении вкладок.') }));
-  }
+  renderImportInfo();
   renderBlocksPane();
   ['html', 'markdown', 'json'].forEach((kind) => {
     $('#src-' + kind).spec = S.spec;
@@ -114,6 +165,17 @@ export function renderAll() {
   renderAfter();
   renderPreview();
   validate();
+}
+
+function renderImportInfo() {
+  const info = $('#import-info');
+  info.hidden = !S.importMeta.import_source;
+  info.replaceChildren();
+  if (S.importMeta.import_source) {
+    info.append(h('span', { text: tr('Источник: ') + S.importMeta.import_source.url }));
+    for (const warning of S.importMeta.import_warnings || []) info.append(h('p', { text: warning }));
+    info.append(h('p', { class: 'muted', text: tr('Визуальный режим, HTML и Markdown преобразуются при переключении вкладок.') }));
+  }
 }
 
 // ---------- modes ----------
@@ -142,13 +204,78 @@ export function setMode(mode, silent) {
   $('#format-error').hidden = true;
   S.mode = mode;
   if (mode !== 'json') S.format = mode;
-  $$('#mode-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+  $$('#mode-tabs button[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   ['blocks', 'html', 'markdown', 'json'].forEach((m) => { $('#pane-' + m).hidden = m !== mode; });
   $('#panel-media').hidden = mode === 'blocks';
-  if (mode === 'json') { $('#src-json').value = S.pendingJson ?? JSON.stringify(buildPost(), null, 2); $('#json-err').textContent = ''; }
+  $('#blocks-tools').hidden = mode !== 'blocks';
+  if (mode === 'json') { renderJson(); $('#json-err').textContent = ''; }
   const hints = { blocks: tr('отправляется как rich_message.blocks'), html: tr('отправляется как rich_message.html'), markdown: tr('отправляется как rich_message.markdown'), json: tr('активный формат: ') + S.format };
   $('#mode-hint').textContent = hints[mode];
   if (!silent) changed();
+}
+
+// ---------- the JSON tab: what is typed there stays with the draft until «Применить» or «Отбросить» ----------
+// It is not the post: the preview, the check and the send take buildPost(), never this text.
+/** The unapplied text if there is one, else the post as it is; the bar says the post changed after that text was
+ * typed, so applying it would undo those changes. */
+export function renderJson() {
+  const post = buildPost();
+  const text = S.json ? S.json.text : JSON.stringify(post, null, 2);
+  $('#src-json').value = text;
+  $('#json-stale').hidden = !S.json || S.json.base === jsonKey(post);
+  $('#mode-tabs [data-mode=json]').classList.toggle('pending', !!S.json);
+}
+
+function applyJson() {
+  try {
+    const post = JSON.parse($('#src-json').value);
+    // an array or a string has no fields: its items would become fields «0», «1»…
+    if (!isObject(post)) throw new Error('пост — объект JSON {"rich_message": …}, а здесь ' + (Array.isArray(post) ? 'массив' : post === null ? 'null' : typeof post === 'string' ? tr('строка') : typeof post === 'number' ? 'число' : String(post)));
+    loadPost(post, true);
+  } catch (e) { $('#json-err').textContent = e.message; return; }
+  S.json = null; S.pendingJson = null;
+  setMode('json', true); changed(); toast(tr('JSON применён'), 'ok');
+}
+
+export function bindJson() {
+  $('#json-apply').onclick = applyJson;
+  $('#json-mine').onclick = applyJson;
+  $('#json-drop').onclick = () => { S.json = null; S.pendingJson = null; $('#json-err').textContent = ''; changed(); };
+}
+
+// ---------- the draft's notes: what an import (or anything else that made the draft) wants the person to know ----------
+/** The notes from a draft's `_studio`: every key the editor does not write itself. */
+export function setNotes(studio) {
+  S.notes = {};
+  if (studio && typeof studio === 'object' && !Array.isArray(studio)) {
+    for (const [k, v] of Object.entries(studio)) if (!OWN_STUDIO.includes(k)) S.notes[k] = v;
+  }
+  S.importMeta = S.notes.import_source ? { import_source: S.notes.import_source, import_warnings: S.notes.import_warnings || [] } : {};
+  renderImportInfo();
+  renderNotes();
+}
+
+// `warnings` is a list of strings; a single string (or anything else) is one item, so nothing is hidden
+function renderNotes() {
+  const w = S.notes.warnings;
+  const list = Array.isArray(w) ? w : w === undefined || w === null || w === '' ? [] : [w];
+  /** @type {import('./components/rs-draft-notes.js').RsDraftNotes} */ ($('#draft-notes')).warnings =
+    [...list.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))), ...unreadNote()];
+}
+
+/** A field the form shows, held in a shape it cannot read (pin: "yes", options: [1]): it goes as it came and its part of
+ * the form changes nothing, so the person is told where to change it. Not a note of the draft: never saved. */
+function unreadNote() {
+  const keys = Object.keys(S.unknown).filter((k) => Object.hasOwn(READ, k));
+  if (!keys.length) return [];
+  return [keys.length === 1
+    ? `Поле ${keys[0]} задано в JSON в виде, который форма не читает: оно уйдёт как есть, и форма его не меняет. Правится во вкладке JSON.`
+    : `Поля ${keys.join(', ')} заданы в JSON в виде, который форма не читает: они уйдут как есть, и форма их не меняет. Правятся во вкладке JSON.`];
+}
+
+// «В HTML» in the visual mode: the post as HTML source in its tab (html-export.js); the blocks stay in theirs
+export function bindHtmlExport() {
+  $('#to-html').onclick = () => exportToHtml(() => { setMode('html', true); renderAll(); changed(); });
 }
 
 // ---------- after publishing: pin, first comment, poll ----------
@@ -157,8 +284,12 @@ export function renderAfter() {
   box.replaceChildren(...[
     h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: S.extra.pin, onchange: (e) => { S.extra.pin = e.target.checked; changed(); } }), tr('Закрепить пост после публикации (без уведомления)')),
     h('p', { class: 'muted small' }, tr('Первый комментарий (HTML, как в посте). Студия ответит им на копию поста в группе обсуждения, когда Telegram её туда перешлёт. Бот должен быть админом группы обсуждения.')),
-    S.extra.commentObj ? h('p', { class: 'w small', text: tr('Комментарий задан в JSON не как HTML; он сохранится как есть, пока это поле пустое.') }) : null,
-    h('textarea', { class: 'code', id: 'comment-src', style: 'min-height:70px', value: S.extra.comment, placeholder: tr('<p>Ссылки из поста и обсуждение здесь 👇</p>'), oninput: (e) => { S.extra.comment = e.target.value; changed(); } }), pollAfterForm()].filter(Boolean));
+    S.extra.commentObj !== null ? h('p', { class: 'w small', text: tr('Комментарий задан в JSON не как HTML; он сохранится как есть, пока это поле пустое.') }) : null,
+    h('textarea', { class: 'code', id: 'comment-src', style: 'min-height:70px', value: S.extra.comment, placeholder: tr('<p>Ссылки из поста и обсуждение здесь 👇</p>'), oninput: (e) => { S.extra.comment = e.target.value; changed(); } }),
+    commentFields().length ? h('p', { class: 'muted small', id: 'comment-fields' }, tr('Ещё в комментарии: '), commentFields().map((k, i) => [i ? ', ' : '', h('code', { text: k })]),
+      tr('. Они уходят вместе с HTML и правятся во вкладке JSON; без HTML комментарий с ними не пройдёт проверку. '),
+      h('button', { type: 'button', class: 'ghost small-btn', text: tr('Убрать эти поля'), title: tr('Оставить в комментарии только HTML'), onclick: () => { S.extra.commentBase = {}; renderAfter(); changed(); } })) : null,
+    pollAfterForm()].filter(Boolean));
 }
 
 export function updatesLabel() {
@@ -177,22 +308,72 @@ export function renderOptions() {
     flag(S.options, 'protect_content', tr('Запретить пересылку и сохранение'), 'protect_content'),
     flag(S.flags, 'skip_entity_detection', tr('Не распознавать ссылки, @, #, телефоны автоматически'), 'rich_message.skip_entity_detection'),
     flag(S.flags, 'is_rtl', tr('Справа налево'), 'rich_message.is_rtl'));
+  box.append(h('div', { id: 'opts-topic' }), h('div', { id: 'opts-rest' }));
+  renderTopic();
+  renderRest();
+}
+
+/** After a change of channel. The topic row follows the channel; the field of other parameters is rebuilt only when
+ * the row comes or goes (message_thread_id moves between them) or the topic was dropped with the old channel (the field
+ * may show it), so what is typed in it stays, unparsed text too. @param {boolean} dropped */
+export function refreshTopic(dropped) {
+  if (!$('#opts-topic')) { renderOptions(); return; }
+  const had = !!$('#topic');
+  if (renderTopic() !== had || dropped) renderRest();
+}
+
+function renderTopic() {
+  const row = topicChoice();
+  $('#opts-topic').replaceChildren(...(row ? [row] : []));
+  return !!row;
+}
+
+function renderRest() {
+  const box = $('#opts-rest');
+  box.replaceChildren();
   const m = S.spec.methods.sendRichMessage;
-  if (m) {
-    const known = new Set(['chat_id', 'rich_message', 'reply_markup', 'disable_notification', 'protect_content']);
-    const rest = m.fields.filter((f) => !known.has(f.name));
-    const extra = {};
-    for (const f of rest) if (S.options[f.name] !== undefined) extra[f.name] = S.options[f.name];
-    const ta = h('textarea', { class: 'code', style: 'min-height:70px', value: Object.keys(extra).length ? JSON.stringify(extra, null, 1) : '' , placeholder: '{"message_effect_id": "..."}' });
-    ta.addEventListener('input', () => {
-      try {
-        const v = ta.value.trim() ? JSON.parse(ta.value) : {};
-        for (const f of rest) delete S.options[f.name];
-        Object.assign(S.options, v); ta.style.borderColor = ''; changed();
-      } catch { ta.style.borderColor = 'var(--err)'; }
-    });
-    box.append(h('p', { class: 'muted small' }, tr('Другие параметры sendRichMessage (из спецификации): '), rest.map((f, i) => [i ? ', ' : '', h('code', { title: f.description, text: f.name })])), ta);
-  }
+  if (!m) return;
+  // with the topic list message_thread_id is the list's: the field neither shows nor sets it, so the two never disagree
+  const listed = !!$('#topic');
+  const known = new Set(['chat_id', 'rich_message', 'reply_markup', 'disable_notification', 'protect_content', ...(listed ? ['message_thread_id'] : [])]);
+  // what options may hold (PostOptions: chat_id, ephemeral_message_parameters… are the studio's); a stored one it
+  // may not stays in the field, so the check's error about it can be fixed here
+  const allowed = new Set(((S.spec.post && S.spec.post.types.PostOptions) || m).fields.map((f) => f.name));
+  const rest = m.fields.filter((f) => !known.has(f.name) && (allowed.has(f.name) || S.options[f.name] !== undefined));
+  const extra = {};
+  for (const f of rest) if (S.options[f.name] !== undefined) extra[f.name] = S.options[f.name];
+  const ta = h('textarea', { class: 'code', style: 'min-height:70px', value: Object.keys(extra).length ? JSON.stringify(extra, null, 1) : '' , placeholder: '{"message_effect_id": "..."}' });
+  ta.addEventListener('input', () => {
+    try {
+      const v = ta.value.trim() ? JSON.parse(ta.value) : {};
+      if (listed && v && typeof v === 'object') delete v.message_thread_id;
+      const had = S.options.message_thread_id;
+      for (const f of rest) delete S.options[f.name];
+      Object.assign(S.options, v); ta.style.borderColor = '';
+      // a topic typed here belongs to where it leads now, as one chosen in the list
+      if (S.options.message_thread_id !== had) S.topicChat = S.options.message_thread_id === undefined ? undefined : topicHome();
+      changed();
+    } catch { ta.style.borderColor = 'var(--err)'; }
+  });
+  box.append(h('p', { class: 'muted small' }, tr('Другие параметры sendRichMessage (из спецификации): '), rest.filter((f) => allowed.has(f.name)).map((f, i) => [i ? ', ' : '', h('code', { title: f.description, text: f.name })])), ta);
+}
+
+/** The forum topic of the post (message_thread_id): only where the topic leads (topicHome) is a forum with something to
+ * choose, its known topics or the topic the post already has; without them the post goes to General. */
+function topicChoice() {
+  const home = topicHome();
+  const one = channelOf(home);
+  const tid = S.options.message_thread_id;
+  const topics = (one && one.is_forum && one.topics) || [];
+  if (!one || !one.is_forum || (!topics.length && tid === undefined)) return null;
+  const sel = /** @type {HTMLSelectElement} */ (h('select', { id: 'topic', title: tr('message_thread_id. Темы добавляются в окне «Каналы» (кнопка канала в шапке)'), onchange: () => {
+    if (sel.value) { S.options.message_thread_id = Number(sel.value); S.topicChat = home; } else delete S.options.message_thread_id;
+    changed();
+  } },
+  h('option', { value: '', text: 'General' }),
+  ...topics.map((t) => h('option', { value: String(t.id), text: t.name, selected: t.id === tid ? true : null })),
+  tid !== undefined && !topics.some((t) => t.id === tid) ? h('option', { value: String(tid), text: '№' + tid, selected: true }) : null));
+  return h('label', { class: 'row', style: 'margin:2px 0' }, tr('Тема форума'), sel);
 }
 
 // ---------- preview & validation ----------
@@ -203,7 +384,13 @@ export function renderPreview() {
   p.dark = dark.value;
   p.channelTitle = channelTitle(chats()[0] || S.config.default_chat) || tr('Канал');
   p.emojiKinds = emojiKinds();
-  p.post = fresh && showParsed.value ? { ...post, rich_message: { blocks: fresh.blocks } } : post;
+  p.post = fresh && showParsed.value ? { ...post, rich_message: telegramsBlocks(fresh.blocks) } : post;
+}
+
+/** The blocks Telegram made of the post, to draw as they are: they went through its detection of TON addresses and
+ * the like already, so an address it left as text must stay text in the preview too. */
+function telegramsBlocks(blocks) {
+  return { blocks, skip_entity_detection: true };
 }
 
 // ---------- check against Telegram's parser ----------
@@ -220,7 +407,7 @@ function checkParse(post) {
   else if (!fresh) bar.check = { status: 'stale' };
   else {
     const mine = RichRender.outline(post);
-    const theirs = RichRender.outline({ rich_message: { blocks: fresh.blocks } });
+    const theirs = RichRender.outline({ rich_message: telegramsBlocks(fresh.blocks) });
     bar.check = mine === theirs ? { status: 'same' } : { status: 'diff', ...firstDifference(mine, theirs) };
   }
   return fresh;
@@ -257,7 +444,9 @@ export const validate = debounce(async () => {
   const box = $('#validation');
   const pill = $('#check-pill');
   try {
-    const r = await api('POST', '/api/validate', buildPost());
+    // the chats it goes to: the check warns about what Telegram refuses in them (web_app in a channel…)
+    const where = new URLSearchParams(target().chat_ids.map((c) => ['chat_ids', c])).toString();
+    const r = await api('POST', '/api/validate' + (where ? '?' + where : ''), buildPost());
     const st = r.stats || {};
     const statLine = h('span', { class: 'muted small', text: ' · ' + plural(st.chars ?? 0, tr('символ'), tr('символа'), tr('символов')) + (st.blocks ? ' · ' + plural(st.blocks, tr('блок'), tr('блока'), tr('блоков')) : '') + (st.media ? tr` · ${st.media} медиа` : '') + tr` · проверено по ${r.spec_version}` });
     const item = (msg, cls) => {
@@ -289,13 +478,17 @@ function pollAfterForm() {
       draw(); changed();
     } }), tr('Сразу после поста отправить опрос'));
     if (!P) { box.replaceChildren(on); return; }
-    if (!Array.isArray(P.options)) P.options = [];
-    const opts = P.options.map((o, i) => {
-      if (typeof o !== 'object' || o === null) P.options[i] = o = { text: String(o ?? '') };
+    // the options as they came: drawing changes nothing. A string option (sendPoll's older form, the studio sends it as
+    // {text}) stays a string when edited; options that are not a list are edited only in the JSON tab
+    /** @type {Json[] | null} */
+    const list = Array.isArray(P.options) ? P.options : null;
+    const opts = (list || []).map((o, i, all) => {
+      const text = typeof o === 'string' ? o : isObject(o) ? o.text : o === null || o === undefined ? '' : String(o);
+      const set = (v) => { if (typeof all[i] === 'string') all[i] = v; else if (isObject(all[i])) all[i].text = v; else all[i] = { text: v }; };
       return h('div', { class: 'row', style: 'margin:2px 0' },
         P.type === 'quiz' ? h('input', { type: 'radio', name: 'poll-after-correct', title: tr('Правильный ответ'), checked: (P.correct_option_ids || [])[0] === i, onchange: () => { P.correct_option_ids = [i]; changed(); } }) : null,
-        h('input', { type: 'text', value: o.text || '', placeholder: tr('Вариант ') + (i + 1), 'aria-label': tr('Вариант ') + (i + 1), oninput: (e) => { o.text = e.target.value; changed(); } }),
-        P.options.length > 2 ? h('button', { type: 'button', class: 'ghost small-btn', text: '✕', title: tr('Убрать вариант'), onclick: () => { P.options.splice(i, 1); if (P.correct_option_ids) P.correct_option_ids = [0]; draw(); changed(); } }) : null);
+        h('input', { type: 'text', value: typeof text === 'string' ? text : '', placeholder: tr('Вариант ') + (i + 1), 'aria-label': tr('Вариант ') + (i + 1), oninput: (e) => { set(e.target.value); changed(); } }),
+        all.length > 2 ? h('button', { type: 'button', class: 'ghost small-btn', text: '✕', title: tr('Убрать вариант'), onclick: () => { all.splice(i, 1); if (P.correct_option_ids) P.correct_option_ids = [0]; draw(); changed(); } }) : null);
     });
     const flag = (key, label, value) => h('label', { class: 'row', style: 'margin:2px 0' }, h('input', { type: 'checkbox', checked: value === undefined ? !!P[key] : P[key] === value, onchange: (e) => {
       if (value !== undefined) { if (e.target.checked) { P[key] = value; P.correct_option_ids = [0]; delete P.allows_multiple_answers; } else { delete P[key]; delete P.correct_option_ids; delete P.explanation; } }
@@ -305,7 +498,8 @@ function pollAfterForm() {
     box.replaceChildren(on,
       h('input', { type: 'text', value: P.question || '', placeholder: tr('Вопрос'), 'aria-label': tr('Вопрос опроса'), maxlength: '300', oninput: (e) => { P.question = e.target.value; changed(); } }),
       ...opts,
-      P.options.length < 12 ? h('button', { type: 'button', class: 'ghost small-btn', text: tr('＋ вариант'), onclick: () => { P.options.push({ text: '' }); draw(); changed(); } }) : null,
+      list ? null : h('p', { class: 'w small', text: tr('Варианты (poll_after.options) заданы в JSON не списком: они сохранятся как есть, правятся во вкладке JSON.') }),
+      list && list.length < 12 ? h('button', { type: 'button', class: 'ghost small-btn', text: tr('＋ вариант'), onclick: () => { list.push({ text: '' }); draw(); changed(); } }) : null,
       flag('type', tr('Викторина (один правильный ответ)'), 'quiz'),
       P.type === 'quiz' ? h('input', { type: 'text', value: P.explanation || '', placeholder: tr('Пояснение после ответа'), oninput: (e) => { if (e.target.value) P.explanation = e.target.value; else delete P.explanation; changed(); } }) : flag('allows_multiple_answers', tr('Несколько ответов')),
       h('p', { class: 'muted small', text: tr('Уйдёт в тот же канал (и тему) отдельным сообщением, когда выйдет пост, в том числе отложенный. Остальные поля sendPoll задаются во вкладке JSON (poll_after).') }));

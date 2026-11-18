@@ -73,6 +73,38 @@ impl TelegramTransport {
         self.call_authorized("sendMessage", json!({"chat_id":uid,"text":text,"parse_mode":"HTML","reply_markup":markup,"link_preview_options":{"is_disabled":true}}), Uploads::default()).await
     }
 
+    /// Studio-owned acknowledgement of a private forward, scoped to its sender.
+    pub async fn answer_forward_import(
+        &self,
+        context: &AccountContext,
+        uid: i64,
+        message_id: i64,
+        reason: Option<&str>,
+    ) -> Result<Value, TelegramError> {
+        if uid <= 0
+            || uid >= (1_i64 << 52)
+            || message_id <= 0
+            || context.account_id.is_some_and(|account| account != uid)
+        {
+            return Err(TelegramError::Policy(
+                "Получатель ответа не совпадает с отправителем пересылки.".to_owned(),
+            ));
+        }
+        let (method, payload) = if let Some(reason) = reason {
+            (
+                "sendMessage",
+                json!({"chat_id":uid,"text":format!("Черновик не создан: {reason}."),"reply_parameters":{"message_id":message_id,"allow_sending_without_reply":true}}),
+            )
+        } else {
+            (
+                "setMessageReaction",
+                json!({"chat_id":uid,"message_id":message_id,"reaction":[{"type":"emoji","emoji":"✍"}]}),
+            )
+        };
+        self.call_authorized(method, payload, Uploads::default())
+            .await
+    }
+
     /// The sole discussion exception: one reply to a verified source-channel forward.
     pub async fn send_linked_comment(
         &self,
@@ -153,6 +185,49 @@ impl TelegramTransport {
         self.call_authorized(method, payload, uploads).await
     }
 
+    /// A callback query is the recipient capability: no chat, fixed user, business
+    /// connection or paid broadcast may override it. Never retry ephemeral replies.
+    pub async fn send_callback_reply(
+        &self,
+        _context: &AccountContext,
+        callback_query_id: &str,
+        mut reply: Value,
+        uploads: Uploads,
+    ) -> Result<Value, TelegramError> {
+        let object = reply
+            .as_object_mut()
+            .ok_or_else(|| TelegramError::Policy("rich-ответ должен быть объектом".to_owned()))?;
+        if callback_query_id.is_empty()
+            || ["chat_id", "business_connection_id", "allow_paid_broadcast"]
+                .iter()
+                .any(|key| object.contains_key(*key))
+        {
+            return Err(TelegramError::Policy(
+                "rich-ответ уходит только нажавшему без платной рассылки".to_owned(),
+            ));
+        }
+        let ephemeral = object
+            .entry("ephemeral_message_parameters")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(|| {
+                TelegramError::Policy(
+                    "ephemeral_message_parameters должен быть объектом".to_owned(),
+                )
+            })?;
+        if ["callback_query_id", "receiver_user_id"]
+            .iter()
+            .any(|key| ephemeral.contains_key(*key))
+        {
+            return Err(TelegramError::Policy(
+                "получателя rich-ответа задаёт студия при нажатии".to_owned(),
+            ));
+        }
+        ephemeral.insert("callback_query_id".to_owned(), json!(callback_query_id));
+        self.call_observed("sendRichMessage", reply, uploads, false)
+            .await
+    }
+
     /// `getFile` plus the byte download from `{api_base}/file/bot{token}/{file_path}`.
     /// The URL carries the bot token, so it is never logged or copied into an error.
     /// Returns the bytes and the `file_path` `getFile` reported.
@@ -207,9 +282,19 @@ impl TelegramTransport {
         payload: Value,
         uploads: Uploads,
     ) -> Result<Value, TelegramError> {
+        self.call_observed(method, payload, uploads, true).await
+    }
+
+    async fn call_observed(
+        &self,
+        method: &str,
+        payload: Value,
+        uploads: Uploads,
+        retry: bool,
+    ) -> Result<Value, TelegramError> {
         let started = Instant::now();
         let chat = loggable_chat(payload.get("chat_id"));
-        let result = self.call_inner(method, payload, uploads).await;
+        let result = self.call_inner(method, payload, uploads, retry).await;
         let quiet = matches!(method, "getUpdates" | "getMe" | "answerCallbackQuery");
         let error = result.as_ref().err().map(ToString::to_string);
         let code = match &result {
@@ -246,6 +331,7 @@ impl TelegramTransport {
         method: &str,
         payload: Value,
         uploads: Uploads,
+        retry: bool,
     ) -> Result<Value, TelegramError> {
         if self.token.is_empty() {
             return Err(TelegramError::Refused {
@@ -272,7 +358,7 @@ impl TelegramTransport {
                 Err(TelegramError::RateLimited {
                     retry_after: Some(wait),
                     ..
-                }) if wait > 0 && wait <= MAX_RETRY_AFTER && attempt < MAX_RETRIES => {
+                }) if retry && wait > 0 && wait <= MAX_RETRY_AFTER && attempt < MAX_RETRIES => {
                     tokio::time::sleep(Duration::from_secs(wait)).await;
                 }
                 result => return result,

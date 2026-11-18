@@ -7,6 +7,9 @@ import { $ } from './dom.js';
 export const dirty = signal(false);
 export const saveState = signal(''); // text next to the Save button
 export const dark = signal(matchMedia('(prefers-color-scheme: dark)').matches);
+/** the studio's own theme from the header (#ui-theme; theme.js sets it before the page is drawn); null: not chosen,
+ * the page follows the system's. `dark` above is the Telegram preview's theme (☾), apart from this one. */
+export const uiTheme = signal(/** @type {'light' | 'dark' | null} */ (null));
 /** the published or scheduled post the open draft is a working copy of (<rs-edit-bar> shows it) */
 export const editing = signal(/** @type {PostRow | null} */ (null));
 /** the blocks Telegram made of the post at the last «Мне в личку» (<rs-parse-check> compares the preview with them) */
@@ -19,14 +22,23 @@ export const showParsed = signal(false);
 export const S = {
   // boot() in main.js loads the spec before anything renders, so modules may treat it as present
   spec: /** @type {SpecSummary} */ (/** @type {unknown} */ (null)), config: {}, draftId: null, draftVersion: null, conflict: false, format: 'blocks', mode: 'blocks',
-  buf: { blocks: [], html: '', markdown: '' }, formatSnapshot: null, formatBackup: null, legacyFormats: false, pendingJson: null, media: [], flags: {}, keyboard: [], options: {}, importMeta: {},
-  extra: { pin: false, comment: '', commentObj: null, callbacks: {}, poll: null }, updates: null,
+  buf: { blocks: [], html: '', markdown: '' }, formatSnapshot: null, formatBackup: null, legacyFormats: false, pendingJson: null, json: null, notes: {}, unknown: {}, media: [], flags: {}, keyboard: [], options: {}, importMeta: {},
+  extra: { pin: false, comment: '', commentBase: {}, commentObj: null, callbacks: {}, poll: null, markup: {} }, updates: null,
   uploads: [], posts: [], drafts: [], channels: [], topicChat: undefined,
 };
 
 // each channel once, as the server counts them (@Chan and @chan are one channel)
 export const chats = () => { const seen = new Set(); return $('#chat').value.split(/[\s,;]+/).map((x) => x.trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())); };
 export const chat = () => chats()[0];
+/** Where a forum topic of the post leads: the edited post's own chat («Обновить пост» sends it there), else the one
+ * channel chosen; none for several. */
+export const topicHome = () => { const e = editing.peek(); if (e) return e.chat_id; const c = chats(); return c.length === 1 ? c[0] : undefined; };
+/** One chat under two names (@Name and @name, @name and its -100… id once checked). */
+export const sameChat = (a, b) => {
+  if (a === undefined || a === null || b === undefined || b === null) return false;
+  const one = channelOf(String(a));
+  return String(a).toLowerCase() === String(b).toLowerCase() || (!!one && one === channelOf(String(b)));
+};
 // body fields for one or several channels
 // always the explicit list the confirmation showed, never "whatever the saved draft says"
 export const target = () => { const c = chats(); return { chat_ids: c.length ? c : [S.config.default_chat].filter(Boolean) }; };

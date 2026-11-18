@@ -25,7 +25,15 @@ async fn processed(state: &AppState, update: &Value) {
         _ => {}
     }
 }
+fn received(update: &Value, at: i64) -> Value {
+    let mut update = update.clone();
+    if update["callback_query"].is_object() {
+        update["callback_query"]["_studio_received"] = json!(at);
+    }
+    update
+}
 pub async fn receive_webhook(state: &AppState, update: &Value) -> Result<(), ServiceError> {
+    let update = received(update, auth::now());
     let id = update["update_id"]
         .as_i64()
         .filter(|id| *id >= 0)
@@ -39,7 +47,7 @@ pub async fn receive_webhook(state: &AppState, update: &Value) -> Result<(), Ser
     })
     .await?
     {
-        processed(state, update).await;
+        processed(state, &update).await;
     }
     Ok(())
 }
@@ -60,6 +68,7 @@ pub async fn poll_once(state: &AppState) -> Result<(), ServiceError> {
     let updates = updates.as_array().ok_or_else(|| {
         ServiceError::Internal("Telegram вернул неверный список событий".to_owned())
     })?;
+    let received_at = auth::now();
     {
         let mut status = state.updates_status.write().await;
         status.state = "ok".to_owned();
@@ -80,7 +89,7 @@ pub async fn poll_once(state: &AppState) -> Result<(), ServiceError> {
             Ok(meta::set(context, OFFSET_KEY, &(id + 1).to_string())?)
         })
         .await?;
-        processed(state, update).await;
+        processed(state, &received(update, received_at)).await;
     }
     Ok(())
 }

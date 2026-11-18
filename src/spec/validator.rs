@@ -5,6 +5,9 @@ use url::Url;
 use super::source::Spec;
 use super::{enum_values, type_const};
 
+mod limits;
+pub(crate) mod text;
+
 pub type Validation = Value;
 
 pub struct Validator<'a> {
@@ -44,7 +47,345 @@ impl<'a> Validator<'a> {
                     .collect::<Vec<_>>()
             );
         }
+        let mut extra = Self::new(self.spec);
+        extra.post_fields(post);
+        extra.callbacks(post);
+        extra.poll(post);
+        append_report(&mut report, extra.errors, extra.warnings);
         report
+    }
+
+    pub fn check_reply(&self, reply: &Value) -> Validation {
+        let mut validator = Self::new(self.spec);
+        validator.callbacks(&json!({"callbacks":{"answer":{"reply":reply}}}));
+        json!({"ok":validator.errors.is_empty(),"errors":validator.errors,"warnings":validator.warnings,"spec_version":self.spec.version()})
+    }
+
+    pub fn check_answers(&self, post: &Value) -> Validation {
+        let mut validator = Self::new(self.spec);
+        validator.callbacks(post);
+        validator
+            .errors
+            .extend(keyboard_errors(&post["reply_markup"]));
+        json!({"ok":validator.errors.is_empty(),"errors":validator.errors,"warnings":validator.warnings,"spec_version":self.spec.version()})
+    }
+
+    fn post_fields(&mut self, post: &Value) {
+        if let Some(object) = post.as_object() {
+            for key in object.keys() {
+                if ["chat_id", "chat_ids"].contains(&key.as_str()) {
+                    self.errors.push(format!(
+                        "{key}: канал задаётся рядом с post, не внутри поста"
+                    ));
+                } else if ![
+                    "rich_message",
+                    "reply_markup",
+                    "options",
+                    "pin",
+                    "comment",
+                    "callbacks",
+                    "poll_after",
+                    "_studio",
+                ]
+                .contains(&key.as_str())
+                {
+                    self.warnings.push(format!("поле «{key}» на верхнем уровне поста не используется и в Telegram не уходит; параметры Bot API кладите в options"));
+                }
+            }
+        }
+        if let Some(options) = post.get("options").filter(|value| !value.is_null()) {
+            if let Some(options) = options.as_object() {
+                let fields = self.spec.methods()["sendRichMessage"]["fields"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                for (key, value) in options {
+                    if [
+                        "chat_id",
+                        "chat_ids",
+                        "rich_message",
+                        "reply_markup",
+                        "message_id",
+                        "ephemeral_message_parameters",
+                    ]
+                    .contains(&key.as_str())
+                    {
+                        self.errors.push(format!("options.{key}: поле задаёт студия; передайте канал рядом с post, rich_message и reply_markup — на уровне поста"));
+                        continue;
+                    }
+                    if let Some(field) = fields.iter().find(|field| field["name"] == *key) {
+                        if field["types"] == json!(["Boolean"]) && !value.is_boolean() {
+                            self.warnings.push(format!("options.{key}: ожидалось true/false; значение передаётся в Telegram как задано"));
+                            continue;
+                        }
+                        self.check_value(
+                            value,
+                            &candidates(field["types"].as_array().cloned().unwrap_or_default()),
+                            &format!("options.{key}"),
+                        );
+                    } else {
+                        self.warnings.push(format!("options.{key}: поля нет в sendRichMessage (спецификация {}), передаётся как есть",self.spec.version()));
+                    }
+                }
+            } else {
+                self.errors
+                    .push("options: нужен объект параметров sendRichMessage".to_owned());
+            }
+        }
+        if let Some(comment) = post.get("comment").filter(|value| !value.is_null()) {
+            let mut validator = Self::new(self.spec);
+            let report = validator.validate_rich_message(comment);
+            self.errors.extend(
+                report["errors"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(|message| format!("comment: {message}")),
+            );
+            self.warnings.extend(
+                report["warnings"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(|message| format!("comment: {message}")),
+            );
+        }
+    }
+
+    pub fn check_post_in(&self, post: &Value, places: &[(String, String)]) -> Validation {
+        let mut report = self.check_post(post);
+        append_report(
+            &mut report,
+            Vec::new(),
+            super::chats::warnings(self.spec, post, places),
+        );
+        for (data, answer) in post["callbacks"].as_object().into_iter().flatten() {
+            if let Some(reply) = answer.get("reply").filter(|value| value.is_object()) {
+                let warnings = super::chats::warnings(self.spec, reply, places)
+                    .into_iter()
+                    .map(|warning| format!("callbacks.{data}.reply: {warning}"))
+                    .collect();
+                append_report(&mut report, Vec::new(), warnings);
+            }
+        }
+        report
+    }
+
+    fn poll(&mut self, post: &Value) {
+        if let Some(poll) = post.get("poll_after").filter(|poll| !poll.is_null()) {
+            if !poll.is_object() {
+                self.errors
+                    .push("poll_after: нужен объект параметров sendPoll".to_owned());
+                return;
+            }
+            let mut poll = poll.clone();
+            if let Some(options) = poll["options"].as_array_mut() {
+                for option in options {
+                    if option.is_string() {
+                        *option = json!({"text":option.clone()});
+                    }
+                }
+            }
+            if poll.get("chat_id").is_some() {
+                self.errors
+                    .push("poll_after.chat_id: канал задаётся рядом с post".to_owned());
+            }
+            let question = poll["question"].as_str().unwrap_or("");
+            if question.trim().is_empty() || question.chars().count() > 300 {
+                self.errors.push(
+                    "poll_after.question: вопрос должен содержать от 1 до 300 символов".to_owned(),
+                );
+            }
+            let options = poll["options"].as_array();
+            if options.is_none_or(|options| {
+                !(2..=12).contains(&options.len())
+                    || options
+                        .iter()
+                        .filter(|option| {
+                            option["text"]
+                                .as_str()
+                                .is_some_and(|text| !text.trim().is_empty())
+                        })
+                        .count()
+                        < 2
+            }) {
+                self.errors.push(
+                    "poll_after.options: нужно минимум два варианта, всего от 2 до 12 непустых вариантов"
+                        .to_owned(),
+                );
+            }
+            if poll["type"] == "quiz"
+                && poll["correct_option_id"].is_null()
+                && poll["correct_option_ids"]
+                    .as_array()
+                    .is_none_or(Vec::is_empty)
+            {
+                self.errors.push(
+                    "poll_after: у викторины не отмечен правильный ответ (correct_option_ids)"
+                        .to_owned(),
+                );
+            }
+            let fields = self.spec.methods()["sendPoll"]["fields"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            for field in &fields {
+                let key = field["name"].as_str().unwrap_or("");
+                if key == "chat_id" {
+                    continue;
+                }
+                if let Some(value) = poll.get(key) {
+                    let types = candidates(field["types"].as_array().cloned().unwrap_or_default());
+                    self.check_value(value, &types, &format!("poll_after.{key}"));
+                } else if field["required"] == true {
+                    self.errors
+                        .push(format!("poll_after: нет обязательного поля {key}"));
+                }
+            }
+        }
+    }
+
+    fn callbacks(&mut self, post: &Value) {
+        let Some(callbacks) = post.get("callbacks").filter(|value| !value.is_null()) else {
+            return;
+        };
+        let Some(callbacks) = callbacks.as_object() else {
+            self.errors
+                .push("callbacks: нужен объект {callback_data: ответ}".to_owned());
+            return;
+        };
+        let buttons = callback_buttons(post);
+        for (data, answer) in callbacks {
+            let path = format!("callbacks.{data}.reply");
+            if !buttons.contains_key(data) {
+                self.warnings.push(format!("callbacks.{data}: ответ без кнопки — кнопки с таким callback_data нет ни под постом, ни в его тексте; ответ хранится как есть"));
+            }
+            if !answer.is_string() && !answer.is_object() {
+                self.warnings.push(format!(
+                    "callbacks.{data}: ни текст, ни объект, на нажатие придёт пустой ответ"
+                ));
+            }
+            if let Some(answer) = answer.as_object() {
+                let fields = self.spec.methods()["answerCallbackQuery"]["fields"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                for (key, value) in answer {
+                    if key == "reply" {
+                        continue;
+                    }
+                    if key == "callback_query_id" {
+                        self.warnings.push(format!(
+                            "callbacks.{data}.callback_query_id задаёт студия при нажатии"
+                        ));
+                        continue;
+                    }
+                    if let Some(field) = fields.iter().find(|field| field["name"] == *key) {
+                        let mut check = Self::new(self.spec);
+                        check.check_value(
+                            value,
+                            &candidates(field["types"].as_array().cloned().unwrap_or_default()),
+                            &format!("callbacks.{data}.{key}"),
+                        );
+                        self.warnings.extend(check.errors);
+                        self.warnings.extend(check.warnings);
+                    } else {
+                        self.warnings.push(format!("callbacks.{data}.{key}: поля нет в answerCallbackQuery (спецификация {})",self.spec.version()));
+                    }
+                }
+            }
+            let Some(reply) = answer.get("reply").filter(|value| !value.is_null()) else {
+                continue;
+            };
+            let Some(reply) = reply.as_object() else {
+                self.errors
+                    .push(format!("{path}: нужен объект параметров sendRichMessage"));
+                continue;
+            };
+            for key in ["chat_id", "business_connection_id", "allow_paid_broadcast"] {
+                if reply.contains_key(key) {
+                    self.errors.push(format!(
+                        "{path}.{key}: ответ уходит только нажавшему; поле задаёт студия"
+                    ));
+                }
+            }
+            if let Some(ephemeral) = reply.get("ephemeral_message_parameters") {
+                for key in ["callback_query_id", "receiver_user_id"] {
+                    if ephemeral.get(key).is_some() {
+                        self.errors.push(format!("{path}.ephemeral_message_parameters.{key}: значение задаёт студия при нажатии"));
+                    }
+                }
+            }
+            let mut validator = Self::new(self.spec);
+            let report =
+                validator.validate_rich_message(reply.get("rich_message").unwrap_or(&Value::Null));
+            self.errors.extend(
+                report["errors"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(|message| format!("{path}: {message}")),
+            );
+            if !callback_buttons(&Value::Object(reply.clone())).is_empty() {
+                self.warnings.push(format!(
+                    "{path}: на callback_data кнопки внутри rich-ответа студия не отвечает"
+                ));
+            }
+            self.warnings.extend(
+                report["warnings"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(|message| format!("{path}: {message}")),
+            );
+            for (key, value) in reply {
+                if key == "rich_message"
+                    || ["chat_id", "business_connection_id", "allow_paid_broadcast"]
+                        .contains(&key.as_str())
+                {
+                    continue;
+                }
+                let fields = self.spec.methods()["sendRichMessage"]["fields"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                if let Some(field) = fields.iter().find(|field| field["name"] == *key) {
+                    let mut child = Self::new(self.spec);
+                    child.check_value(
+                        value,
+                        &candidates(field["types"].as_array().cloned().unwrap_or_default()),
+                        &format!("{path}.{key}"),
+                    );
+                    self.errors.extend(child.errors);
+                    self.warnings.extend(child.warnings);
+                } else {
+                    self.warnings.push(format!(
+                        "{path}.{key}: поля нет в sendRichMessage (спецификация {})",
+                        self.spec.version()
+                    ));
+                }
+            }
+            self.errors.extend(
+                keyboard_errors(reply.get("reply_markup").unwrap_or(&Value::Null))
+                    .into_iter()
+                    .map(|message| format!("{path}: {message}")),
+            );
+            self.warnings.extend(super::chats::warnings(
+                self.spec,
+                &Value::Object(reply.clone()),
+                &[(
+                    "ephemeral".to_owned(),
+                    "в rich-ответе на нажатие".to_owned(),
+                )],
+            ));
+            if answer["cache_time"].as_i64().is_some_and(|time| time > 0) {
+                self.warnings.push(format!("callbacks.{data}.cache_time: повторное нажатие в это время не дойдёт до студии, rich-ответа не будет"));
+            }
+        }
     }
 
     fn check_value(&mut self, value: &Value, types: &[String], path: &str) {
@@ -55,7 +396,7 @@ impl<'a> Validator<'a> {
             self.check_one(value, &types[0], path);
             return;
         }
-        let mut best: Option<Self> = None;
+        let mut best: Option<(Self, usize)> = None;
         for type_name in types {
             let mut candidate = Self::new(self.spec);
             candidate.check_one(value, type_name, path);
@@ -63,14 +404,14 @@ impl<'a> Validator<'a> {
                 self.warnings.extend(candidate.warnings);
                 return;
             }
-            if best
-                .as_ref()
-                .is_none_or(|current| candidate.errors.len() < current.errors.len())
-            {
-                best = Some(candidate);
+            let gap = shape_gap(value, type_name, self.spec);
+            if best.as_ref().is_none_or(|(current, current_gap)| {
+                (candidate.errors.len(), gap) < (current.errors.len(), *current_gap)
+            }) {
+                best = Some((candidate, gap));
             }
         }
-        if let Some(best) = best {
+        if let Some((best, _)) = best {
             self.errors.push(format!(
                 "{path}: не подходит ни под один из типов {} (ближайший: {})",
                 types.join(", "),
@@ -159,8 +500,13 @@ impl<'a> Validator<'a> {
                     self.check_value(value, &untagged, path);
                     return;
                 }
+                let allowed = candidates
+                    .iter()
+                    .filter_map(|name| type_const(self.spec.types(), name).map(|(_, value)| value))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 self.errors.push(format!(
-                    "{path}: неизвестный type={} для {type_name}",
+                    "{path}: неизвестный type={} для {type_name}; допустимо: {allowed}",
                     python_repr(value.get("type").unwrap_or(&Value::Null))
                 ));
                 return;
@@ -188,6 +534,7 @@ impl<'a> Validator<'a> {
                 .and_then(Value::as_bool)
                 .unwrap_or(false)
                 && !object.contains_key(name)
+                && !(type_name == "RichBlockTableCell" && ["align", "valign"].contains(&name))
             {
                 self.errors.push(format!(
                     "{path}: нет обязательного поля {name} ({type_name})"
@@ -235,6 +582,23 @@ impl<'a> Validator<'a> {
             {
                 self.warnings.push(format!("{path}.{name}: {problem}"));
             }
+            if item == ""
+                && !["url", "anchor_link", "reference", "reference_link"]
+                    .contains(&object.get("type").and_then(Value::as_str).unwrap_or(""))
+            {
+                let required = fields
+                    .iter()
+                    .filter(|field| field["required"] == true && field["name"] != "type")
+                    .collect::<Vec<_>>();
+                if required.len() == 2
+                    && required.iter().any(|field| field["name"] == "text")
+                    && required
+                        .iter()
+                        .any(|field| field["name"] == *name && field["types"] == json!(["String"]))
+                {
+                    self.warnings.push(format!("{path}.{name}: пустое значение, а текст есть: Telegram может отклонить или не распознать {type_name}"));
+                }
+            }
             if let Some(allowed) = field
                 .get("description")
                 .and_then(Value::as_str)
@@ -259,6 +623,12 @@ impl<'a> Validator<'a> {
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
+            if let Some((minimum, maximum)) = number_range(field)
+                && let Some(number) = item.as_f64()
+                && (number < minimum as f64 || number > maximum as f64)
+            {
+                self.warnings.push(format!("{path}.{name}: значение {number} вне диапазона {minimum}–{maximum} из спецификации"));
+            }
             self.check_value(item, &types, &format!("{path}.{name}"));
         }
     }
@@ -295,21 +665,34 @@ impl<'a> Validator<'a> {
         );
         let mut stats = Map::new();
         if let Some(blocks) = rich_message.get("blocks").and_then(Value::as_array) {
-            let walked = walk_blocks(blocks, 1);
-            stats.insert("blocks".to_owned(), json!(walked.0));
-            stats.insert("depth".to_owned(), json!(walked.1));
-            stats.insert("chars".to_owned(), json!(walked.2));
+            stats = limits::blocks(self.spec, blocks, &mut self.errors, &mut self.warnings);
         } else {
             let source = rich_message
                 .get("html")
                 .or_else(|| rich_message.get("markdown"))
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            let tags = Regex::new(r"<[^>]+>").unwrap_or_else(|error| panic!("HTML regex: {error}"));
-            stats.insert(
-                "chars".to_owned(),
-                json!(tags.replace_all(source, "").chars().count()),
+            let (chars, at_least) = text::source_chars(
+                source,
+                rich_message.get("markdown").is_some(),
+                &mut self.errors,
+                &mut self.warnings,
             );
+            stats.insert("chars".to_owned(), json!(chars));
+            stats.insert("at_least_chars".to_owned(), json!(at_least));
+            stats.insert("bytes".to_owned(), json!(source.len()));
+            if source.len() > 34990 {
+                self.errors.push(format!("rich_message: исходник {} байт в UTF-8 вместе с разметкой: Telegram может молча обрезать хвост после ~35000 байт",source.len()));
+            }
+            let depth = limits::source(
+                source,
+                rich_message.get("html").is_some(),
+                &mut self.errors,
+                &mut self.warnings,
+            );
+            if rich_message.get("html").is_some() {
+                stats.insert("depth".to_owned(), json!(depth));
+            }
             let references = Regex::new(
                 r"tg://(photo|video|audio|document|animation|voice(?:_note)?)\?id=([\w\-.]+)",
             )
@@ -322,7 +705,11 @@ impl<'a> Validator<'a> {
                 .filter_map(|item| item.get("id"))
                 .filter_map(Value::as_str)
                 .collect();
+            let mut referenced = std::collections::BTreeSet::new();
+            let mut reference_count = 0usize;
             for found in references.captures_iter(source) {
+                reference_count += 1;
+                referenced.insert(found.get(2).map_or("", |id| id.as_str()));
                 if !media.contains(&found.get(2).map_or("", |id| id.as_str())) {
                     self.errors.push(format!(
                         "в тексте есть {}, но в media нет элемента с id='{}'",
@@ -331,27 +718,159 @@ impl<'a> Validator<'a> {
                     ));
                 }
             }
+            for id in media
+                .iter()
+                .filter(|id| !id.is_empty() && !referenced.contains(**id))
+            {
+                self.warnings.push(format!(
+                    "rich_message.media id={id:?} нигде не используется в тексте"
+                ));
+            }
+            let mut http_media = 0usize;
+            for (start, end) in text::tags(source) {
+                let tag = &source[start..end];
+                let name = tag
+                    .trim_start_matches('<')
+                    .split(|ch: char| ch.is_ascii_whitespace() || ch == '>' || ch == '/')
+                    .next()
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                if ["img", "video", "audio", "tg-document"].contains(&name.as_str())
+                    && text::attribute(tag, "src", true).is_some_and(|src| {
+                        src.starts_with("http://") || src.starts_with("https://")
+                    })
+                {
+                    http_media += 1;
+                }
+            }
+            if rich_message.get("markdown").is_some() {
+                let images = Regex::new(r"!\[[^\[\]]*\]\(\s*<?https?://")
+                    .unwrap_or_else(|error| panic!("Markdown image regex: {error}"));
+                http_media += images.find_iter(source).count();
+            }
+            stats.insert(
+                "media".to_owned(),
+                json!(media.len().max(reference_count + http_media)),
+            );
         }
         let media_count = rich_message
             .get("media")
             .and_then(Value::as_array)
             .map_or(0, Vec::len);
+        let media_count =
+            media_count.max(stats.get("media").and_then(Value::as_u64).unwrap_or(0) as usize);
         stats.insert("media".to_owned(), json!(media_count));
         let chars = stats.get("chars").and_then(Value::as_i64).unwrap_or(0);
-        if chars > 32768 {
+        let minimum = stats
+            .get("at_least_chars")
+            .and_then(Value::as_i64)
+            .unwrap_or(chars);
+        if minimum > 32768 {
             self.errors
-                .push(format!("текст {chars} символов, лимит 32768"));
+                .push(format!("текст не меньше {minimum} символов, лимит 32768"));
+        } else if chars > 32768 {
+            self.warnings.push(format!("текст около {chars} символов, лимит 32768: точно посчитает Telegram после разбора разметки"));
         } else if chars > 8000 {
             self.warnings
                 .push("больше ~8000 символов: клиент свернёт пост под «Показать ещё»".to_owned());
         }
         if media_count > 50 {
-            self.warnings.push(format!(
-                "{media_count} медиа, по неофициальным данным лимит 50"
-            ));
+            if rich_message.get("blocks").is_some() {
+                self.errors.push(format!("медиа: {media_count}, лимит 50"));
+            } else {
+                self.warnings
+                    .push(format!("медиа около {media_count}, лимит 50"));
+            }
         }
         json!({"ok": self.errors.is_empty(), "errors": self.errors, "warnings": self.warnings, "stats": stats, "spec_version": self.spec.version()})
     }
+}
+
+fn append_report(report: &mut Value, errors: Vec<String>, warnings: Vec<String>) {
+    if !errors.is_empty() {
+        report["ok"] = json!(false);
+    }
+    for (key, items) in [("errors", errors), ("warnings", warnings)] {
+        if let Some(target) = report[key].as_array_mut() {
+            target.extend(items.into_iter().map(Value::String));
+        }
+    }
+}
+
+pub fn callback_buttons(post: &Value) -> std::collections::BTreeMap<String, String> {
+    let mut buttons = std::collections::BTreeMap::new();
+    let mut pending = vec![&post["reply_markup"], &post["rich_message"]["blocks"]];
+    while let Some(value) = pending.pop() {
+        match value {
+            Value::Array(items) => pending.extend(items.iter().rev()),
+            Value::Object(object) => {
+                if let Some(data) = object.get("callback_data").and_then(Value::as_str) {
+                    buttons.entry(data.to_owned()).or_insert_with(|| {
+                        object
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .filter(|text| !text.trim().is_empty())
+                            .unwrap_or(data)
+                            .to_owned()
+                    });
+                }
+                pending.extend(object.values());
+            }
+            _ => {}
+        }
+    }
+    for source in [
+        post["rich_message"]["html"].as_str(),
+        post["rich_message"]["markdown"].as_str(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        for (start, end) in text::tags(source) {
+            let tag = &source[start..end];
+            if tag
+                .get(..10)
+                .is_none_or(|prefix| !prefix.eq_ignore_ascii_case("<tg-button"))
+                || tag
+                    .as_bytes()
+                    .get(10)
+                    .is_none_or(|byte| !byte.is_ascii_whitespace() && *byte != b'>')
+            {
+                continue;
+            }
+            let action = text::attribute(tag, "type", true)
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| {
+                    if text::attribute(tag, "url", false).is_some() {
+                        "url"
+                    } else {
+                        "callback_data"
+                    }
+                    .to_owned()
+                });
+            if action == "callback_data"
+                && let Some(data) = text::attribute(tag, "data", true)
+                    .or_else(|| text::attribute(tag, "callback_data", true))
+            {
+                buttons.entry(data.clone()).or_insert(data);
+            }
+        }
+    }
+    buttons
+}
+
+pub fn number_range(field: &Value) -> Option<(u64, u64)> {
+    let types = field["types"].as_array()?;
+    if types.len() != 1 || !["Integer", "Float"].iter().any(|kind| types[0] == *kind) {
+        return None;
+    }
+    static RANGE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let pattern = RANGE.get_or_init(|| {
+        Regex::new(r";\s*(\d+)-(\d+)(?:[,.;]|$)")
+            .unwrap_or_else(|error| panic!("number range regex: {error}"))
+    });
+    let captures = pattern.captures(field["description"].as_str()?)?;
+    Some((captures[1].parse().ok()?, captures[2].parse().ok()?))
 }
 
 fn candidates(subtypes: Vec<Value>) -> Vec<String> {
@@ -430,12 +949,45 @@ pub fn keyboard_errors(markup: &Value) -> Vec<String> {
                 };
                 errors.push(format!("{where_}: {problem}"));
             }
+            for url in std::iter::once(button.get("url"))
+                .chain(
+                    object
+                        .values()
+                        .filter(|value| value.is_object())
+                        .map(|value| value.get("url")),
+                )
+                .flatten()
+                .filter_map(Value::as_str)
+            {
+                if url.starts_with("upload:") {
+                    errors.push(format!("{where_}: upload: заменяется только в поле файла, ссылка уйдёт в Telegram как есть"));
+                }
+            }
         }
     }
     errors
 }
 
-fn json_depth(value: &Value) -> usize {
+fn shape_gap(value: &Value, name: &str, spec: &Spec) -> usize {
+    let primitive = ["String", "Integer", "Float", "Boolean", "True", "InputFile"].contains(&name);
+    if value.is_array() {
+        usize::from(!name.starts_with("Array of "))
+    } else if value.is_object() {
+        if primitive || name.starts_with("Array of ") {
+            2
+        } else if type_const(spec.types(), name)
+            .is_some_and(|(key, constant)| value[&key] == constant)
+        {
+            0
+        } else {
+            1
+        }
+    } else {
+        usize::from(!primitive)
+    }
+}
+
+pub(super) fn json_depth(value: &Value) -> usize {
     let mut depth: usize = 0;
     let mut level = vec![value];
     while !level.is_empty() && depth <= 201 {
@@ -450,32 +1002,4 @@ fn json_depth(value: &Value) -> usize {
             .collect();
     }
     depth.saturating_sub(1)
-}
-
-fn rich_text_len(value: &Value) -> usize {
-    match value {
-        Value::String(text) => text.chars().count(),
-        Value::Array(items) => items.iter().map(rich_text_len).sum(),
-        Value::Object(item) => item.get("text").map_or(0, rich_text_len),
-        _ => 0,
-    }
-}
-
-fn walk_blocks(blocks: &[Value], depth: usize) -> (usize, usize, usize) {
-    let mut stats = (0, depth, 0);
-    for block in blocks.iter().filter_map(Value::as_object) {
-        stats.0 += 1;
-        for key in ["text", "summary", "caption", "credit"] {
-            if let Some(value) = block.get(key) {
-                stats.2 += rich_text_len(value);
-            }
-        }
-        if let Some(children) = block.get("blocks").and_then(Value::as_array) {
-            let nested = walk_blocks(children, depth + 1);
-            stats.0 += nested.0;
-            stats.1 = stats.1.max(nested.1);
-            stats.2 += nested.2;
-        }
-    }
-    stats
 }

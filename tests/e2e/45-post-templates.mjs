@@ -46,12 +46,12 @@ export default async function ({ browser, BASE, check, mockLog }) {
     await page.waitForFunction(() => !document.querySelector('rs-templates'));
     await page.waitForFunction(() => document.querySelector('#title').value === 'Выпуск 42');
     const draftId = new URL(page.url()).searchParams.get('draft');
-    const draft = await (await context.request.get(BASE + '/api/drafts/' + draftId)).json();
+    const draft = await (await context.request.get(BASE + '/api/drafts/' + draftId, { headers: { 'X-Studio-Client': 'ui' } })).json();
     assert.equal(draft.payload.rich_message.blocks[0].text, 'Запуск <нового> выпуска');
     assert.deepEqual(draft.payload.rich_message.blocks[1], source.rich_message.blocks[1]);
     assert.equal(draft.payload.options.disable_notification, true);
     assert.equal(draft.post_id, null);
-    const all = await (await context.request.get(BASE + '/api/drafts')).json();
+    const all = await (await context.request.get(BASE + '/api/drafts', { headers: { 'X-Studio-Client': 'ui' } })).json();
     assert.ok(all.some((entry) => entry.title === 'Исходный пост для шаблона' && entry.id !== draftId));
     check('Required fields are enforced; creation keeps the source and opens a new filled draft', true);
     await page.setViewportSize({ width: 1400, height: 1000 });
@@ -68,7 +68,7 @@ export default async function ({ browser, BASE, check, mockLog }) {
     await panel.getByRole('button', { name: 'Удалить', exact: true }).click();
     await panel.getByRole('button', { name: 'Да, удалить', exact: true }).click();
     await panel.getByText('Шаблонов пока нет. Начните с поста в редакторе.', { exact: true }).waitFor();
-    assert.equal((await context.request.get(BASE + '/api/drafts/' + draftId)).status(), 200);
+    assert.equal((await context.request.get(BASE + '/api/drafts/' + draftId, { headers: { 'X-Studio-Client': 'ui' } })).status(), 200);
     assert.equal((await mockLog()).filter((call) => call.method.startsWith('send')).length, before);
     check('Template edits update defaults; deleting a template preserves its drafts and never publishes', true);
     const literal = '1. News: a` **changed** `b & "quoted"';

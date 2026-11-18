@@ -54,6 +54,8 @@ pub(super) async fn comment(
     })
     .await?;
     let Some(post) = post else { return Ok(None) };
+    let _flight =
+        super::super::in_flight::comment(context, post["id"].as_str().unwrap_or_default())?;
     let result = transport(state)
         .send_linked_comment(
             context,
@@ -70,6 +72,7 @@ pub(super) async fn comment(
         Err(error)=>(None,Some(format!("первый комментарий: {error}")))
     };
     let id = post["id"].as_str().unwrap_or("").to_owned();
+    let error = error.map(|error| crate::logs::scrub(&state.settings, &error));
     let error_copy = error.clone();
     let saved = blocking::run(context, move |context| {
         db::comment(context, &id, mid, error_copy.as_deref())?;

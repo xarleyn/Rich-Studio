@@ -27,6 +27,12 @@ pub async fn handle_update(
         let _ = bot_dialog::import_reply(state, update).await;
         return Ok(Some("import"));
     }
+    if import_forward::receive_automatic(state, update, &spec)
+        .await
+        .map_err(|error| ServiceError::Internal(error.to_string()))?
+    {
+        return Ok(Some("forward_import"));
+    }
     if !callbacks::content_callback(state, update).await?
         && bot_dialog::handle(state, update).await?
     {

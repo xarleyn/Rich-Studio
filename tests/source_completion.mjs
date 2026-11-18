@@ -74,6 +74,20 @@ check('Literal True fields never suggest false', () => {
 check('Ordinary JSON string values do not receive unrelated field suggestions', () => {
   assert.equal(complete('{"rich_message":{"markdown":"hello|"}}').result, null);
 });
+check('A future discriminant field uses the name supplied by the specification', () => {
+  spec.types.Future = { const: 'future', const_field: 'kind', fields: [field('kind', ['String']), field('value', ['String'])] };
+  spec.types.InputRichBlock.subtypes.push('Future');
+  assert.deepEqual(labels('{"rich_message":{"blocks":[{"kind": |}]}}'), ['"future"']);
+});
+check('Post and option suggestions follow server model metadata when supplied', () => {
+  spec.post = { root: 'StudioPost', types: {
+    StudioPost: { fields: [field('future_studio_field', ['String']), field('options', ['PostOptions'])] },
+    PostOptions: { fields: [field('new_option', ['Boolean'])] },
+  } };
+  assert(labels('{|}').includes('"future_studio_field"'));
+  assert.deepEqual(labels('{"options": {|}}'), ['"new_option"']);
+  assert.deepEqual(labels('{"options":{"new_option": |}}'), ['true', 'false']);
+});
 const snippets = { html: [{ group: 'Telegram', items: [{ label: 'Example', snip: '<tg-future mode="wide">$SEL$</tg-future>' }] }],
   markdown: [{ group: 'Markdown', items: [{ label: 'Ссылка', snip: '[$SEL$](https://)' }] }] };
 check('Custom HTML tags and attributes come from the snippet catalog', () => assert.deepEqual(htmlTags(snippets)['tg-future'], { attrs: { mode: null } }));

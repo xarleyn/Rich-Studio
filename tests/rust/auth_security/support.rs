@@ -22,7 +22,10 @@ pub(crate) fn settings(dir: &TempDir, public: bool) -> Settings {
             "DATA_DIR".to_owned(),
             dir.path().to_string_lossy().into_owned(),
         ),
-        ("STUDIO_API_KEY".to_owned(), "owner-secret".to_owned()),
+        (
+            "STUDIO_API_KEY".to_owned(),
+            "owner-secret-at-least-thirty-two-characters".to_owned(),
+        ),
         ("STUDIO_BACKGROUND".to_owned(), "off".to_owned()),
         ("TG_BOT_TOKEN".to_owned(), BOT_TOKEN.to_owned()),
         ("TG_DEFAULT_CHAT".to_owned(), "@test_channel".to_owned()),
@@ -57,6 +60,16 @@ pub(crate) async fn request(
         .header("accept", "application/json, text/event-stream")
         .header("mcp-protocol-version", "2025-06-18")
         .header("content-type", "application/json");
+    // Cookie fixtures model the editor in a same-origin browser. Explicit fetch metadata belongs to the test.
+    if headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("cookie"))
+        && !headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("sec-fetch-site"))
+    {
+        builder = builder.header("sec-fetch-site", "same-origin");
+    }
     for (name, value) in headers {
         builder = builder.header(*name, *value);
     }

@@ -168,7 +168,7 @@ async fn draft_http_crud_and_conflict_match_the_editor_contract() -> TestResult 
 fn spec_loads_bundled_cache_and_pinned_sources() -> TestResult {
     let dir = TempDir::new()?;
     let bundled = Spec::load_initial(&settings(&dir, &[]));
-    assert_eq!(bundled.version(), "Bot API 10.3");
+    assert_eq!(bundled.version(), "Bot API 10.4");
     assert_eq!(bundled.source, "bundled");
     let summary = bundled.summary();
     assert_eq!(
@@ -186,7 +186,7 @@ fn spec_loads_bundled_cache_and_pinned_sources() -> TestResult {
     assert_eq!(cached.version(), "Bot API 99.0");
     assert_eq!(cached.source, "cache");
     let pinned = Spec::load_initial(&settings(&dir, &[("SPEC_PIN", "on")]));
-    assert_eq!(pinned.version(), "Bot API 10.3");
+    assert_eq!(pinned.version(), "Bot API 10.4");
     assert_eq!(pinned.source, "bundled");
 
     std::fs::write(dir.path().join("api.json"), b"not-json")?;
@@ -202,15 +202,15 @@ async fn spec_refresh_is_pinned_or_keeps_working_offline() -> TestResult {
         .refresh(&settings(&dir, &[("SPEC_PIN", "on")]), true)
         .await;
     assert_eq!(report["pinned"], true);
-    assert_eq!(report["version"], "Bot API 10.3");
+    assert_eq!(report["version"], "Bot API 10.4");
 
     let offline_settings = settings(&dir, &[("SPEC_URL", "http://127.0.0.1:9/unavailable")]);
     let mut offline = Spec::load_initial(&offline_settings);
     let report = offline.refresh(&offline_settings, true).await;
     assert_eq!(report["updated"], false);
-    assert_eq!(report["version"], "Bot API 10.3");
+    assert_eq!(report["version"], "Bot API 10.4");
     assert!(report["error"].as_str().is_some());
-    assert_eq!(offline.version(), "Bot API 10.3");
+    assert_eq!(offline.version(), "Bot API 10.4");
     Ok(())
 }
 

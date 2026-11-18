@@ -22,7 +22,7 @@ async fn decline_keeps_the_author_time_and_checks_the_comment()
         "POST",
         "/api/suggested-posts/-1009:20/approve",
         json!({"send_date":auth::now() + 7200}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -40,7 +40,7 @@ async fn decline_keeps_the_author_time_and_checks_the_comment()
             "POST",
             "/api/suggested-posts/-1009:20/decline",
             json!({"comment":"x".repeat(129)}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -53,7 +53,7 @@ async fn decline_keeps_the_author_time_and_checks_the_comment()
         "POST",
         "/api/suggested-posts/-1009:20/decline",
         json!({"comment":"Не по теме канала"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -71,7 +71,7 @@ async fn decline_keeps_the_author_time_and_checks_the_comment()
             "POST",
             "/api/suggested-posts/-1:1/decline",
             json!({}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )

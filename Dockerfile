@@ -3,6 +3,7 @@ FROM rust:1.99.1-slim-bookworm@sha256:f2c004e3d2d8b547e8cf7ffbc29205385f4e71d23e
 WORKDIR /build
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY src/ src/
+COPY .claude/skills/telegram-rich-posts/SKILL.md .claude/skills/telegram-rich-posts/SKILL.md
 COPY app/bundled/ app/bundled/
 COPY app/static/ app/static/
 COPY app/store/migrations/ app/store/migrations/

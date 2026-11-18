@@ -100,7 +100,7 @@ async fn named_link_counts_joins_and_filters_listing_by_chat()
         "POST",
         "/api/invite-links",
         json!({"chat_id": "@chan", "name": "Хабр", "member_limit": 100}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -145,7 +145,7 @@ async fn named_link_counts_joins_and_filters_listing_by_chat()
         "GET",
         "/api/invite-links?chat_id=%40chan",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -168,7 +168,7 @@ async fn named_link_counts_joins_and_filters_listing_by_chat()
             "GET",
             "/api/invite-links?chat_id=%40other",
             Value::Null,
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -195,7 +195,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "POST",
         "/api/invite-links",
         json!({"name": "Заявки", "creates_join_request": true, "expire_date": expires}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -221,7 +221,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "POST",
         "/api/invite-links",
         json!({"creates_join_request": true, "member_limit": 5}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -239,7 +239,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
             "POST",
             "/api/invite-links",
             json!({"name": "x".repeat(33)}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -253,7 +253,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "PATCH",
         "/api/invite-links",
         json!({"invite_link": url.clone(), "name": "Заявки 2"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -271,7 +271,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "PATCH",
         "/api/invite-links",
         json!({"invite_link": url.clone(), "expire_date": expires + 60}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -285,7 +285,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "PATCH",
         "/api/invite-links",
         json!({"invite_link": url.clone(), "expire_date": 0, "creates_join_request": false}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -300,7 +300,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
         "POST",
         "/api/invite-links/revoke",
         json!({"invite_link": url.clone()}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -314,7 +314,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
             "PATCH",
             "/api/invite-links",
             json!({"invite_link": url}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -328,7 +328,7 @@ async fn join_request_link_keeps_expiry_and_requests_across_edits_and_revoke()
             "POST",
             "/api/invite-links/revoke",
             json!({"invite_link": "https://t.me/+nope"}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -351,7 +351,7 @@ async fn subscription_link_rejects_limits_and_changes_only_its_name()
         "POST",
         "/api/invite-links",
         json!({"name": "Клуб", "subscription_price": 50}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -370,7 +370,7 @@ async fn subscription_link_rejects_limits_and_changes_only_its_name()
             "POST",
             "/api/invite-links",
             json!({"subscription_price": 50, "member_limit": 3}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -384,7 +384,7 @@ async fn subscription_link_rejects_limits_and_changes_only_its_name()
             "PATCH",
             "/api/invite-links",
             json!({"invite_link": url.clone(), "name": "Клуб+", "member_limit": 3}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -397,7 +397,7 @@ async fn subscription_link_rejects_limits_and_changes_only_its_name()
         "PATCH",
         "/api/invite-links",
         json!({"invite_link": url, "name": "Клуб+"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -514,7 +514,7 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         app.clone(),
         "create_invite_link",
         json!({"chat_id": "@chan", "name": "Telegram-чат"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await;
     assert_eq!(created["isError"], false);
@@ -525,8 +525,15 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
             .ok_or("link")?
             .starts_with("https://t.me/+")
     );
-    let listed =
-        mcp_list(&mcp_call(app.clone(), "list_invite_links", json!({}), "owner-secret").await);
+    let listed = mcp_list(
+        &mcp_call(
+            app.clone(),
+            "list_invite_links",
+            json!({}),
+            "owner-secret-at-least-thirty-two-characters",
+        )
+        .await,
+    );
     let names = listed
         .iter()
         .map(|item| item["name"].as_str().unwrap_or_default())
@@ -537,7 +544,7 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         app.clone(),
         "edit_invite_link",
         json!({"invite_link": url.clone(), "member_limit": 20}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await["structuredContent"]
         .clone();
@@ -547,7 +554,7 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         app.clone(),
         "edit_invite_link",
         json!({"invite_link": url.clone(), "name": "Чат"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await["structuredContent"]
         .clone();
@@ -557,7 +564,7 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         app.clone(),
         "edit_invite_link",
         json!({"invite_link": url.clone(), "name": "", "member_limit": 0}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await["structuredContent"]
         .clone();
@@ -567,7 +574,7 @@ async fn invite_links_work_through_mcp_create_edit_list_and_revoke()
         app,
         "revoke_invite_link",
         json!({"invite_link": url}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
     )
     .await["structuredContent"]
         .clone();

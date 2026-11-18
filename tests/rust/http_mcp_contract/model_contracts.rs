@@ -17,7 +17,7 @@ fn python_model_coercions_defaults_and_open_telegram_payloads_match() -> TestRes
     )?;
     assert_eq!(
         normalized,
-        json!({"post":{"rich_message":rich,"options":options,"pin":true,"reply_markup":null,"callbacks":{},"comment":null,"poll_after":null},"chat_id":"-1001","chat_ids":null,"draft_id":null,"dry_run":true,"as_new":false})
+        json!({"post":{"rich_message":rich,"options":options,"pin":true,"reply_markup":null,"callbacks":{},"comment":null,"poll_after":null,"ignored_outer":1},"chat_id":"-1001","chat_ids":null,"draft_id":null,"dry_run":true,"as_new":false})
     );
     assert_eq!(
         contracts::parse_post(&json!({"rich_message":{},"pin":"off"}))?["pin"],

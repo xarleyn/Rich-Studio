@@ -27,3 +27,8 @@ work/
 deploy/secrets/
 /.anet
 /.zcode
+.claude/worktrees/
+.env.*
+!.env.example
+!deploy/.env.example
+litestream.env

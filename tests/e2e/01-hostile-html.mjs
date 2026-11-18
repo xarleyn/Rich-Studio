@@ -27,6 +27,8 @@ export default async function ({ page, check, applyJson, alerts, csp, BASE }) {
   await page.fill('#src-html .cm-content', evil);
   await page.waitForTimeout(700);
   await page.evaluate(() => document.querySelector('#preview').shadowRoot.querySelectorAll('a, .tg-btn').forEach((a) => a.click()));
+  // the one pause kept on purpose: when the check passes nothing happens, so there is no event to wait for;
+  // a javascript: link that got through would run its alert within this time
   await page.waitForTimeout(500);
   const leftovers = await page.evaluate(() => {
     const p = document.querySelector('#preview').shadowRoot;

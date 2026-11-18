@@ -15,7 +15,7 @@ async fn spec_summary_and_type_lookup_match_the_editor() -> TestResult {
     let summary = call(app.clone(), "GET", "/api/spec", None, &[]).await;
     assert_eq!(summary.status, StatusCode::OK, "{}", summary.text);
     let spec = summary.value;
-    assert_eq!(spec["version"], "Bot API 10.3");
+    assert_eq!(spec["version"], "Bot API 10.4");
     let subtypes = spec["types"]["InputRichBlock"]["subtypes"]
         .as_array()
         .ok_or("subtypes")?;

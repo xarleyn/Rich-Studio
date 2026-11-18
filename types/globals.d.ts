@@ -16,6 +16,11 @@ declare const RichRender: {
   safeUrl(url: string): string | null;
   outline(post: object): string;
   markdownHtml(source: string): string;
+  isTonAddress(s: unknown): boolean;
+  percentAddress(url: string): string;
+  tgEntities: Record<string, string>;
+  tgChar(n: number, pre: boolean): string | null;
+  entityCode(dec: string | undefined, hex: string | undefined): number;
 };
 interface Window {
   RichRender: typeof RichRender;

@@ -288,6 +288,13 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
         return AuthError::new(400, "неизвестный Host; добавьте его в ALLOWED_HOSTS")
             .into_response();
     }
+    // Reads can still build exports or start expensive work. Reject browser requests
+    // from sibling origins before authentication, including an open local studio.
+    if path.starts_with("/api/")
+        && ["cross-site", "same-site"].contains(&text(request.headers(), "sec-fetch-site"))
+    {
+        return AuthError::new(403, "запрос с другого сайта отклонён").into_response();
+    }
     let landing = state.settings.is_landing_host(&host);
     if landing && !landing_path(&path, &method) {
         if !safe(&method) {
@@ -378,6 +385,21 @@ pub async fn guard(State(state): State<AppState>, mut request: Request, next: Ne
         Ok(Err(error)) => return error.into_response(),
         Err(_) => return AuthError::new(500, "authentication worker failed").into_response(),
     };
+    if !public
+        && [Method::GET, Method::HEAD].contains(&method)
+        && path.starts_with("/api/")
+        && text(request.headers(), "authorization").is_empty()
+        && text(request.headers(), "x-api-key").is_empty()
+        && cookie(request.headers(), SESSION_COOKIE).is_some()
+        && text(request.headers(), "sec-fetch-site").is_empty()
+        && text(request.headers(), "x-studio-client").trim().is_empty()
+    {
+        return AuthError::new(
+            403,
+            "чтение по cookie редактора без заголовка X-Studio-Client отклонено: такой запрос могла сделать чужая страница; скрипту нужен токен",
+        )
+        .into_response();
+    }
     if !public && let Err(error) = auth::require(&who, route_role(&path, &method)) {
         return error.into_response();
     }

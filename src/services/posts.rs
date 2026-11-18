@@ -16,7 +16,7 @@ use crate::spec::validator::Validator;
 use crate::store::{drafts, posts};
 use crate::telegram::TelegramError;
 use crate::telegram::client::TelegramTransport;
-use crate::telegram::uploads::{Uploads, collect_uploads};
+use crate::telegram::uploads::{Uploads, check_uploads, collect_uploads};
 
 #[derive(Clone)]
 pub struct PostService {
@@ -73,6 +73,15 @@ impl PostService {
     pub fn validate(&self, post: &Value) -> Result<Value, ServiceError> {
         let kind = kinds::get(Some(kinds::RICH))?;
         let _ = Publisher::request(&Value::Null, post, kind)?;
+        // All later sends, including replies to buttons, must have their files
+        // before the main post is sent or a queue row is created.
+        let sent_fields = json!({
+            "rich_message":post["rich_message"],"reply_markup":post["reply_markup"],
+            "options":post["options"],"comment":post["comment"],
+            "poll_after":post["poll_after"],"callbacks":post["callbacks"],
+        });
+        check_uploads(&sent_fields, &self.context.media_dir, true)
+            .map_err(|error| ServiceError::BadRequest(error.to_string()))?;
         let validator = Validator::new(&self.spec);
         let mut report = validator.check_post(post);
         if report["ok"].as_bool() != Some(true) {
@@ -101,6 +110,21 @@ impl PostService {
                 });
             }
         }
+        Ok(report)
+    }
+
+    pub fn validate_answers(&self, post: &Value) -> Result<Value, ServiceError> {
+        let mut report = Validator::new(&self.spec).check_answers(post);
+        if report["ok"] != true {
+            report["message"] = json!("ответ на кнопку не прошёл проверку");
+            return Err(ServiceError::Invalid(report));
+        }
+        check_uploads(
+            &json!({"callbacks":post["callbacks"]}),
+            &self.context.media_dir,
+            true,
+        )
+        .map_err(|error| ServiceError::BadRequest(error.to_string()))?;
         Ok(report)
     }
 
@@ -435,12 +459,16 @@ impl PostService {
         let post = Value::Object(post);
         let local_chat = chat_id.clone();
         let local_chats = chat_ids.clone();
+        let widget = kind.name == kinds::WIDGET;
         let chats = self
-            .run(move |service| service.targets(&local_chat, &local_chats, None))
+            .run(move |service| {
+                let chats = service.targets(&local_chat, &local_chats, None)?;
+                if widget {
+                    check_widget_targets(&service.context, &chats, &service.settings.api_base)?;
+                }
+                Ok(chats)
+            })
             .await?;
-        if kind.name == kinds::WIDGET {
-            reject_channels(&self.context, &chats)?;
-        }
         if !at.is_null() {
             let when = parse_at(at)?;
             let chats = chats.clone();
@@ -472,18 +500,33 @@ impl PostService {
     }
 }
 
-/// Каналы не входят в прямую отправку нового виджета (Bot API 10.4): только личный чат,
-/// обычные группы и супергруппы. Пересылка в канал разрешена, но это делает Telegram.
-/// Неизвестные чаты пропускаем — ограничение дублируется на сервере Telegram.
-fn reject_channels(context: &AccountContext, chats: &[Value]) -> Result<(), ServiceError> {
+/// Production Bot API 10.4 accepts widgets only in private chats. An explicitly
+/// configured alternate server keeps the beta profile's private/group support;
+/// the server still decides whether an unknown destination is supported.
+pub(crate) fn check_widget_targets(
+    context: &AccountContext,
+    chats: &[Value],
+    api_base: &str,
+) -> Result<(), ServiceError> {
+    let production = url::Url::parse(api_base).is_ok_and(|url| {
+        url.host_str() == Some("api.telegram.org") && matches!(url.path(), "" | "/")
+    });
     for chat in chats {
-        if let Some(channel) = crate::store::channels::get(context, chat)?
-            && channel["type"].as_str() == Some("channel")
-        {
+        let known = crate::store::channels::get(context, chat)?;
+        let known_type = known.as_ref().and_then(|chat| chat["type"].as_str());
+        let private_id = chat
+            .as_i64()
+            .or_else(|| chat.as_str()?.parse::<i64>().ok())
+            .is_some_and(|id| id > 0);
+        if known_type == Some("channel") {
             return Err(ServiceError::BadRequest(format!(
-                "{}: виджеты в канал напрямую не отправляются (ограничение Bot API 10.4), \
-                 только личный чат или группа",
-                channel["title"].as_str().unwrap_or_default()
+                "{chat}: виджеты в канал напрямую не отправляются (ограничение Bot API 10.4)"
+            )));
+        }
+        if production && (!private_id || known_type.is_some_and(|kind| kind != "private")) {
+            return Err(ServiceError::BadRequest(format!(
+                "{chat}: виджеты в production Bot API 10.4 отправляются только в личный чат; \
+                 каналы не поддерживаются, другой сервер выбирается явно через TG_API_BASE"
             )));
         }
     }
@@ -574,18 +617,7 @@ pub fn normalize_post(post: &Value) -> Value {
     let Some(mut post) = post.as_object().cloned() else {
         return post.clone();
     };
-    post.retain(|name, _| {
-        [
-            "rich_message",
-            "reply_markup",
-            "options",
-            "pin",
-            "comment",
-            "callbacks",
-            "poll_after",
-        ]
-        .contains(&name.as_str())
-    });
+    post.remove("_studio");
     for (key, value) in [
         ("reply_markup", Value::Null),
         ("options", json!({})),

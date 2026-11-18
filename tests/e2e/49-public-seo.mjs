@@ -24,7 +24,7 @@ export default async function ({ browser, check, MOCK }) {
     ...process.env, PYTHONUTF8: '1', DATA_DIR: data, STUDIO_MODE: 'server', STUDIO_PUBLIC: 'on',
     STUDIO_URL: `https://127.0.0.1:${port}`, STUDIO_LANDING_URL: `https://localhost:${port}`,
     STUDIO_BIND: `127.0.0.1:${port}`, STUDIO_STATIC_DIR: resolve('app/static'),
-    STUDIO_API_KEY: 'seo-fixture-key', STUDIO_API_KEY_FILE: '', TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '',
+    STUDIO_API_KEY: 'seo-fixture-key-at-least-thirty-two-characters', STUDIO_API_KEY_FILE: '', TG_BOT_TOKEN: '1:x', TG_BOT_TOKEN_FILE: '',
     TG_BOT_USERNAME: 'fixture_bot', TG_API_BASE: MOCK, ALLOWED_HOSTS: `localhost:${port},127.0.0.1:${port},localhost,127.0.0.1`,
     STUDIO_BACKGROUND: 'off', TG_UPDATES: 'off', SPEC_PIN: 'on', NO_PROXY: 'localhost,127.0.0.1',
   }, stdio: ['ignore', 'ignore', 'pipe'] });

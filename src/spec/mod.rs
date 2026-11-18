@@ -1,9 +1,11 @@
+pub mod chats;
 pub mod diff;
 pub mod source;
 pub mod validator;
 
 use regex::Regex;
 use serde_json::Value;
+use std::sync::OnceLock;
 
 pub fn version_tuple(version: &str) -> Vec<u64> {
     let digits = Regex::new(r"\d+").unwrap_or_else(|error| panic!("version regex: {error}"));
@@ -32,10 +34,15 @@ pub fn check_spec_shape(data: &Value) -> Option<String> {
 
 pub fn type_const(types: &Value, type_name: &str) -> Option<(String, String)> {
     let fields = types.get(type_name)?.get("fields")?.as_array()?;
-    let always = Regex::new(r#"always\s+[“"]([^”"]+)[”"]"#)
-        .unwrap_or_else(|error| panic!("constant regex: {error}"));
-    let must =
-        Regex::new(r"must be ([a-z_]+)$").unwrap_or_else(|error| panic!("constant regex: {error}"));
+    static ALWAYS: OnceLock<Regex> = OnceLock::new();
+    static MUST: OnceLock<Regex> = OnceLock::new();
+    let always = ALWAYS.get_or_init(|| {
+        Regex::new(r#"always\s+[“"]([^”"]+)[”"]"#)
+            .unwrap_or_else(|error| panic!("constant regex: {error}"))
+    });
+    let must = MUST.get_or_init(|| {
+        Regex::new(r"must be ([a-z_]+)$").unwrap_or_else(|error| panic!("constant regex: {error}"))
+    });
     for field in fields {
         let name = field.get("name")?.as_str()?;
         if !["type", "source", "status"].contains(&name) {
@@ -56,12 +63,17 @@ pub fn type_const(types: &Value, type_name: &str) -> Option<(String, String)> {
 }
 
 pub fn enum_values(description: &str) -> Option<Vec<String>> {
-    let start = Regex::new(r"(?:must be one of|one of|either)\s+(.*)")
-        .unwrap_or_else(|error| panic!("enum regex: {error}"));
+    static START: OnceLock<Regex> = OnceLock::new();
+    static QUOTED: OnceLock<Regex> = OnceLock::new();
+    let start = START.get_or_init(|| {
+        Regex::new(r"(?:must be one of|one of|either)\s+(.*)")
+            .unwrap_or_else(|error| panic!("enum regex: {error}"))
+    });
     let tail = start.captures(description)?.get(1)?.as_str();
     let tail = tail.split(". ").next().unwrap_or(tail);
-    let quoted =
-        Regex::new(r#"[“"]([^”"]+)[”"]"#).unwrap_or_else(|error| panic!("enum regex: {error}"));
+    let quoted = QUOTED.get_or_init(|| {
+        Regex::new(r#"[“"]([^”"]+)[”"]"#).unwrap_or_else(|error| panic!("enum regex: {error}"))
+    });
     let values: Vec<String> = quoted
         .captures_iter(tail)
         .map(|value| value[1].to_owned())

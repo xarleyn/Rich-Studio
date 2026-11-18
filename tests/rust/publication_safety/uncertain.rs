@@ -173,7 +173,7 @@ async fn gateway_error_on_check_is_a_clear_502_with_a_check_hint()
     })
     .await;
     let app = build_router(AppState::new(settings(&dir, &base)));
-    let (status, error) = request_as(app, "GET", "/api/check", None, &[]).await;
+    let (status, error) = request_as(app, "POST", "/api/check", None, &[]).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert!(error.to_string().contains("проверьте"), "{error}");
     Ok(())

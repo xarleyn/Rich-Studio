@@ -1,11 +1,12 @@
 import { tr } from './i18n.js';
-// Channels: titles instead of bare ids, the forum topic of the post, the dialog that checks the bot's rights.
+// Channels: titles instead of bare ids, the dialog that checks the bot's rights and keeps a forum's topics.
 import { api } from './api.js';
 import { closeDialog, openDialog } from './dialogs.js';
 import { $, act, h, toast } from './dom.js';
-import { changed, renderPreview } from './editor.js';
+import { changed, refreshTopic, renderPreview, validate } from './editor.js';
 import { showInviteLinks } from './invite-links.js';
-import { channelOf, channelTitle, chatLabel, chats, S } from './state.js';
+import { renderKeyboard } from './keyboard.js';
+import { channelOf, channelTitle, chatLabel, chats, S, sameChat, topicHome } from './state.js';
 
 export { channelTitle };
 
@@ -15,39 +16,28 @@ export async function loadChannels() {
   S.channels = await api('GET', '/api/channels');
   showTarget();
   renderPreview(); // the preview's header shows the channel's title
+  // a checked chat has a type now: what Telegram refuses in it (the button cards, the check)
+  renderKeyboard();
+  validate();
 }
 
-// the header: where the post goes, by name, and the forum topic when there is one channel
+// the header: where the post goes, by name; the forum topic list in «Параметры отправки» follows the channel
 export function showTarget() {
   const list = chats();
   const btn = $('#btn-check');
   btn.textContent = (list.length ? list.map(chatLabel).join(', ') : tr('Канал не выбран')) + ' ▾';
   btn.title = (list.length ? tr('Пост уйдёт в: ') + list.map(chatLabel).join(', ') + '\n' : '') + tr('Выбрать каналы (id через запятую), проверить права бота, темы форума');
-  const one = list.length === 1 ? channelOf(list[0]) : null;
-  const sel = /** @type {HTMLSelectElement} */ ($('#topic'));
-  let topic = S.options.message_thread_id;
-  if (topic === undefined) S.topicChat = undefined;
-  else if (S.topicChat === undefined && list.length === 1) S.topicChat = list[0];
+  const tid = S.options.message_thread_id;
+  const home = topicHome();
+  if (tid === undefined) S.topicChat = undefined;
+  else if (S.topicChat === undefined) S.topicChat = home;
   // a topic belongs to its chat: in another chat it would send the post nowhere or to a wrong thread
-  else if (list.length !== 1 || list[0] !== S.topicChat) {
-    delete S.options.message_thread_id; S.topicChat = undefined; topic = undefined; changed();
-  }
-  if (!one || !one.is_forum) { sel.hidden = true; return; }
-  const topics = one.topics || [];
-  sel.replaceChildren(h('option', { value: '', text: tr('Тема: General') }),
-    ...topics.map((t) => h('option', { value: String(t.id), text: tr('Тема: ') + t.name, selected: t.id === topic ? true : null })),
-    topic !== undefined && !topics.some((t) => t.id === topic) ? h('option', { value: String(topic), text: tr('Тема №') + topic, selected: true }) : null,
-    h('option', { value: '+', text: tr('Темы…') }));
-  sel.hidden = false;
+  const dropped = tid !== undefined && !sameChat(home, S.topicChat);
+  if (dropped) { delete S.options.message_thread_id; S.topicChat = undefined; changed(); }
+  refreshTopic(dropped);
 }
 
 export function bindTarget() {
-  const sel = /** @type {HTMLSelectElement} */ ($('#topic'));
-  sel.onchange = () => {
-    if (sel.value === '+') { showChannels(); showTarget(); return; }
-    if (sel.value) { S.options.message_thread_id = Number(sel.value); S.topicChat = chats()[0]; } else delete S.options.message_thread_id;
-    changed();
-  };
   $('#btn-check').onclick = showChannels;
 }
 

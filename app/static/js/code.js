@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 // HTML and Markdown modes: snippet bars and the source-editor bridge.
 import { $, h } from './dom.js';
-import { changed } from './editor.js';
+import { buildPost, changed, jsonKey } from './editor.js';
 import { addMediaEntry } from './media.js';
 import { S } from './state.js';
 
@@ -10,7 +10,7 @@ export function insertAtCursor(ta, snip) {
   if (ta.insertSnippet) { ta.insertSnippet(snip); return; }
   const [a, b] = [ta.selectionStart, ta.selectionEnd];
   const sel = ta.value.slice(a, b);
-  const text = snip.replace('$SEL$', sel);
+  const text = snip.replace('$SEL$', () => sel); // a function: "$$" in the selection is text, not a pattern
   const caret = snip.includes('$SEL$') && !sel ? a + snip.indexOf('$SEL$') : a + text.length;
   ta.setRangeText(text, a, b, 'end');
   ta.focus();
@@ -37,7 +37,11 @@ export function snippetBar(kind) {
 export function bindCode(kind) {
   const ta = $('#src-' + kind);
   ta.addEventListener('source-change', () => {
-    if (kind === 'json') S.pendingJson = ta.value;
+    if (kind === 'json') {
+      const post = buildPost();
+      S.json = ta.value === JSON.stringify(post, null, 2) ? null : { text: ta.value, base: S.json?.base ?? jsonKey(post) };
+      S.pendingJson = S.json?.text ?? null;
+    }
     else S.buf[kind] = ta.value;
     changed();
   });

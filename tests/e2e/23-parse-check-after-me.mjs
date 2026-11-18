@@ -6,7 +6,6 @@ export default async function ({ page, check, state, showJson }) {
   const captured = JSON.parse(readFileSync(new URL('../telegram_parse/captured.json', import.meta.url), 'utf8'));
   const barText = () => page.evaluate(() => document.querySelector('#parse-check').shadowRoot.textContent.replace(/\s+/g, ' ').trim());
   await page.click('#btn-new');
-  await page.waitForTimeout(300);
   // the mock answers with the blocks the real Telegram made of this source
   await page.click('#mode-tabs [data-mode=markdown]');
   await page.fill('#src-markdown .cm-content', captured['md-math'].source);
@@ -15,11 +14,11 @@ export default async function ({ page, check, state, showJson }) {
   await page.waitForSelector('#parse-check >> text=так же', { timeout: 5000 }).catch(() => {});
   const same = await barText();
   await page.click('#parse-check >> text=Как разобрал Telegram');
-  await page.waitForTimeout(300);
+  await page.waitForSelector('#parse-check button[aria-pressed=true]', { timeout: 5000 }).catch(() => {});
   const showsTelegram = await page.locator('#parse-check button[aria-pressed=true]').count();
   await page.screenshot({ path: 'test-results/ui/parse-check-1400.png' });
   await page.click('#parse-check >> text=В визуальный');
-  await page.waitForTimeout(500);
+  await page.waitForSelector('#mode-tabs [data-mode=blocks].on', { timeout: 5000 }).catch(() => {});
   const visual = await page.locator('#mode-tabs [data-mode=blocks].on').count();
   await page.screenshot({ path: 'test-results/ui/parse-to-blocks-1400.png' });
   await showJson();

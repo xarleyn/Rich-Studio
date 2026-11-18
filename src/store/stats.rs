@@ -26,7 +26,7 @@ pub fn overdue(context: &AccountContext, before: i64) -> Result<Vec<Value>, Stor
 pub fn problem_posts(context: &AccountContext, since: i64) -> Result<Vec<Value>, StoreError> {
     brief(
         context,
-        "select id,chat_id,status,comment_status,error,coalesce(sent_at,scheduled_at,created_at) as at from posts where (status in ('failed','missed') and coalesce(sent_at,scheduled_at,created_at)>=?) or status='sending' or (comment_status='failed' and coalesce(sent_at,created_at)>=?) order by at desc limit 20",
+        "select id,chat_id,status,outcome_unknown,comment_status,error,coalesce(sent_at,scheduled_at,created_at) as at from posts where status='missed' or outcome_unknown=1 or (status='failed' and coalesce(sent_at,scheduled_at,created_at)>=?) or status='sending' or comment_status='sending' or (comment_status='failed' and comment_failed_at>=?) order by at desc limit 20",
         &[since, since],
     )
 }
@@ -37,6 +37,36 @@ pub fn uncertain_sends(context: &AccountContext, since: i64) -> Result<Vec<Value
         "select key,scope,response,created_at from idempotency where status='uncertain' and created_at>=? order by created_at desc limit 10",
         &[since],
     )
+}
+
+pub fn reply_error(
+    context: &AccountContext,
+    id: &str,
+    key: &str,
+    error: &str,
+) -> Result<(), StoreError> {
+    let mut connection = Store::connect(context)?;
+    let transaction =
+        connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    let raw: Option<String> =
+        transaction.query_row("select reply_errors from posts where id=?", [id], |row| {
+            row.get(0)
+        })?;
+    let mut errors: Value = match raw {
+        Some(raw) => serde_json::from_str(&raw)
+            .map_err(|error| StoreError::Migration(format!("invalid reply errors: {error}")))?,
+        None => json!({}),
+    };
+    let count = errors[key]["n"].as_u64().unwrap_or(0).saturating_add(1);
+    errors[key] = json!({"n":count,"error":error,"at":crate::store::auth::now()});
+    transaction.execute(
+        "update posts set reply_errors=? where id=?",
+        rusqlite::params![errors.to_string(), id],
+    )?;
+    transaction
+        .commit()
+        .map_err(|error| StoreError::from_sqlite(error, context))?;
+    Ok(())
 }
 
 fn brief(context: &AccountContext, sql: &str, args: &[i64]) -> Result<Vec<Value>, StoreError> {

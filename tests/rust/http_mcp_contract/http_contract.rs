@@ -106,6 +106,7 @@ async fn http_normalizes_model_fields_before_dry_run_and_optimistic_update() -> 
         dry["requests"][0]["params"]["disable_notification"],
         "false"
     );
+    assert!(dry["warnings"].to_string().contains("disable_notification"));
     let (_, draft) = request(
         app.clone(),
         "POST",

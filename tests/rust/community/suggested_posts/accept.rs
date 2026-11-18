@@ -81,7 +81,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
         "POST",
         "/api/suggested-posts/-1009:30/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -92,7 +92,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -111,7 +111,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
         "POST",
         "/api/suggested-posts/-1009:30/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -128,7 +128,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
         "GET",
         "/api/suggested-posts?state=open",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -142,7 +142,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
             "POST",
             &format!("/api/suggested-posts/-1009:30/{path}"),
             json!({}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None,
         )
@@ -174,7 +174,7 @@ async fn a_suggested_post_decision_goes_to_telegram_once() -> Result<(), Box<dyn
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -232,7 +232,7 @@ async fn failed_approval_can_be_tried_again_and_late_copies_do_not_go_back()
         "GET",
         "/api/suggested-posts?state=open",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -244,7 +244,7 @@ async fn failed_approval_can_be_tried_again_and_late_copies_do_not_go_back()
         "POST",
         "/api/suggested-posts/-1009:50/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -272,7 +272,7 @@ async fn failed_approval_can_be_tried_again_and_late_copies_do_not_go_back()
         "GET",
         "/api/suggested-posts",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -299,7 +299,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
             "POST",
             "/api/suggested-posts/-1009:70/reopen",
             Value::Null,
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -314,7 +314,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
         "POST",
         "/api/suggested-posts/-1009:70/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         key,
     )
@@ -333,7 +333,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
         "POST",
         "/api/suggested-posts/-1009:70/reopen",
         Value::Null,
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
         Some("ui"),
@@ -349,7 +349,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
             "POST",
             "/api/suggested-posts/-1009:70/approve",
             json!({}),
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             key
         )
@@ -363,7 +363,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
         "POST",
         "/api/suggested-posts/-1009:70/approve",
         json!({}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )
@@ -378,7 +378,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
             "POST",
             "/api/suggested-posts/-1009:70/reopen",
             Value::Null,
-            "owner-secret",
+            "owner-secret-at-least-thirty-two-characters",
             false,
             None
         )
@@ -407,7 +407,7 @@ async fn a_suggested_post_decision_without_an_answer_can_be_made_again()
         "POST",
         "/mcp",
         json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
-        "owner-secret",
+        "owner-secret-at-least-thirty-two-characters",
         false,
         None,
     )

@@ -1,5 +1,6 @@
 use regex::Regex;
 use serde_json::{Map, Value, json};
+use std::collections::BTreeSet;
 
 use super::Spec;
 use crate::spec::diff::{TRACK_METHODS, TRACK_PREFIXES};
@@ -11,8 +12,50 @@ const RENDER: &str = include_str!("../../../app/static/render.js");
 impl Spec {
     pub fn summary(&self) -> Value {
         let mut output_types = Map::new();
+        let mut reachable = BTreeSet::new();
+        let mut pending = TRACK_METHODS
+            .iter()
+            .flat_map(|name| {
+                self.methods()[*name]["fields"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+            })
+            .flat_map(|field| field["types"].as_array().into_iter().flatten())
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        while let Some(name) = pending.pop() {
+            let name = name.strip_prefix("Array of ").unwrap_or(&name).to_owned();
+            if name.starts_with("Array of ") {
+                pending.push(name);
+                continue;
+            }
+            if !reachable.insert(name.clone()) {
+                continue;
+            }
+            let definition = &self.types()[&name];
+            pending.extend(
+                definition["subtypes"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned),
+            );
+            pending.extend(
+                definition["fields"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|field| field["types"].as_array().into_iter().flatten())
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned),
+            );
+        }
         for (name, definition) in self.types().as_object().into_iter().flatten() {
-            if !TRACK_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
+            if !reachable.contains(name)
+                && !TRACK_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
                 && ![
                     "Location",
                     "LoginUrl",
@@ -34,7 +77,8 @@ impl Spec {
                     "description": description(definition),
                     "fields": fields,
                     "subtypes": definition.get("subtypes").cloned().unwrap_or_else(|| json!([])),
-                    "const": constant.map(|(_, value)| value),
+                    "const": constant.as_ref().map(|(_, value)| value),
+                    "const_field": constant.as_ref().map(|(field, _)| field),
                     "href": definition.get("href").cloned().unwrap_or(Value::Null),
                 }),
             );
@@ -63,6 +107,7 @@ impl Spec {
             "changes": self.changes.iter().take(10).cloned().collect::<Vec<_>>(),
             "gaps": gaps(self.types()),
             "last_check": self.last_check,
+            "chat_rules": crate::spec::chats::summary(self),
         })
     }
 }
@@ -78,7 +123,7 @@ fn description(definition: &Value) -> String {
         .join(" ")
 }
 
-fn summary_fields(definition: &Value, enums: bool) -> Vec<Value> {
+fn summary_fields(definition: &Value, _enums: bool) -> Vec<Value> {
     definition
         .get("fields")
         .and_then(Value::as_array)
@@ -91,12 +136,17 @@ fn summary_fields(definition: &Value, enums: bool) -> Vec<Value> {
                 "required": field.get("required").and_then(Value::as_bool).unwrap_or(false),
                 "description": field.get("description").cloned().unwrap_or_else(|| json!("")),
             });
-            if enums {
+            {
                 output["enum"] = field
                     .get("description")
                     .and_then(Value::as_str)
                     .and_then(enum_values)
                     .map_or(Value::Null, |values| json!(values));
+            }
+            if let Some((minimum, maximum)) = crate::spec::validator::number_range(field) {
+                output["minimum"] = json!(minimum);
+                output["maximum"] = json!(maximum);
+                output["range"] = json!([minimum, maximum]);
             }
             output
         })

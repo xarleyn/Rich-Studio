@@ -17,7 +17,7 @@
     "test:e2e": "node tests/e2e_ui.mjs",
     "vendor:editor": "node scripts/vendor-code-editor.mjs",
     "vendor:widget": "node scripts/vendor-widget-runtime.mjs",
-    "test:source": "node scripts/vendor-code-editor.mjs --check && node tests/source_completion.mjs && node scripts/vendor-widget-runtime.mjs --check"
+    "test:source": "node scripts/vendor-code-editor.mjs --check && node tests/source_completion.mjs && node scripts/vendor-widget-runtime.mjs --check && node tests/html_export.mjs"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "6.20.4",

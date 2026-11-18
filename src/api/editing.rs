@@ -19,6 +19,7 @@ async fn service(state: &AppState) -> EditingService {
         &state.settings,
         state.spec.read().await.clone(),
     )
+    .with_loop_status(state.loop_status.clone())
 }
 
 fn response(result: Result<Value, ServiceError>) -> Response {
@@ -40,7 +41,7 @@ pub struct VersionQuery {
     post_version: Option<i64>,
 }
 
-#[utoipa::path(get, path = "/api/posts", operation_id = "list_posts_api_posts_get", summary = "Опубликованные, отложенные и неудачные посты: первая строка, миниатюра, ссылка", description = "Для каждого поста: `title`, `thumb`, `link`, нажатия (`clicks`) и текст кнопки каждого `callback_data`\n(`buttons`). Отправка, которой Telegram отказал, — статус `failed` с ошибкой.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
+#[utoipa::path(get, path = "/api/posts", operation_id = "list_posts_api_posts_get", summary = "Опубликованные, отложенные и неудачные посты: первая строка, миниатюра, ссылка", description = "Для каждого поста: `title`, `thumb`, `link`, нажатия (`clicks`) и текст кнопки каждого `callback_data`\n(`buttons`). Отправка, которой Telegram отказал, — статус `failed` с ошибкой.\n`comment_in_flight`: true — первый комментарий отправляется, false — активной отправки нет, null — процесс в резерве и не знает, кто отправляет комментарий со статусом sending.", tag = "telegram", responses((status = 200, description = "Successful Response")))]
 pub async fn listing(ScopedState(state): ScopedState, Query(query): Query<ListQuery>) -> Response {
     let limit = query.limit.unwrap_or(100);
     if !(1..=500).contains(&limit) {
@@ -48,13 +49,15 @@ pub async fn listing(ScopedState(state): ScopedState, Query(query): Query<ListQu
             "limit: от 1 до 500".to_owned(),
         )));
     }
+    let role = state.loop_status.read().await.role.clone();
     response(
         blocking::run(&state.account, move |context| {
-            Ok(json!(lists::list_posts(
+            Ok(json!(lists::list_posts_with_role(
                 context,
                 limit,
                 query.status.as_deref(),
-                query.chat.as_deref()
+                query.chat.as_deref(),
+                &role,
             )?))
         })
         .await,
